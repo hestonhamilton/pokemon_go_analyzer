@@ -46,7 +46,7 @@ def get_counters(url, driver):
     driver.get(url)
     WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'flex-grid-item')))
     pokemon_elements = driver.find_elements(By.CLASS_NAME, 'flex-grid-item')
-    results = []
+    counters = {}
     for element in pokemon_elements:
         try:
             svg_element = element.find_element(By.TAG_NAME, 'svg')
@@ -54,26 +54,25 @@ def get_counters(url, driver):
             moves_div = element.find_element(By.XPATH, ".//div[contains(@style, 'font-size: 11px') and contains(@style, 'line-height: 12px') and contains(@style, 'height: 48px')]")
             fast_move = moves_div.find_element(By.XPATH, "./div[1]").text
             charge_move = moves_div.find_element(By.XPATH, "./div[2]").text
-            results.append({
-                'name': pokemon_name,
-                'fast_move': fast_move,
-                'charge_move': charge_move
-            })
+        
         except NoSuchElementException:
-            results.append({
-                'name': pokemon_name,
-                'fast_move': 'Unknown',
-                'charge_move': 'Unknown'
-            })
-    return results
+            fast_move, charge_move = "Unknown", "Unknown"
+
+        counters.setdefault(url, []).append({
+            'name': pokemon_name,
+            'fast_move': fast_move,
+            'charge_move': charge_move
+        })
+
+    return counters
 
 def read_urls_from_file(file_path):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file if line.strip()]
 
-def write_results_to_file(output_file, results):
+def write_results_to_file(output_file, counters):
     with open(output_file, 'a') as file:  # Note the 'a' mode for appending
-        for url, counters in results.items():
+        for url, counters in counters.items():
             file.write(f"Counters for {url}:\n")
             for idx, counter in enumerate(counters, start=1):
                 file.write(f"Counter #{idx}: {counter}\n")
@@ -90,15 +89,11 @@ def main():
     service, chrome_options = selenium_init()
     with webdriver.Chrome(service=service, options=chrome_options) as driver:
         if args.output:
-            with open(args.output, 'w') as file:
-                for pokemon_name in pokemon_names:
-                    url = build_url(pokemon_name, args)
-                    print(f"Processing URL: {url}")
-                    counters = get_counters(url, driver)
-                    file.write(f"Counters for {url}:\n")
-                    for idx, counter in enumerate(counters, start=1):
-                        file.write(f"Counter #{idx}: {counter['name']} - Fast Move: {counter['fast_move']}, Charge Move: {counter['charge_move']}\n")
-                    file.write("\n")
+            for pokemon_name in pokemon_names:
+                url = build_url(pokemon_name, args)
+                print(f"Processing URL: {url}")
+                counters = get_counters(url, driver)
+                write_results_to_file(args.output, counters)
                 print(f"Results written to {args.output}")
         else:
             for pokemon_name in pokemon_names:
@@ -107,7 +102,7 @@ def main():
                 counters = get_counters(url, driver)
                 print(f"Counters for {url}:")
                 for idx, counter in enumerate(counters, start=1):
-                    print(f"Counter #{idx}: {counter['name']} - Fast Move: {counter['fast_move']}, Charge Move: {counter['charge_move']}")
+                    print(f"Counter #{idx}: Name: {counter['name']} - Fast Move: {counter['fast_move']}, Charge Move: {counter['charge_move']}")
 
 if __name__ == "__main__":
     main()
