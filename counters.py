@@ -84,8 +84,7 @@ def main():
         pokemon_names = read_urls_from_file(args.file)
     else:
         print("No file provided. Using default Pokémon list.")
-        pokemon_names = ["GOTHITA"]
-
+        pokemon_names = ['Amoonguss', 'Ampharos', 'Anorith', 'Bagon', 'Banette', 'Bastiodon', 'Beedrill', 'Bibarel', 'Blitzle', 'Cacturne', 'Chimchar', 'Cranidos', 'Crawdaunt', 'Darmanitan', 'Darumaka', 'Diglett_Alola', 'Dragonair', 'Dragonite', 'Dratini', 'Drifloon', 'Drilbur', 'Dusclops', 'Dwebble', 'Electabuzz', 'Empoleon', 'Exeggutor_Alola', 'Ferroseed', 'Ferrothorn', 'Foongus', 'Forretress', 'Froslass', 'Gabite', 'Gallade', 'Galvantula', 'Garchomp', 'Gardevoir', 'Gengar', 'Geodude_Alola', 'Gible', 'Glameow', 'Gligar', 'Golem', 'Golett', 'Gothita', 'Gothorita', 'Granbull', 'Graveler', 'Grotle', 'Gyarados', 'Hitmonchan', 'Hitmonlee', 'Hitmontop', 'Houndoom', 'Infernape', 'Joltik', 'Kirlia', 'Lairon', 'Lileep', 'Luxray', 'Machamp', 'Machop', 'Magikarp', 'Makuhita', 'Mareep', 'Marowak_Alola', 'Mawile', 'Meowth', 'Metagross', 'Metang', 'Misdreavus', 'Monferno', 'Nidorina', 'Nidorino', 'Ninetales_Alola', 'Onix', 'Pidgeot', 'Pidgey', 'Piplup', 'Prinplup', 'Purugly', 'Quagsire', 'Ralts', 'Rampardos', 'Rattata', 'Reuniclus', 'Rhyhorn', 'Salamence', 'Sandshrew_Alola', 'Sandslash_Alola', 'Scizor', 'Scyther', 'Shieldon', 'Shuckle', 'Skarmory', 'Skorupi', 'Sneasel_Hisuian', 'Snover', 'Snubbull', 'Solosis', 'Stantler', 'Staravia', 'Starly', 'Teddiursa', 'Torterra', 'Totodile', 'Toxicroak', 'Turtwig', 'Ursaring', 'Voltorb', 'Vulpix_Alola', 'Wailord', 'Weedle', 'Weezing', 'Whiscash', 'Wobbuffet', 'Wooper']
     service, chrome_options = selenium_init()
     with webdriver.Chrome(service=service, options=chrome_options) as driver:
         if args.output:
