@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from pogo_analyzer.sim.calculator import BattlePredictor, matches
 from pogo_analyzer.sim.damage import (
     BONUS,
     DOUBLE_RESISTED,
@@ -23,7 +24,7 @@ from pogo_analyzer.sim.damage import (
     hits_to_ko,
     stage_multiplier,
 )
-from pogo_analyzer.sim.stats import player_cpm, player_stats, rcpm, rocket_stats
+from pogo_analyzer.sim.stats import rcpm
 
 FIXTURES = Path(__file__).parent / "fixtures" / "sim"
 
@@ -41,107 +42,12 @@ OLD_TABLES = ("venonic-2023", "fugerappi-2023", "flyfunner-old-50-2025")
 UNEXPLAINED: set[tuple[str, str]] = set()
 
 
-def dated_move(move_id, date):
-    """Sparse snapshots require an exact date. Never carry forward or use today."""
-    matches = [m for m in MOVES[move_id] if m["as_of"] == date]
-    if len(matches) != 1:
-        raise ValueError(f"no unique exact-date move snapshot: {move_id} on {date}")
-    return matches[0]
-
-
-def rocket(row, table, trainer_level=None):
-    r = row["rocket"]
-    return rocket_stats(
-        SPECIES[r["species"]]["baseStats"],
-        row["trainer_level"] if trainer_level is None else trainer_level,
-        r["rank"],
-        table,
-    )
-
-
-def dealt(row, table, *, attack_iv=None, trainer_level=None, level=None, mega_rule=False):
-    p, r = row["player"], row["rocket"]
-    move_id = row["observed"].get("move", p["fast_move"])
-    move = dated_move(move_id, row["battle_date"])
-    iv = p["ivs"]["atk"] if attack_iv is None else attack_iv
-    if iv is None:
-        raise ValueError("attack IV missing: sweep explicitly")
-    # Only the attack total is needed. Null defence/HP IVs remain unknown.
-    attack = (SPECIES[p["species"]]["baseStats"]["atk"] + iv) * player_cpm(
-        p["level"] if level is None else level
-    )
-    return calculate_damage(
-        move["power"],
-        attack,
-        rocket(row, table, trainer_level).defence,
-        move["type"],
-        SPECIES[p["species"]]["types"],
-        SPECIES[r["species"]]["types"],
-        attacker_shadow=p["form"] == "shadow",
-        defender_shadow=True,  # Ledger g: Rocket Pokemon are shadow since late 2022.
-        attack_stage=p["stat_stage"]["atk"],
-        charged=move["energy"] > 0,
-        shielded=row["observed"].get("shielded", False),
-        attacker_mega=p["form"] == "mega" and mega_rule,
-        # Pinned gamemaster.json 47141–47152: Confusion has no isMegaMove.
-        # None of the fixture moves have this metadata. Do not invent it.
-        is_mega_move=False,
-        mega_level=p.get("mega_level", 3),
-    )
-
-
-def iv_counts(row, table, trainer_level=None):
-    hp = rocket(row, table, trainer_level).hp
-    return {
-        iv: hits_to_ko(dealt(row, table, attack_iv=iv, trainer_level=trainer_level).damage, hp)
-        for iv in range(16)
-    }
-
-
-def predict(row, table):
-    obs, p, r = row["observed"], row["player"], row["rocket"]
-    kind = obs["kind"]
-    rs = rocket(row, table)
-    if kind == "rocket_hp":
-        return rs.hp
-    if kind == "player_hp":
-        return player_stats(SPECIES[p["species"]]["baseStats"], p["ivs"], p["level"]).hp
-    if kind == "damage_per_hit_taken":
-        move = dated_move(obs["move"], row["battle_date"])
-        defence = (SPECIES[p["species"]]["baseStats"]["def"] + p["ivs"]["def"]) * player_cpm(
-            p["level"]
-        )
-        return calculate_damage(
-            move["power"],
-            rs.attack,
-            defence,
-            move["type"],
-            SPECIES[r["species"]]["types"],
-            SPECIES[p["species"]]["types"],
-            attacker_shadow=True,
-            defender_shadow=p["form"] == "shadow",
-            defence_stage=p["stat_stage"]["def"],
-        ).damage
-    if row["fixture"] == "F5":
-        return iv_counts(row, table)
-    damage = dealt(row, table).damage
-    if kind == "damage_per_hit_dealt":
-        return damage
-    if kind == "hits_to_ko":
-        return hits_to_ko(damage, rs.hp)
-    if kind == "survives_hits":
-        return damage * obs["value"] < rs.hp
-    if kind == "remaining_hp_after" and obs["subject"] == "rocket":
-        return rs.hp - damage * obs["hits"]
-    raise ValueError(f"requires the turn loop: {row['id']}")
-
-
-def matches(row, prediction):
-    if row["fixture"] == "F5":
-        return all(prediction[iv] == row["observed"]["value"] for iv in (13, 14, 15))
-    if row["observed"]["kind"] == "survives_hits":
-        return prediction is True
-    return prediction == row["observed"]["value"]
+_predictor = BattlePredictor(SPECIES, MOVES)
+dated_move = _predictor.dated_move
+rocket = _predictor.rocket
+dealt = _predictor.dealt
+iv_counts = _predictor.iv_counts
+predict = _predictor.predict
 
 
 def battle_params():

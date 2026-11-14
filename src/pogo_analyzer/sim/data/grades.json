@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fixture-exact",
+    "meaning": "Formula path reproduced by recorded or measured pre-Oct-2025 grunt targets under old rCPM tables.",
+    "evidence": ["F1", "F2", "F4", "F5", "docs/simulator-verification.md#damage-results"]
+  },
+  {
+    "id": "cp-only",
+    "meaning": "Rocket table or rank backed by CP readings only; Oct 2025 on has no discriminating battle target.",
+    "evidence": ["docs/simulator-verification.md#stats-results", "docs/simulator-verification.md#not-supported-yet", "pgo-5jh"]
+  },
+  {
+    "id": "parity-only",
+    "meaning": "Matches pinned PvPoke code or metadata; no battle target checks this quantity.",
+    "evidence": ["tools/parity", "docs/simulator-verification.md#damage-results", "docs/simulator-verification.md ledger l"]
+  },
+  {
+    "id": "model",
+    "meaning": "Depends on battle behaviour or a Rocket moveset pool that no fixture or source pins down.",
+    "evidence": ["docs/simulator-verification.md ledger j, k, l, m", "docs/simulator-verification.md#calculator"]
+  }
+]

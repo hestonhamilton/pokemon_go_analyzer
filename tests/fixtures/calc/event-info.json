@@ -1,0 +1,28 @@
+{
+  "14": {
+    "type": "Fairy",
+    "gender": 2,
+    "grunt": "Grunt",
+    "proto": "CHARACTER_FAIRY_GRUNT_FEMALE",
+    "active": true,
+    "secondReward": true,
+    "firstReward": true,
+    "thirdReward": false,
+    "encounters": {
+      "first": [
+        {
+          "id": 209
+        }
+      ],
+      "second": [
+        {
+          "id": 209
+        },
+        {
+          "id": 281
+        }
+      ],
+      "third": []
+    }
+  }
+}

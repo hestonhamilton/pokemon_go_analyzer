@@ -8,6 +8,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from pogo_analyzer.calc_cli import add_parser, main_calc
 from pogo_analyzer.lineups import default_shield_strategy, load_lineups, resolve_defender
 from pogo_analyzer.pokebattler import (
     BadResponse,
@@ -52,6 +53,7 @@ FIELDS = (
 def parser():
     root = argparse.ArgumentParser(prog="pogo-analyzer")
     commands = root.add_subparsers(dest="command", required=True)
+    add_parser(commands)
     lineup = commands.add_parser("lineups")
     lineup.add_argument("--cache-dir", type=Path, default=Path(".cache/pokebattler"))
     for command in ("counters", "tally"):
@@ -124,6 +126,11 @@ def stopped(exc, requests):
 def main(argv=None):
     arg_parser = parser()
     args = arg_parser.parse_args(argv)
+    if args.command == "calc":
+        try:
+            return main_calc(args, arg_parser)
+        except STOP_ERRORS as exc:
+            return stopped(exc, 0)
     if args.command != "lineups":
         if args.defender and not args.tier:
             arg_parser.error("--defender requires --tier")
