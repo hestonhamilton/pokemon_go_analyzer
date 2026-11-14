@@ -94,8 +94,13 @@ def test_json_grades_sources_and_default_gap(cache, capsys):
         r["fast_turns_to_ko"]["value"] for r in results
     )
     row = results[0]
-    assert row["fast_damage"]["grade"] == "cp-only"
+    # Today's Bullet Punch (power 7) differs from the dated snapshot (6) the
+    # targets used, so its damage is parity-only, below dec-2025's cp-only.
+    assert row["fast_move"]["grade"] == "parity-only"
+    assert row["fast_damage"]["grade"] == "parity-only"
+    assert row["rocket_hp"]["grade"] == "cp-only"
     assert row["attacker_hp"]["grade"] == "fixture-exact"
+    assert row["defender"]["grade"] == "model"
     assert row["fast_turns_to_ko"]["grade"] == "model"
     assert row["row_grade"]["value"] == "model"
     assert row["charged"]["value"][0]["damage"]["grade"] == "parity-only"
@@ -113,15 +118,21 @@ def test_validation_header_every_format(cache, capsys, tmp_path, fmt, state):
     if state == "missing":
         path = tmp_path / "absent"
     else:
-        path = copied_targets(tmp_path, drop_f2=True, broken=state == "broken")
+        path = copied_targets(tmp_path, broken=state == "broken")
     assert cli.main(args(cache, fmt) + ["--fixtures-dir", str(path)]) == 0
     out = capsys.readouterr().out
     label = json.loads(out)["validation_label"] if fmt == "json" else out.splitlines()[0]
     if state == "pass":
-        assert label.startswith("Validated against 43 pre-Oct-2025 battle targets under")
+        assert label.startswith("Validated against 44 pre-Oct-2025 battle targets under")
     else:
         assert label.startswith("UNVALIDATED:")
-        assert ("fixtures unavailable" if state == "missing" else "3 target failures") in label
+        expected = (
+            "fixtures not found; validation needs a source checkout or --fixtures-dir"
+            if state == "missing"
+            else "1 target failed: F1-metagross-hp"
+        )
+        assert expected in label
+        assert str(tmp_path) not in label  # No local path in the public label.
     assert "F3-metagross-remaining" in out or state == "missing"
     assert "F4-ducklett-shadow-tyranitar" in out or state == "missing"
     assert calc_cli.CP_ONLY in out
@@ -136,7 +147,11 @@ def test_old_table_and_csv_grades(cache, capsys):
     header, grades, row = list(csv.reader(lines[header_index : header_index + 3]))
     assert len(header) == len(grades) == len(row)
     by_column = dict(zip(header, grades, strict=True))
-    assert by_column["fast_damage"] == "fixture-exact"
+    # venonic-2023 at TL50 is a level the targets used: Rocket stats are exact.
+    assert by_column["rocket_hp"] == "fixture-exact"
+    assert by_column["attacker_hp"] == "fixture-exact"
+    # Today's Bullet Punch differs from the dated snapshot: damage is parity-only.
+    assert by_column["fast_damage"] == "parity-only"
     assert by_column["fast_turns_to_ko"] == "model"
     assert by_column["charged"] == "model"
 
@@ -192,7 +207,11 @@ def test_team_rank_sort_and_two_charged(cache, capsys, tmp_path):
     rows = json.loads(capsys.readouterr().out)["results"]
     assert len(rows) == 4
     assert {r["form"]["value"] for r in rows} == {"purified", "shadow"}
-    assert all(r["fast_damage"]["grade"] == "cp-only" for r in rows)
+    # Giovanni: cp-only at best; today's Bullet Punch lowers damage to parity-only.
+    assert all(r["rocket_hp"]["grade"] == "cp-only" for r in rows)
+    assert all(r["attacker_hp"]["grade"] == "cp-only" for r in rows)
+    assert all(r["fast_damage"]["grade"] == "parity-only" for r in rows)
+    assert all(r["character"]["value"] == "" for r in rows)
     assert all(r["rank_multiplier"]["value"] == 1.15 for r in rows)
     assert any(len(r["charged"]["value"]) == 2 for r in rows)
     assert [r["rocket_fast_damage"]["value"] for r in rows] == sorted(
@@ -275,7 +294,8 @@ def test_table_shows_headline_columns_with_a_grade_row(cache, capsys):
     assert fields == list(calc_cli.TABLE_FIELDS)
     grades = [g.strip() for g in lines[header + 1].split("|")]
     assert set(grades) <= {"fixture-exact", "cp-only", "parity-only", "model"}
-    assert grades[fields.index("fast_damage")] == "cp-only"  # dec-2025 default
+    assert grades[fields.index("rocket_hp")] == "cp-only"  # dec-2025 default
+    assert grades[fields.index("fast_damage")] == "parity-only"  # today's Bullet Punch
     out = "\n".join(lines)
     for column in calc_cli.TABLE_FIELDS:
         assert f"{column}: " in out
@@ -312,3 +332,71 @@ def test_unresolved_lineup_species_is_reported(cache, capsys):
     assert data["unresolved"] == [
         {"character": "Fairy grunt (female)", "slot": 3, "species": "dex_9999"}
     ]
+
+
+def _grades(data):
+    return {
+        cell["grade"]
+        for row in data["results"]
+        for cell in row.values()
+        if isinstance(cell, dict) and "grade" in cell
+    }
+
+
+@pytest.mark.parametrize("state", ["missing", "broken", "trimmed"])
+def test_failed_gate_leaves_no_fixture_exact_cell(cache, capsys, tmp_path, state):
+    if state == "missing":
+        path = tmp_path / "absent"
+    elif state == "trimmed":
+        path = copied_targets(tmp_path, drop_f2=True)
+    else:
+        path = copied_targets(tmp_path, broken=True)
+    extra = ["--rcpm-table", "venonic-2023", "--fixtures-dir", str(path)]
+    assert cli.main(args(cache) + extra) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["validation_label"].startswith("UNVALIDATED:")
+    if state == "trimmed":
+        assert "expected 44 acceptance targets, found 43" in data["validation_label"]
+    assert "fixture-exact" not in _grades(data)
+    # The same run with the real fixtures does show fixture-exact cells.
+    assert cli.main(args(cache) + ["--rcpm-table", "venonic-2023"]) == 0
+    assert "fixture-exact" in _grades(json.loads(capsys.readouterr().out))
+
+
+def test_uncovered_trainer_level_is_not_fixture_exact(cache, capsys):
+    assert cli.main(args(cache) + ["--rcpm-table", "fugerappi-2023", "--trainer-level", "20"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["validation_label"].startswith("Validated")
+    assert {r["rocket_hp"]["grade"] for r in data["results"]} == {"cp-only"}
+
+
+def test_explicit_defender_rows_and_shadow_ids(cache, capsys):
+    base = args(cache, "table")
+    i = base.index("--character")
+    defender = [*base[:i], "--defender", "snubbull", "--rank", "grunt", *base[i + 2 :]]
+    assert cli.main(defender) == 0
+    out = capsys.readouterr().out
+    assert "None" not in out
+    # Same rule as attackers: PvPoke _shadow and _mega entries are refused.
+    for species_id in ("zekrom_shadow", "gengar_mega"):
+        with pytest.raises(ValueError, match="use the base species"):
+            calc_cli._check_rocket_species({"speciesId": species_id})
+    calc_cli._check_rocket_species({"speciesId": "snubbull"})
+
+
+@pytest.mark.parametrize(
+    "option,value,message",
+    [
+        ("--ivs", "a/b/c", "three whole numbers"),
+        ("--charged", "Meteor Mash", "must differ"),
+    ],
+)
+def test_clean_input_errors(cache, capsys, option, value, message):
+    argv = args(cache)
+    if option == "--ivs":
+        argv[argv.index("--ivs") + 1] = value
+    else:
+        argv += [option, value]
+    with pytest.raises(SystemExit):
+        cli.main(argv)
+    assert message in capsys.readouterr().err

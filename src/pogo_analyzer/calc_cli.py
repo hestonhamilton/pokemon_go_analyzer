@@ -36,7 +36,9 @@ SORTS = (
 )
 CREDITS = (
     "Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, "
-    "type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke)."
+    "type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). "
+    "Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research "
+    "(Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json)."
 )
 CP_ONLY = "Rocket stats from Oct 2025 on are backed by CP readings only."
 LIMITS = (
@@ -108,9 +110,9 @@ def _resolve(value, items, id_key, name_key):
 def _ivs(value):
     if isinstance(value, str):
         parts = value.split("/")
-        if len(parts) != 3:
-            raise ValueError("IVs must be A/D/H")
-        return dict(zip(("atk", "def", "hp"), map(int, parts), strict=True))
+        if len(parts) != 3 or not all(part.strip().isdigit() for part in parts):
+            raise ValueError("IVs must be A/D/H, three whole numbers 0-15, e.g. 15/15/15")
+        return dict(zip(("atk", "def", "hp"), (int(p) for p in parts), strict=True))
     if isinstance(value, dict) and set(value) == {"atk", "def", "hp"}:
         return value
     raise ValueError("IVs must be A/D/H or an atk/def/hp object")
@@ -154,6 +156,10 @@ def _team(args):
             raise ValueError("team entry requires species, level, ivs, fast and charged")
         if not isinstance(entry["charged"], list) or not 1 <= len(entry["charged"]) <= 2:
             raise ValueError("provide one or two charged moves")
+        if len(entry["charged"]) == 2 and _normal(entry["charged"][0]) == _normal(
+            entry["charged"][1]
+        ):
+            raise ValueError("the two charged moves must differ")
         entry["ivs"] = _ivs(entry["ivs"])
         # Validate numbers and form before any source fetch.
         entry["form"] = (
@@ -205,6 +211,14 @@ def _rocket_species(name, species):
         if name not in ids and name.endswith(suffix) and name + pvpoke[len(suffix) :] in ids:
             name = name + pvpoke[len(suffix) :]
     return _resolve(name, species, "speciesId", "speciesName")
+
+
+def _check_rocket_species(item):
+    # Same rule as attackers: the Rocket side is shadow by rule (ledger g), Mega
+    # Rocket Pokemon don't exist, and PvPoke's _shadow entries can carry
+    # different move lists.
+    if "_shadow" in item["speciesId"] or "_mega" in item["speciesId"]:
+        raise ValueError(f"use the base species for Rocket Pokemon, not {item['speciesId']}")
 
 
 def build_output(args):
@@ -283,6 +297,7 @@ def build_output(args):
     for character, slot, name, rank in selections:
         try:
             defender = _rocket_species(name, species)
+            _check_rocket_species(defender)
         except ValueError:
             if args.defender:
                 raise
@@ -307,13 +322,19 @@ def build_output(args):
                     rank=rank,
                     table=args.rcpm_table,
                 )
-                row.update(character=character, slot=slot, moveset_pool=pool)
-                rows.append(row)
+                # Explicit --defender rows have no character; slot only if given.
+                row.update(
+                    character=character or "",
+                    slot=slot if slot is not None else "",
+                    moveset_pool=pool,
+                )
+                rows.append((row, {"fast": own_fast, "rocket_fast": fast}))
     if not rows:
         raise ValueError("no calculator matchups in the selected slots")
-    rows.sort(key=lambda r: r[args.sort])
+    rows.sort(key=lambda r: r[0][args.sort])
+    validation = run_acceptance(args.fixtures_dir)
     return {
-        "validation": run_acceptance(args.fixtures_dir),
+        "validation": validation,
         "sources": sources,
         "credits": CREDITS,
         "limitations": LIMITS,
@@ -321,7 +342,8 @@ def build_output(args):
         "rcpm_note": CP_ONLY if args.rcpm_table == "dec-2025" else None,
         "grades": GRADES,
         "unresolved": unresolved,
-        "results": [grade_row(row) for row in rows],
+        # Grades follow this run's gate: a failed gate leaves nothing fixture-exact.
+        "results": [grade_row(row, validation["coverage"], used) for row, used in rows],
     }
 
 

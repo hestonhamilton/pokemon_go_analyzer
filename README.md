@@ -44,7 +44,7 @@ uv run pogo-analyzer calc --defender snubbull --rank grunt --trainer-level 50 \
 ```
 
 Character matching works like `counters`. Rank is derived from the character: grunt 1, leader 1.05,
-Giovanni 1.15. Explicit defenders require `--rank grunt|leader|giovanni`. `--slot` restricts character
+Giovanni 1.15. Explicit defenders require `--rank grunt|leader|giovanni`; their rows leave `character` blank. Use base species: PvPoke `_shadow` and `_mega` IDs are refused on both sides. `--slot` restricts character
 pools; on an explicit defender it labels the row. `--trainer-level` is required. `--rcpm-table` defaults
 to `dec-2025`. Choices are published point tables: `venonic-2023`, `fugerappi-2023`,
 `flyfunner-old-50-2025`, and `dec-2025`. Sparse tables retain their missing levels. The lower-level
@@ -81,32 +81,40 @@ move. `--sort` defaults to `fast_turns_to_ko`, ascending. Other choices include 
 
 | Columns | Meaning | Grade dependencies |
 | --- | --- | --- |
-| `attacker`, `defender`, `level`, `ivs`, `form` | Given species and build | Conditional inputs; fixture-exact formula path |
-| `fast_move` | Attacker's chosen move | PvPoke metadata; parity-only |
-| `attacker_attack`, `attacker_defence`, `attacker_hp` | Player totals used | Fixture-exact formula path; HP directly checked by F1 |
-| `rocket_attack`, `rocket_defence`, `rocket_hp` | Rocket totals; HP floored for battle | Old grunt fixture-exact; current table or leader/Giovanni cp-only |
-| `rank`, `rank_multiplier`, `rcpm_table`, `rocket_cpm`, `trainer_level` | Rocket scaling inputs | Same Rocket table/rank dependency |
-| `rocket_cp` | Display CP, calculated with unfloored stamina | CP readings only; cp-only |
-| `fast_damage`, `fast_hits_to_ko` | Damage per hit; ceil(Rocket HP / damage) | Old grunt fixture-exact; current table or leader/Giovanni cp-only |
-| `rocket_fast_damage`, `ko_on_incoming_hit` | Incoming damage; ceil(player HP / damage) | Same Rocket dependency; KO occurs on the counted hit |
-| `fast_damage_per_turn`, `rocket_fast_damage_per_turn` | Nominal damage / (cooldown / 500 ms) | Damage plus PvPoke duration metadata; parity-only |
+| `attacker`, `level`, `ivs`, `form`, `attacker_attack`, `attacker_defence`, `attacker_hp` | Given build and the player totals used | Player formula path (HP checked by F1): fixture-exact on grunt rows when the gate passes |
+| `defender` | Rocket species from the lineup source or `--defender` | No fixture checks the lineup; model |
+| `fast_move` | Attacker's chosen move | fixture-exact only if today's stats equal a dated snapshot the targets used; otherwise parity-only |
+| `rocket_attack`, `rocket_defence`, `rocket_hp`, `rank`, `rank_multiplier`, `rcpm_table`, `rocket_cpm`, `trainer_level` | Rocket totals (HP floored for battle) and scaling inputs | fixture-exact only for a grunt, a gate table, and a trainer level the targets used (TL41 or TL50); otherwise cp-only |
+| `rocket_cp` | Display CP, calculated with unfloored stamina | CP readings; cp-only at best |
+| `fast_damage`, `fast_hits_to_ko` | Damage per hit; ceil(Rocket HP / damage) | Weakest of player path, Rocket stats and the fast move's snapshot match |
+| `rocket_fast_damage`, `ko_on_incoming_hit` | Incoming damage; ceil(player HP / damage) | Same, with the Rocket fast move's snapshot match; KO occurs on the counted hit |
+| `fast_damage_per_turn`, `rocket_fast_damage_per_turn` | Nominal damage / (cooldown / 500 ms) | Damage plus PvPoke duration metadata; parity-only at best |
 | `fast_turns_to_ko`, `turns_survived` | Fast hits × move turns, counting the KO hit | Behaviour assumptions; model |
 | `charged` | Each chosen charged move: move, unshielded damage, energy cost, fast moves to energy from zero | Move/cost parity-only; damage parity-only; energy count model; aggregate model |
 | `rocket_charged` | Every pool charged move and unshielded damage; excluded from all turn counts | Move availability model; damage parity-only; aggregate model |
 | `character`, `slot`, `rocket_fast_move`, `moveset_pool` | Encounter labels and hypothetical move availability | Model |
 | `row_grade` | Weakest cell in the row | Model when any timing or pool assumption is present |
 
-The four grades, strongest first, are defined in `src/pogo_analyzer/sim/data/grades.json`:
+The four grades, strongest first, are defined in `src/pogo_analyzer/sim/data/grades.json`. A grade never
+claims more than its weakest input; when in doubt the weaker grade applies.
 
-- **fixture-exact:** a formula path reproduced by recorded or measured pre-Oct-2025 grunt targets
-  (F1, F2, F4, F5). This does not claim a recorded battle for each possible build.
-- **cp-only:** Rocket stats depend on a table or rank backed by CP readings only. All Rocket-dependent
-  results under `dec-2025`, and all leader/Giovanni results under any table, have at least this limit.
-  Rocket stats from Oct 2025 on are backed by CP readings only.
-- **parity-only:** pinned PvPoke code or metadata, with no battle target for this quantity. This includes
-  charged damage on both sides. No modern measurement establishes Rocket charged damage.
-- **model:** unverified behaviour or move availability. Timing, energy counts in battle, and Rocket
-  move pools receive this grade.
+- **fixture-exact:** reproduced on this run by the recorded or measured pre-Oct-2025 grunt targets
+  (F1, F2, F4, F5). It needs all of: the gate passed; a grunt; for Rocket stats, a gate table
+  (`venonic-2023` or `fugerappi-2023`) at a trainer level the passing targets used; for damage, move
+  stats equal to a dated snapshot the passing targets used. Today's PvPoke values often differ from
+  those snapshots (Bullet Punch 6 → 7, Smack Down 12 → 11), and then the damage is parity-only. This
+  grade does not claim a recorded battle for each possible build.
+- **cp-only:** Rocket stats from a table, trainer level or rank backed by CP readings only. This covers
+  every Rocket cell under `dec-2025` (Rocket stats from Oct 2025 on are backed by CP readings only), the
+  TL50-only `flyfunner-old-50-2025` table, gate-table levels no target used, and every leader and
+  Giovanni cell: no recorded leader or Giovanni hit count exists yet.
+- **parity-only:** pinned PvPoke code or metadata, with no passing battle target for this quantity
+  with these move stats. This includes charged damage on both sides; no modern measurement establishes
+  Rocket charged damage. Damage and player stats fall to this grade when the gate fails.
+- **model:** unverified behaviour, move availability or lineup species. Timing, energy counts in
+  battle, Rocket move pools and the lineup's species receive this grade.
+
+If the gate fails, no cell is fixture-exact.
 
 Cells take the weakest grade of their dependencies. Conditional damage assumes the named move is
 present; it does not prove move availability. The Rocket move pool copies every PvPoke species
@@ -116,6 +124,9 @@ Frustration is added; each pool reports whether its PvPoke list already includes
 
 Every run recomputes recorded/measured `expected_pass` battle targets using the dated move and
 species fixtures. `--fixtures-dir` defaults to `tests/fixtures/sim` relative to the package source.
+The fixtures are not in the wheel, so validation needs a source checkout (or `--fixtures-dir`); an
+installed package without them reports UNVALIDATED. The gate requires exactly 44 targets, so a trimmed
+or edited fixture set cannot report itself as validated. A failure names the failing targets.
 Every target must pass under both gate tables, `venonic-2023` and `fugerappi-2023`, which publish every
 trainer level the targets use. Targets that the TL50-only `flyfunner-old-50-2025` covers must pass too;
 a level it lacks is listed as not covered and is never filled from another table. Missing fixtures, a

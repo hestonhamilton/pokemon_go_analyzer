@@ -14,7 +14,7 @@ from pogo_analyzer.sim.calculator import (
     matches,
     move_damage,
 )
-from pogo_analyzer.sim.grades import column_grade, grade_row, weakest
+from pogo_analyzer.sim.grades import GradeContext, column_grade, grade_row, weakest
 from pogo_analyzer.sim.stats import player_cpm, rocket_stats
 from pogo_analyzer.sim.validation import OLD_TABLES, run_acceptance
 
@@ -125,62 +125,112 @@ def test_purified_is_plain_and_shadow_only_applied_in_damage():
     assert shadow["rocket_fast_damage"] > plain["rocket_fast_damage"]
 
 
+COVERAGE = run_acceptance(FIXTURES)["coverage"]
+DATED = {
+    "fast": PREDICTOR.move("BULLET_PUNCH", "2022-12-03"),
+    "rocket_fast": PREDICTOR.move("BITE", "2022-12-03"),
+}
+
+
+def ctx(rank="grunt", table="venonic-2023", level=50, coverage=COVERAGE, moves=DATED):
+    row = {"rank": rank, "rcpm_table": table, "trainer_level": level}
+    return GradeContext.for_row(row, coverage, moves)
+
+
+def test_coverage_is_what_the_targets_used():
+    # Every target is at TL50 except F2 (TL41); only the gate tables cover.
+    assert COVERAGE["levels"] == [
+        ["fugerappi-2023", 41],
+        ["fugerappi-2023", 50],
+        ["venonic-2023", 41],
+        ["venonic-2023", 50],
+    ]
+    assert {m["move"] for m in COVERAGE["moves"]} == {
+        "BITE",
+        "BULLET_PUNCH",
+        "CHARGE_BEAM",
+        "RAZOR_LEAF",
+        "SMACK_DOWN",
+        "TACKLE",
+    }
+
+
 @pytest.mark.parametrize(
     "column",
     ["fast_damage", "fast_hits_to_ko", "rocket_fast_damage", "attacker_hp", "ko_on_incoming_hit"],
 )
-def test_grade_fixture_exact_old_grunt(column):
-    assert column_grade(column, "grunt", "venonic-2023") == "fixture-exact"
+def test_grade_fixture_exact_needs_everything(column):
+    # Gate passed, grunt, gate table at a covered level, dated move stats.
+    assert column_grade(column, ctx()) == "fixture-exact"
+
+
+@pytest.mark.parametrize(
+    "column", ["fast_damage", "rocket_fast_damage", "rocket_hp", "attacker_hp", "fast_move"]
+)
+@pytest.mark.parametrize("coverage", [{"levels": [], "moves": []}, None])
+def test_grade_failed_gate_leaves_nothing_fixture_exact(column, coverage):
+    grade = column_grade(column, ctx(coverage=coverage))
+    assert grade != "fixture-exact"
+    # Rocket stats keep their CP backing; damage and player stats fall to PvPoke parity.
+    assert grade == ("cp-only" if column == "rocket_hp" else "parity-only")
+
+
+@pytest.mark.parametrize("table,level", [("fugerappi-2023", 20), ("venonic-2023", 45)])
+def test_grade_uncovered_trainer_level_is_cp_only(table, level):
+    for column in ("rocket_hp", "rocket_attack", "fast_damage", "rocket_fast_damage"):
+        assert column_grade(column, ctx(table=table, level=level)) == "cp-only"
+    assert column_grade("attacker_hp", ctx(table=table, level=level)) == "fixture-exact"
+
+
+def test_grade_supplementary_and_current_tables_never_fixture_exact():
+    for table in ("flyfunner-old-50-2025", "dec-2025", "flyfunner-lower-2023"):
+        assert column_grade("rocket_hp", ctx(table=table)) == "cp-only"
+        assert column_grade("fast_damage", ctx(table=table)) == "cp-only"
+
+
+def test_grade_move_stats_must_equal_a_dated_snapshot():
+    today = Move("BULLET_PUNCH", "steel", 7, 2, energy_gain=7)  # Dated: power 6, gain 7.
+    c = ctx(moves={"fast": today, "rocket_fast": DATED["rocket_fast"]})
+    assert column_grade("fast_move", c) == "parity-only"
+    assert column_grade("fast_damage", c) == "parity-only"
+    assert column_grade("fast_hits_to_ko", c) == "parity-only"
+    assert column_grade("rocket_fast_damage", c) == "fixture-exact"
+    assert column_grade("fast_move", ctx()) == "fixture-exact"
+
+
+@pytest.mark.parametrize("rank", ["leader", "giovanni"])
+def test_grade_leader_and_giovanni_never_fixture_exact(rank):
+    row = grade_row(matchup(rank=rank), COVERAGE, DATED)
+    grades = {key: cell["grade"] for key, cell in row.items()}
+    assert "fixture-exact" not in grades.values()
+    for column in ("attacker", "attacker_hp", "rocket_hp", "fast_damage", "rocket_fast_damage"):
+        assert grades[column] == "cp-only"
+
+
+def test_grade_charged_is_parity_only():
+    for c in (ctx(), ctx(table="dec-2025"), ctx(rank="giovanni")):
+        assert column_grade("charged_damage", c) == "parity-only"
 
 
 @pytest.mark.parametrize(
     "column",
     [
-        "fast_damage",
-        "fast_hits_to_ko",
-        "rocket_fast_damage",
-        "rocket_attack",
-        "rocket_defence",
-        "rocket_hp",
+        "fast_turns_to_ko",
+        "turns_survived",
+        "fast_moves_to_energy",
+        "moveset_pool",
+        "defender",
+        "character",
     ],
 )
-def test_grade_current_rocket_path_cp_only(column):
-    assert column_grade(column, "grunt", "dec-2025") == "cp-only"
-    assert column_grade("attacker_hp", "grunt", "dec-2025") == "fixture-exact"
-
-
-@pytest.mark.parametrize("rank", ["leader", "giovanni"])
-@pytest.mark.parametrize("table", OLD_TABLES + ("dec-2025",))
-def test_grade_rank_has_cp_only_targets(rank, table):
-    assert column_grade("fast_damage", rank, table) == "cp-only"
-    assert column_grade("rocket_hp", rank, table) == "cp-only"
-
-
-def test_grade_fixture_tables_match_the_gate():
-    from pogo_analyzer.sim.grades import FIXTURE_TABLES
-
-    assert FIXTURE_TABLES == set(OLD_TABLES)
-    # A table the gate never checks cannot earn fixture-exact.
-    assert column_grade("fast_damage", "grunt", "flyfunner-lower-2023") == "cp-only"
-
-
-def test_grade_charged_is_parity_only():
-    for table in OLD_TABLES + ("dec-2025",):
-        for rank in ("grunt", "leader", "giovanni"):
-            assert column_grade("charged_damage", rank, table) == "parity-only"
-
-
-@pytest.mark.parametrize(
-    "column", ["fast_turns_to_ko", "turns_survived", "fast_moves_to_energy", "moveset_pool"]
-)
-def test_grade_behaviour_is_model(column):
-    assert column_grade(column, "grunt", "venonic-2023") == "model"
-    assert column_grade(column, "giovanni", "dec-2025") == "model"
+def test_grade_behaviour_and_lineup_are_model(column):
+    assert column_grade(column, ctx()) == "model"
+    assert column_grade(column, ctx(rank="giovanni", table="dec-2025")) == "model"
 
 
 def test_grade_weakest_dependency_and_row():
     assert weakest("fixture-exact", "cp-only", "parity-only", "model") == "model"
-    r = grade_row(matchup())
+    r = grade_row(matchup(), COVERAGE, DATED)
     assert r["row_grade"] == {"value": "model", "grade": "model"}
     assert r["charged"]["value"][0]["damage"]["grade"] == "parity-only"
     assert r["charged"]["value"][0]["fast_moves_to_energy"]["grade"] == "model"
@@ -188,7 +238,7 @@ def test_grade_weakest_dependency_and_row():
     assert r["fast_damage_per_turn"]["grade"] == "parity-only"
     assert r["rocket_cp"]["grade"] == "cp-only"
     with pytest.raises(ValueError, match="no grade dependency"):
-        column_grade("unknown", "grunt", "dec-2025")
+        column_grade("unknown", ctx())
 
 
 def reconstruction_cases():
@@ -340,3 +390,12 @@ def test_shedinja_attacker_gets_ten_hp():
         table="venonic-2023",
     )
     assert row["attacker_hp"] == 13
+
+
+def test_label_wording_singular_and_plural():
+    from pogo_analyzer.sim.validation import _plural
+
+    assert _plural(1, "target") == "1 target"
+    assert _plural(2, "target") == "2 targets"
+    assert _plural(1, "open discrepancy", "open discrepancies") == "1 open discrepancy"
+    assert _plural(2, "open discrepancy", "open discrepancies") == "2 open discrepancies"

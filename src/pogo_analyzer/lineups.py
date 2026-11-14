@@ -46,6 +46,10 @@ def load_lineups(client):
                 species[dex] = name
     characters = []
     for key, entry in entries.items():
+        if isinstance(entry, dict) and entry.get("active") is False:
+            # Inactive entries (such as the player Team Leader placeholder) are
+            # not lineups; skip them before the shape check, without a warning.
+            continue
         if (
             not isinstance(entry, dict)
             or not isinstance(entry.get("active"), bool)

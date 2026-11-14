@@ -147,10 +147,14 @@ covers. It has no TL41 for F2, which is reported as not covered. Any failure, or
 labels the output UNVALIDATED. Both open discrepancies are reported with their reasons.
 
 Cells carry fixture-exact, cp-only, parity-only or model grades, in that order of strength.
-Each cell takes the weakest grade of its dependencies. Old grunt fast damage and hit counts use the
-fixture-backed formula path. Current Rocket stats and all leader and Giovanni results are backed by
-CP readings only. Charged damage is a PvPoke parity result, without a battle target. Timing and
-energy counts in a real battle are models. They ignore charged attacks, pauses, shields and switching.
+A grade never claims more than its weakest input. fixture-exact needs this run's gate to pass, a grunt,
+a gate table at a trainer level the targets used (TL41 or TL50), and move stats equal to the dated
+snapshots the targets used. Today's move values often differ, so most current damage is parity-only.
+Current Rocket stats, other levels, the TL50-only table, and every leader and Giovanni cell are backed
+by CP readings at most. Charged damage is a PvPoke parity result, without a battle target. If the gate
+fails, nothing is fixture-exact. The lineup's species, timing and energy counts in a real battle are
+models. They ignore charged attacks, pauses, shields and switching. The gate requires exactly 44
+targets and needs the source checkout's fixtures.
 
 The Rocket move pool copies the PvPoke species lists, including elite and legacy flags.
 Event-info lists species, not moves. The pool is a model. Neither source settles extra shadow
