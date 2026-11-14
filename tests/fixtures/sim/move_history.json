@@ -1,0 +1,209 @@
+{
+  "BITE": [
+    {
+      "as_of": "2022-12-03",
+      "pvpoke_commit": "a6efe554e40f37782f9fb4b85093c08f4bba035e",
+      "type": "dark",
+      "power": 4,
+      "energy_gain": 2,
+      "energy": 0,
+      "turns": 1
+    },
+    {
+      "as_of": "2023-11-27",
+      "pvpoke_commit": "cd76a046bbe5b6bc089f7ee5ccfab4595f54cc26",
+      "type": "dark",
+      "power": 4,
+      "energy_gain": 2,
+      "energy": 0,
+      "turns": 1
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "dark",
+      "power": 2,
+      "energy_gain": 4,
+      "energy": 0,
+      "turns": 1
+    }
+  ],
+  "BULLET_PUNCH": [
+    {
+      "as_of": "2022-12-03",
+      "pvpoke_commit": "a6efe554e40f37782f9fb4b85093c08f4bba035e",
+      "type": "steel",
+      "power": 6,
+      "energy_gain": 7,
+      "energy": 0,
+      "turns": 2
+    },
+    {
+      "as_of": "2023-11-27",
+      "pvpoke_commit": "cd76a046bbe5b6bc089f7ee5ccfab4595f54cc26",
+      "type": "steel",
+      "power": 6,
+      "energy_gain": 7,
+      "energy": 0,
+      "turns": 2
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "steel",
+      "power": 7,
+      "energy_gain": 7,
+      "energy": 0,
+      "turns": 2
+    }
+  ],
+  "CHARGE_BEAM": [
+    {
+      "as_of": "2022-12-03",
+      "pvpoke_commit": "a6efe554e40f37782f9fb4b85093c08f4bba035e",
+      "type": "electric",
+      "power": 5,
+      "energy_gain": 11,
+      "energy": 0,
+      "turns": 3
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "electric",
+      "power": 6,
+      "energy_gain": 11,
+      "energy": 0,
+      "turns": 3
+    }
+  ],
+  "CONFUSION": [
+    {
+      "as_of": "2026-07-14",
+      "pvpoke_commit": "caafd09972142cb32bd244dd72957d683d7e56f0",
+      "type": "psychic",
+      "power": 16,
+      "energy_gain": 14,
+      "energy": 0,
+      "turns": 4
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "psychic",
+      "power": 16,
+      "energy_gain": 14,
+      "energy": 0,
+      "turns": 4
+    }
+  ],
+  "FORCE_PALM": [
+    {
+      "as_of": "2026-05-30",
+      "pvpoke_commit": "b0aab555a36dbdcff3386d062e6b5a8eb4a38edb",
+      "type": "fighting",
+      "power": 13,
+      "energy_gain": 10,
+      "energy": 0,
+      "turns": 3
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "fighting",
+      "power": 13,
+      "energy_gain": 10,
+      "energy": 0,
+      "turns": 3
+    }
+  ],
+  "POWER_UP_PUNCH": [
+    {
+      "as_of": "2026-05-30",
+      "pvpoke_commit": "b0aab555a36dbdcff3386d062e6b5a8eb4a38edb",
+      "type": "fighting",
+      "power": 20,
+      "energy_gain": 0,
+      "energy": 35,
+      "turns": 1
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "fighting",
+      "power": 20,
+      "energy_gain": 0,
+      "energy": 35,
+      "turns": 1
+    }
+  ],
+  "RAZOR_LEAF": [
+    {
+      "as_of": "2023-02-01",
+      "pvpoke_commit": "cd32a1b96f5d64ede5b568a571fb0597d2568006",
+      "type": "grass",
+      "power": 10,
+      "energy_gain": 4,
+      "energy": 0,
+      "turns": 2
+    },
+    {
+      "as_of": "2026-03-12",
+      "pvpoke_commit": "0cb05158b572be22335e22b0adb01308afe112dc",
+      "type": "grass",
+      "power": 9,
+      "energy_gain": 4,
+      "energy": 0,
+      "turns": 2
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "grass",
+      "power": 9,
+      "energy_gain": 4,
+      "energy": 0,
+      "turns": 2
+    }
+  ],
+  "SMACK_DOWN": [
+    {
+      "as_of": "2023-01-21",
+      "pvpoke_commit": "57856ed3e9ce36d3a1b911c5af68ade7979ee4ff",
+      "type": "rock",
+      "power": 12,
+      "energy_gain": 8,
+      "energy": 0,
+      "turns": 3
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "rock",
+      "power": 11,
+      "energy_gain": 8,
+      "energy": 0,
+      "turns": 3
+    }
+  ],
+  "TACKLE": [
+    {
+      "as_of": "2022-12-03",
+      "pvpoke_commit": "a6efe554e40f37782f9fb4b85093c08f4bba035e",
+      "type": "normal",
+      "power": 3,
+      "energy_gain": 3,
+      "energy": 0,
+      "turns": 1
+    },
+    {
+      "as_of": "2026-11-13",
+      "pvpoke_commit": "426e5e9f39d3a027849698fb2f5edd9df6056cbf",
+      "type": "normal",
+      "power": 3,
+      "energy_gain": 3,
+      "energy": 0,
+      "turns": 1
+    }
+  ]
+}

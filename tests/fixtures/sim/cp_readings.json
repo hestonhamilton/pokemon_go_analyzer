@@ -1,0 +1,1682 @@
+[
+  {
+    "trainer_level": 50,
+    "species": "persian",
+    "rank": "giovanni",
+    "cp": 7956,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/",
+    "evidence": "Giovanni's Persian has CP of 7956 (as level 50 trainer)"
+  },
+  {
+    "trainer_level": 50,
+    "species": "nidoran_male",
+    "rank": "grunt",
+    "cp": 3077,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|NidoranM|3077|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "nidorino",
+    "rank": "grunt",
+    "cp": 4959,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Nidorino|4959|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "weezing",
+    "rank": "grunt",
+    "cp": 8165,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Weezing|8165|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "sudowoodo",
+    "rank": "grunt",
+    "cp": 7663,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Sudowoodo|7663|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "onix",
+    "rank": "grunt",
+    "cp": 3907,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Onix|3907|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "natu",
+    "rank": "grunt",
+    "cp": 3936,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Natu|3936|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "ralts",
+    "rank": "grunt",
+    "cp": 1913,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Ralts|1913|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "alakazam",
+    "rank": "grunt",
+    "cp": 10880,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Alakazam|10880|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "snorlax",
+    "rank": "grunt",
+    "cp": 11508,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Snorlax|11508|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "poliwrath",
+    "rank": "grunt",
+    "cp": 9227,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Poliwrath|9227|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "gyarados",
+    "rank": "grunt",
+    "cp": 12096,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Gyarados|12096|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "cacnea",
+    "rank": "grunt",
+    "cp": 4436,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Cacnea|4436|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "bayleef",
+    "rank": "grunt",
+    "cp": 5191,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Bayleef|5191|||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "amoonguss",
+    "rank": "grunt",
+    "cp": 7633,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Amoonguss|7633|8416||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "amoonguss",
+    "rank": "leader",
+    "cp": 8416,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Amoonguss|7633|8416||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "mawile",
+    "rank": "leader",
+    "cp": 6428,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Mawile||6428||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "charizard",
+    "rank": "leader",
+    "cp": 11339,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Charizard||11339||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "dragonite",
+    "rank": "leader",
+    "cp": 14913,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Dragonite||14913||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "machop",
+    "rank": "leader",
+    "cp": 5027,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Machop||5027||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "tyranitar",
+    "rank": "leader",
+    "cp": 15100,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Tyranitar||15100||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "sableye",
+    "rank": "leader",
+    "cp": 5810,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Sableye||5810||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "flygon",
+    "rank": "leader",
+    "cp": 10468,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Flygon||10468||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "houndoom",
+    "rank": "leader",
+    "cp": 10349,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Houndoom||10349||"
+  },
+  {
+    "trainer_level": 50,
+    "species": "persian",
+    "rank": "giovanni",
+    "cp": 7956,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Persian|||7956|"
+  },
+  {
+    "trainer_level": 50,
+    "species": "steelix",
+    "rank": "giovanni",
+    "cp": 11357,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Steelix|||11357|"
+  },
+  {
+    "trainer_level": 50,
+    "species": "rhyperior",
+    "rank": "giovanni",
+    "cp": 17589,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Rhyperior|||17589|"
+  },
+  {
+    "trainer_level": 50,
+    "species": "mewtwo",
+    "rank": "giovanni",
+    "cp": 19724,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "|Mewtwo|||19724|"
+  },
+  {
+    "trainer_level": 47,
+    "species": "persian",
+    "rank": "giovanni",
+    "cp": 7776,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "Persian 7776/7956",
+    "evidence_note": "The author identifies the linked video trainer as level 47; the denominator is the already-tabulated level-50 reading."
+  },
+  {
+    "trainer_level": 47,
+    "species": "rhyperior",
+    "rank": "giovanni",
+    "cp": 17190,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "Rhyperior 17190/17589",
+    "evidence_note": "The author identifies the linked video trainer as level 47; the denominator is the already-tabulated level-50 reading."
+  },
+  {
+    "trainer_level": 47,
+    "species": "mewtwo",
+    "rank": "giovanni",
+    "cp": 19277,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/",
+    "evidence": "Mewtwo 19277/19724",
+    "evidence_note": "The author identifies the linked video trainer as level 47; the denominator is the already-tabulated level-50 reading."
+  },
+  {
+    "trainer_level": 50,
+    "species": "baltoy",
+    "rank": "grunt",
+    "cp": 2807,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Baltoy|2807|2597|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "baltoy",
+    "rank": "grunt",
+    "cp": 2597,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Baltoy|2807|2597|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "drowzee",
+    "rank": "grunt",
+    "cp": 3712,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Drowzee|3712|3435|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "drowzee",
+    "rank": "grunt",
+    "cp": 3435,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Drowzee|3712|3435|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "qwilfish",
+    "rank": "grunt",
+    "cp": 7289,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Qwilfish|7289|6745|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "qwilfish",
+    "rank": "grunt",
+    "cp": 6745,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Qwilfish|7289|6745|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "nidorino",
+    "rank": "grunt",
+    "cp": 4959,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Nidorino|4959|4589|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "nidorino",
+    "rank": "grunt",
+    "cp": 4589,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Nidorino|4959|4589|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "weezing",
+    "rank": "grunt",
+    "cp": 8165,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Weezing|8165|7556|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "weezing",
+    "rank": "grunt",
+    "cp": 7556,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|Weezing|8165|7556|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "feebas",
+    "rank": "leader",
+    "cp": 1078,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Feebas|1078|997|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "feebas",
+    "rank": "leader",
+    "cp": 997,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Feebas|1078|997|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "ferrothorn",
+    "rank": "leader",
+    "cp": 9123,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Ferrothorn|9123|8442|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "ferrothorn",
+    "rank": "leader",
+    "cp": 8442,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Ferrothorn|9123|8442|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "houndoom",
+    "rank": "leader",
+    "cp": 10349,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Houndoom|10349|9577|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "houndoom",
+    "rank": "leader",
+    "cp": 9577,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Houndoom|10349|9577|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "staraptor",
+    "rank": "leader",
+    "cp": 11100,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Staraptor|11100|10272|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "staraptor",
+    "rank": "leader",
+    "cp": 10272,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Sierra|Staraptor|11100|10272|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "wobbuffet",
+    "rank": "leader",
+    "cp": 4044,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Wobbuffet|4044|3742|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "wobbuffet",
+    "rank": "leader",
+    "cp": 3742,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Wobbuffet|4044|3742|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "crobat",
+    "rank": "leader",
+    "cp": 10387,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Crobat|10387|9612|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "crobat",
+    "rank": "leader",
+    "cp": 9612,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Crobat|10387|9612|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "scizor",
+    "rank": "leader",
+    "cp": 11807,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Scizor|11807|10926|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "scizor",
+    "rank": "leader",
+    "cp": 10926,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Arlo|Scizor|11807|10926|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 50,
+    "species": "gallade",
+    "rank": "grunt",
+    "cp": 11038,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|GALLADE|11038|10214 (-1)|",
+    "evidence_note": "Published pre-level-80 reading paired with an October 2025 level-70 reading."
+  },
+  {
+    "trainer_level": 70,
+    "species": "gallade",
+    "rank": "grunt",
+    "cp": 10214,
+    "regime": "rcpm-oct-2025",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "evidence": "|Grunt|GALLADE|11038|10214 (-1)|",
+    "evidence_note": "October 2025 post-update reading, before the December regime; the published Gallade 10214 (-1) anomaly is retained."
+  },
+  {
+    "trainer_level": 41,
+    "species": "cyndaquil",
+    "rank": "grunt",
+    "cp": 3247,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdt4hvd/",
+    "evidence": "|100|100.99999|272.462640|277.1753304|135.3525674|137.5880688|3169|3267|3247|",
+    "evidence_note": "Verbatim Real CP column; two comments disagree (3247 versus 3579). No correction or formula-based filtering."
+  },
+  {
+    "trainer_level": 41,
+    "species": "cyndaquil",
+    "rank": "grunt",
+    "cp": 3579,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtg33d/",
+    "evidence": "|100|100.9999|326.955169|332.610396|112.793806|114.656724|3247|3472|3579|",
+    "evidence_note": "Verbatim Real CP column; two comments disagree (3247 versus 3579). No correction or formula-based filtering."
+  },
+  {
+    "trainer_level": 41,
+    "species": "wailord",
+    "rank": "grunt",
+    "cp": 7582,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/",
+    "evidence": "|Wailord|7582|347|175|87|",
+    "evidence_note": "Trainer level inferred from Venonic's stated level-41 measurement campaign; not repeated alongside this row."
+  },
+  {
+    "trainer_level": 41,
+    "species": "murkrow",
+    "rank": "grunt",
+    "cp": 5198,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/",
+    "evidence": "|Murkrow|5198|155|175|87|",
+    "evidence_note": "Trainer level inferred from Venonic's stated level-41 measurement campaign; not repeated alongside this row."
+  },
+  {
+    "trainer_level": 50,
+    "species": "bulbasaur",
+    "rank": "grunt",
+    "cp": 3955,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Bulbasaur - 3955",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "croconaw",
+    "rank": "grunt",
+    "cp": 6134,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Croconaw - 6134",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "sceptile",
+    "rank": "grunt",
+    "cp": 9830,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Sceptile - 9830",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "cacnea",
+    "rank": "grunt",
+    "cp": 4435,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Cacnea - 4435",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "bayleef",
+    "rank": "grunt",
+    "cp": 5191,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Bayleef - 5191",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "amoonguss",
+    "rank": "grunt",
+    "cp": 7633,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Amoonguss - 7633",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "skorupi",
+    "rank": "grunt",
+    "cp": 3609,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Skorupi - 3609",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "kakuna",
+    "rank": "grunt",
+    "cp": 1527,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Kakuna - 1527",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "beedrill",
+    "rank": "grunt",
+    "cp": 6560,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Beedrill - 6560",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "snorlax",
+    "rank": "grunt",
+    "cp": 11508,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Snorlax - 11508",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "gardevoir",
+    "rank": "grunt",
+    "cp": 11038,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Gardevoir - 11038",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dragonite",
+    "rank": "grunt",
+    "cp": 13526,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Dragonite - 13526",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "shinx",
+    "rank": "grunt",
+    "cp": 3117,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Shinx - 3117",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "electabuzz",
+    "rank": "grunt",
+    "cp": 8313,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Electabuzz - 8313",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "luxray",
+    "rank": "grunt",
+    "cp": 10307,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Luxray - 10307",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "phanpy",
+    "rank": "grunt",
+    "cp": 4303,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Phanpy - 4303",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "donphan",
+    "rank": "grunt",
+    "cp": 10745,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Donphan - 10745",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "hippowdon",
+    "rank": "grunt",
+    "cp": 11015,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Hippowdon - 11015",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "onix",
+    "rank": "grunt",
+    "cp": 3907,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Onix - 3907",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "lileep",
+    "rank": "grunt",
+    "cp": 4616,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Lileep - 4616",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "murkrow",
+    "rank": "grunt",
+    "cp": 6145,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Murkrow - 6145",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "staraptor",
+    "rank": null,
+    "cp": 11100,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Staraptor - 11100",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context. Rank not stated; the paired 1o7syt9 table lists this same CP for Sierra, so rank is left unknown."
+  },
+  {
+    "trainer_level": 50,
+    "species": "charizard",
+    "rank": "leader",
+    "cp": 11339,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Charizard - 11339",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context. Rank comes from the identical explicitly ranked reading in z3qck5, not a CP formula."
+  },
+  {
+    "trainer_level": 50,
+    "species": "natu",
+    "rank": "grunt",
+    "cp": 3936,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Natu - 3936",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "girafarig",
+    "rank": "grunt",
+    "cp": 7302,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Girafarig - 7302",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "metang",
+    "rank": "grunt",
+    "cp": 6154,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Metang - 6154",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "pidove",
+    "rank": "grunt",
+    "cp": 3022,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Pidove - 3022",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "rattata",
+    "rank": "grunt",
+    "cp": 2614,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Rattata (kanto) - 2614",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "raticate",
+    "rank": "grunt",
+    "cp": 6160,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Raticate (kanto) - 6160",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "numel",
+    "rank": "grunt",
+    "cp": 3776,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Numel - 3776",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "quilava",
+    "rank": "grunt",
+    "cp": 5884,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Quilava - 5884",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "camerupt",
+    "rank": "grunt",
+    "cp": 7826,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Camerupt - 7826",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "blaziken",
+    "rank": "grunt",
+    "cp": 10180,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
+    "evidence": "* Blaziken - 10180",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "shuckle",
+    "rank": "grunt",
+    "cp": 1439,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Shuckle - 1439",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "whismur",
+    "rank": "grunt",
+    "cp": 2392,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Whismur - 2392",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "ursaring",
+    "rank": "grunt",
+    "cp": 10511,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Ursaring - 10511",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "mareep",
+    "rank": "grunt",
+    "cp": 3531,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Mareep - 3531",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "zebstrika",
+    "rank": "grunt",
+    "cp": 8642,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Zebstrika - 8642",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dratini",
+    "rank": "grunt",
+    "cp": 3573,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Dratini - 3573",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "exeggutor_alolan",
+    "rank": "grunt",
+    "cp": 10742,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Executor (Alolan) - 10742",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dragonite",
+    "rank": "grunt",
+    "cp": 13526,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jduiqvr/",
+    "evidence": "* Dragonite - 13526",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "forretress",
+    "rank": "grunt",
+    "cp": 8128,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Forretress - 8128",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "vulpix_alolan",
+    "rank": "grunt",
+    "cp": 3146,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Vulpix (Alolan) - 3146",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "snover",
+    "rank": "grunt",
+    "cp": 4132,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Snover - 4132",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "cloyster",
+    "rank": "grunt",
+    "cp": 9097,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Cloyster - 9097",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "magmar",
+    "rank": "grunt",
+    "cp": 8517,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Magmar - 8517",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "grimer",
+    "rank": "grunt",
+    "cp": 4913,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Grimer (Kanto) - 4913",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "nidorina",
+    "rank": "grunt",
+    "cp": 4678,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Nidorina - 4678",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "muk",
+    "rank": "grunt",
+    "cp": 9810,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Muk (Kanto) - 9810",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "sceptile",
+    "rank": "leader",
+    "cp": 10838,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Sceptile - 10838 (from a leader...the cp is different I guess? Edit: I see now, the calculations are all multiplied by 1.05 for leaders)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "tyranitar",
+    "rank": "leader",
+    "cp": 15100,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Tyranitar - 15100",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context. Rank comes from the identical explicitly ranked reading in z3qck5, not a CP formula."
+  },
+  {
+    "trainer_level": 50,
+    "species": "mawile",
+    "rank": "grunt",
+    "cp": 5830,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Mawile - 5830",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "kirlia",
+    "rank": "grunt",
+    "cp": 3442,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Kirlia - 3442",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "granbull",
+    "rank": "grunt",
+    "cp": 9108,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Granbull - 9108",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "torchic",
+    "rank": "grunt",
+    "cp": 3880,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/",
+    "evidence": "* Torchic - 3880",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "foongus",
+    "rank": "grunt",
+    "cp": 3488,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Foongus - 3488 (sheet has a different value atm)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "swampert",
+    "rank": "leader",
+    "cp": 11699,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Swampert - 11699 (leader)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "treecko",
+    "rank": "grunt",
+    "cp": 3753,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Treecko - 3753",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "gloom",
+    "rank": "grunt",
+    "cp": 6009,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Gloom - 6009",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "magikarp",
+    "rank": "grunt",
+    "cp": 977,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Magikarp - 977",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "wailmer",
+    "rank": "grunt",
+    "cp": 5231,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Wailmer - 5231",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "golduck",
+    "rank": "grunt",
+    "cp": 8751,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Golduck - 8751",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "feraligatr",
+    "rank": "grunt",
+    "cp": 10162,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Feraligatr - 10162",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "makuhita",
+    "rank": "grunt",
+    "cp": 2914,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Makuhita - 2914",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "hitmonchan",
+    "rank": "grunt",
+    "cp": 8310,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Hitmonchan - 8310  ",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "anorith",
+    "rank": "grunt",
+    "cp": 5436,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Anorith - 5436",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "golem",
+    "rank": "grunt",
+    "cp": 10524,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Golem - 10524",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "typhlosion",
+    "rank": "grunt",
+    "cp": 10285,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/",
+    "evidence": "* Typhlosion - 10285",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "zubat",
+    "rank": "grunt",
+    "cp": 2379,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Zubat - 2379",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "staravia",
+    "rank": "grunt",
+    "cp": 4616,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Staravia - 4616",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "ampharos",
+    "rank": "grunt",
+    "cp": 10171,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Ampharos - 10171",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "oddish",
+    "rank": "grunt",
+    "cp": 4365,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Oddish - 4365",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "blitzle",
+    "rank": "grunt",
+    "cp": 3131,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Blitzle - 3131",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "graveler",
+    "rank": "grunt",
+    "cp": 6755,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je4dw6x/",
+    "evidence": "* Graveler - 6755",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "kingdra",
+    "rank": "giovanni",
+    "cp": 12445,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Kingdra - 12445 (Giovanni)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "regice",
+    "rank": "giovanni",
+    "cp": 14746,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Regice - 14746",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context. Rank inferred from adjacent Kingdra (Giovanni) and the legendary encounter; not stated on the Regice line."
+  },
+  {
+    "trainer_level": 50,
+    "species": "aron",
+    "rank": "grunt",
+    "cp": 4656,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Aron - 4656",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "lairon",
+    "rank": "grunt",
+    "cp": 7340,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Lairon - 7340",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "shuppet",
+    "rank": "grunt",
+    "cp": 3636,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Shuppet - 3636",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "golett",
+    "rank": "grunt",
+    "cp": 4221,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Golett - 4221",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "banette",
+    "rank": "grunt",
+    "cp": 8202,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Banette - 8202 (Grunt)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "charmander",
+    "rank": "grunt",
+    "cp": 3482,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Charmander - 3482",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "crobat",
+    "rank": "grunt",
+    "cp": 9421,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Crobat - 9421",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "patrat",
+    "rank": "grunt",
+    "cp": 2811,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Patrat - 2811",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "bibarel",
+    "rank": "grunt",
+    "cp": 6495,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/",
+    "evidence": "* Bibarel - 6495",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "lapras",
+    "rank": "grunt",
+    "cp": 9434,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Lapras - 9434",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "abomasnow",
+    "rank": "grunt",
+    "cp": 8420,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Abomasnow - 8420",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "wailord",
+    "rank": "grunt",
+    "cp": 8129,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Wailord - 8129",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "swinub",
+    "rank": "grunt",
+    "cp": 2645,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Swinub - 2645",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "ninetales_alolan",
+    "rank": "grunt",
+    "cp": 8237,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Ninetales (Alolan)  - 8237",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "spoink",
+    "rank": "grunt",
+    "cp": 4763,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Spoink - 4763",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "duskull",
+    "rank": "grunt",
+    "cp": 2512,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Duskull - 2512",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dusclops",
+    "rank": "grunt",
+    "cp": 5673,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Dusclops - 5673",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dusknoir",
+    "rank": "grunt",
+    "cp": 8498,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Dusknoir - 8498",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "sandslash_alolan",
+    "rank": "grunt",
+    "cp": 8673,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/",
+    "evidence": "* Sandslash (Alolan) - 8673",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "snubbull",
+    "rank": "grunt",
+    "cp": 4418,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeiiioe/",
+    "evidence": "* Snubbull - 4418",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "psyduck",
+    "rank": "grunt",
+    "cp": 3944,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeiiioe/",
+    "evidence": "* Psyduck - 3944",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "ducklett",
+    "rank": "grunt",
+    "cp": 3050,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jenexya/",
+    "evidence": "* Ducklett - 3050",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "xatu",
+    "rank": "grunt",
+    "cp": 7793,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jenexya/",
+    "evidence": "* Xatu - 7793",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "machamp",
+    "rank": "grunt",
+    "cp": 10917,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jenexya/",
+    "evidence": "* Machamp - 10917",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "drifloon",
+    "rank": "grunt",
+    "cp": 4276,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jew5hel/",
+    "evidence": "* Drifloon - 4276",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "golbat",
+    "rank": "grunt",
+    "cp": 7039,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jew5hel/",
+    "evidence": "* Golbat - 7039",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "kingdra",
+    "rank": "leader",
+    "cp": 10375,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jew5hel/",
+    "evidence": "* Kingdra - 10375 (leader)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "cacturne",
+    "rank": "grunt",
+    "cp": 8200,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jf1joqs/",
+    "evidence": "* Cacturne - 8200 (nice, round number)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "banette",
+    "rank": "leader",
+    "cp": 9043,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jfxpciq/",
+    "evidence": "* Banette - 9043 (leader)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "houndoom",
+    "rank": "leader",
+    "cp": 10349,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jgp8cxk/",
+    "evidence": "* Houndoom - 10349 (leader)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "steelix",
+    "rank": "leader",
+    "cp": 9467,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jgp8cxk/",
+    "evidence": "* Steelix - 9467 (leader)",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "hypno",
+    "rank": "grunt",
+    "cp": 7448,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jhmkggw/",
+    "evidence": "* Hypno - 7448",
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+  },
+  {
+    "trainer_level": 50,
+    "species": "dragonite",
+    "rank": "leader",
+    "cp": 14913,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jleqa7n/",
+    "evidence": "Finally ended up with a Sierra with a Dragonite (figured I would get that before a dragon grunt or a Rock one *without* Onix at the end) - 14,913"
+  },
+  {
+    "trainer_level": 50,
+    "species": "flygon",
+    "rank": "grunt",
+    "cp": 9495,
+    "regime": "rcpm-old",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jmukqi9/",
+    "evidence": "Flygon - 9495"
+  }
+]
