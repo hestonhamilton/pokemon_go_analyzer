@@ -122,6 +122,22 @@ reading under it. Player CPMs have 49 literal game-master differences above 1e-9
 and no half-level interpolation differences above 1e-9. See the [stats report](../tests/fixtures/sim/stats_report.md)
 for every unresolved row, precision decision, cross-check difference, and reproduction command.
 
+### Damage results
+
+Ordinary damage is ported from the same pinned PvPoke commit as the stats module. No constants or inputs were fitted.
+Venonic and fugerappi each pass all 44 acceptance targets. The retrospective old TL50 table passes 43;
+F2 needs its missing TL41 entry. This includes the two HP checks from the stats module. All 42 damage-dependent targets pass
+under each table. F5's six rows agree for every attack IV 13–15; all IVs 0–15 were checked.
+
+The Shadow Tyranitar/Ducklett cell, an open discrepancy, still needs five hits at the stated attack IV 14,
+against four recorded; at IV 15 it gives four, so a misreported IV is one plausible explanation. It keeps
+three strict xfails. F3's calculated eight-hit claim reproduces as a weak check. Its recorded remaining-HP
+claim needs the turn loop and is skipped. Weak F1, F7 and F8 checks match. F9 matches only conditionally on its
+missing trainer level and IV. The Mega flag does not boost Confusion in pinned PvPoke. Ledger q stays open.
+The port matches pinned JavaScript exactly in 1,296 raw-damage cases and 6,156 type combinations.
+See the [damage report](../tests/fixtures/sim/damage_report.md) for variant results, IV ranges, boundary distances,
+source lines and interpretation calls. The simulator remains unvalidated.
+
 ## What can honestly be claimed
 
 **"Pretty dang sure" is supported for:**
