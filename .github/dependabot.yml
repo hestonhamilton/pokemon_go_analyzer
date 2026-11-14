@@ -1,0 +1,46 @@
+# Dependabot version updates (modelled on sillysnippets' researched config). Alerts and
+# security updates are repository SETTINGS, switched on by the repo-bootstrap script.
+# Majors match no group, so each major arrives as its own PR.
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+      timezone: "UTC"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 3
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions-minor-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:45"
+      timezone: "UTC"
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 3
+    labels: ["dependencies", "pre-commit"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      pre-commit-minor-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # gitleaks is pinned by hand: its latest release is a lightweight tag (see .pre-commit-config.yaml).
+      # Both spellings, because the docs don't say whether the name is the repo path or its URL.
+      - dependency-name: "gitleaks/gitleaks"
+      - dependency-name: "https://github.com/gitleaks/gitleaks"

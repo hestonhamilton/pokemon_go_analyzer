@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.2.1
+_src_path: gh:hestonhamilton/dotfiles
+beads_prefix: pgo
+ci: true
+existing_code: true
+lang: py
+repo_name: pokemon_go_analyzer
+visibility: public
