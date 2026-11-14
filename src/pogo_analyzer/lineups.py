@@ -1,5 +1,6 @@
 """Load current Rocket lineups and resolve their Pokebattler IDs."""
 
+import sys
 from dataclasses import dataclass
 
 from pogo_analyzer.pokebattler import NotFound, build_rocket_url
@@ -52,19 +53,26 @@ def load_lineups(client):
             if kind == "Executive"
             else "Giovanni"
             if kind == "Giovanni"
-            else (f"{typ} grunt ({ {1: 'male', 2: 'female'}.get(entry['gender'], 'unknown') })")
+            else (f"{typ} grunt ({ {1: 'male', 2: 'female'}.get(entry.get('gender'), 'unknown') })")
         )
         slots = []
         for slot in ("first", "second", "third"):
             pool = []
-            for encounter in entry["encounters"][slot]:
+            for encounter in (entry.get("encounters") or {}).get(slot, []):
+                if not isinstance(encounter, dict) or "id" not in encounter:
+                    print(
+                        f"Skipping malformed encounter in {name}, {slot}: missing id",
+                        file=sys.stderr,
+                    )
+                    continue
                 template = encounter.get("template")
                 base = species.get(encounter["id"])
                 if base is None and not template:
                     # Dex number PvPoke doesn't list yet: keep it visible, unresolvable.
                     pool.append(Encounter(f"dex_{encounter['id']}", []))
                     continue
-                candidates = [template, f"{template}_FORM"] if template else [base.upper()]
+                base_id = template or base.upper()
+                candidates = [base_id, f"{base_id}_FORM"]
                 pool.append(Encounter(template.lower() if template else base, candidates))
             slots.append(pool)
         characters.append(Character(name, f"RAID_LEVEL_{level}", slots))

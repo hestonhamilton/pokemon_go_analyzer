@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 from pathlib import Path
 
@@ -62,7 +64,7 @@ def test_lineups_and_shields():
         "Cliff",
         "Giovanni",
     ]
-    assert characters[0].slots[0][0].candidates == ["MR_MIME"]
+    assert characters[0].slots[0][0].candidates == ["MR_MIME", "MR_MIME_FORM"]
     assert characters[0].slots[1][0].candidates == [
         "WEEZING_GALARIAN",
         "WEEZING_GALARIAN_FORM",
@@ -97,10 +99,21 @@ def test_output(fmt, capsys):
         )
         == 0
     )
-    out = capsys.readouterr().out
-    assert cli.CREDITS in out and "GAMMA" in out
+    captured = capsys.readouterr()
+    out = captured.out
+    assert "GAMMA" in out
     if fmt == "json":
         assert json.loads(out)["credits"] == cli.CREDITS
+        assert not captured.err
+    elif fmt == "csv":
+        rows = list(csv.reader(io.StringIO(out)))
+        assert rows[0] == list(cli.FIELDS)
+        assert len(rows) == 4
+        assert all(len(row) == len(cli.FIELDS) for row in rows)
+        assert cli.CREDITS not in out
+        assert cli.CREDITS in captured.err
+    else:
+        assert cli.CREDITS in out
     assert FakeClient.instances[1].kwargs["max_requests"] == 7
 
 
@@ -114,7 +127,9 @@ def test_tally(capsys):
 def test_blocked(capsys):
     FakeClient.blocked = True
     assert cli.main(["counters", "--defender", "TEST", "--tier", "RAID_LEVEL_1"]) == 3
-    assert "429; 1 requests made; stopping" in capsys.readouterr().err
+    assert "stopped: fight.pokebattler.com returned HTTP 429 after 1 requests; try again later" in (
+        capsys.readouterr().err
+    )
 
 
 def test_requests_default_view_whatever_the_sort():
@@ -173,3 +188,111 @@ def test_explicit_shield_options():
     url = FakeClient.instances[1].urls[0]
     assert "shieldStrategy=SHIELD_2" in url
     assert "defenderShieldStrategy=SHIELD_1" in url
+
+
+def test_lineup_tolerates_missing_gender_slots_and_encounter_id(monkeypatch, capsys):
+    data = fixture("lineups.json")
+    entry = data["1"]
+    del entry["gender"]
+    entry["encounters"] = {"first": [{"template": "BAD"}, {"id": 122}]}
+    original = FakeClient.get_json
+    monkeypatch.setattr(
+        FakeClient,
+        "get_json",
+        lambda self, url: data if url == lineups.EVENT_INFO_URL else original(self, url),
+    )
+    character = lineups.load_lineups(FakeClient("cache"))[0]
+    assert character.name == "Fire grunt (unknown)"
+    assert character.slots[1:] == [[], []]
+    assert len(character.slots[0]) == 1
+    assert "Skipping malformed encounter" in capsys.readouterr().err
+
+
+def test_dex_only_form_fallback(capsys):
+    FakeClient.missing = {"/MR_MIME/"}
+    assert cli.main(["counters", "--character", "fire", "--slot", "1"]) == 0
+    assert len(FakeClient.instances[1].urls) == 2
+    assert "MR_MIME_FORM" in capsys.readouterr().out
+
+
+def test_tally_counts_defender_per_tier(monkeypatch, capsys):
+    encounter = lineups.Encounter("test", ["TEST"])
+    monkeypatch.setattr(
+        cli,
+        "load_lineups",
+        lambda source: [
+            lineups.Character("test", "RAID_LEVEL_1", [[encounter], [], [encounter]]),
+            lineups.Character("test", "RAID_LEVEL_4", [[encounter], [], []]),
+        ],
+    )
+    assert cli.main(["tally", "--character", "test", "--format", "json"]) == 0
+    row = json.loads(capsys.readouterr().out)["results"][0]
+    assert row["count"] == 2
+    assert row["defenders"] == "TEST (RAID_LEVEL_1), TEST (RAID_LEVEL_4)"
+
+
+@pytest.mark.parametrize(
+    ("key", "field"),
+    [
+        ("overall_rating", "overallRating"),
+        ("power", "power"),
+        ("tdo", "tdo"),
+        ("win_ratio", "winRatio"),
+    ],
+)
+def test_output_uses_selected_moveset(monkeypatch, capsys, key, field):
+    data = fixture("rocket_counters_sample.json")
+    data["attackers"][0]["randomMove"]["defenders"][0]["byMove"][0]["result"][field] = 100
+    monkeypatch.setattr(FakeClient, "get_json", lambda self, url: data)
+    assert (
+        cli.main(
+            [
+                "counters",
+                "--defender",
+                "TEST",
+                "--tier",
+                "RAID_LEVEL_1",
+                "--sort",
+                key,
+                "--format",
+                "json",
+                "--top",
+                "1",
+            ]
+        )
+        == 0
+    )
+    row = json.loads(capsys.readouterr().out)["results"][0]
+    assert row["counter_id"] == "ALPHA"
+    assert row["charged_move"] == "CHARGED_0"
+    assert row[key] == 100
+
+
+def test_time_output_keeps_loser_own_time(monkeypatch, capsys):
+    data = fixture("rocket_counters_sample.json")
+    counters = data["attackers"][0]["randomMove"]["defenders"]
+    for counter in counters[1:]:
+        for move in counter["byMove"]:
+            move["result"]["winRatio"] = 0
+            move["result"]["effectiveCombatTime"] = 123
+    monkeypatch.setattr(FakeClient, "get_json", lambda self, url: data)
+    assert (
+        cli.main(
+            [
+                "counters",
+                "--defender",
+                "TEST",
+                "--tier",
+                "RAID_LEVEL_1",
+                "--sort",
+                "time",
+                "--format",
+                "json",
+            ]
+        )
+        == 0
+    )
+    rows = json.loads(capsys.readouterr().out)["results"]
+    assert [row["counter_id"] for row in rows] == ["ALPHA", "GAMMA", "BETA"]
+    assert rows[0]["time_s"] == 9.1
+    assert rows[1]["time_s"] == 0.123

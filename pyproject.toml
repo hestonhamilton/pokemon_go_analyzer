@@ -1,6 +1,10 @@
 [project]
 name = "pokemon-go-analyzer"
 version = "0.1.0"
+description = "Explore Pokémon GO Rocket lineups and rank counter simulations."
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = []
 
@@ -11,7 +15,7 @@ pogo-analyzer = "pogo_analyzer.cli:main"
 dev = ["pytest==9.2.0"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

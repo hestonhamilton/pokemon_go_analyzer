@@ -1,15 +1,21 @@
+import fcntl
 import io
 import json
+from email.message import Message
 from urllib.error import HTTPError
 from urllib.parse import urlparse
+from urllib.request import HTTPHandler, build_opener
+from urllib.response import addinfourl
 
 import pytest
 
+from pogo_analyzer import pokebattler
 from pogo_analyzer.pokebattler import (
     BudgetExceeded,
     NotFound,
     PoliteClient,
     RateLimitedOrBlocked,
+    UnexpectedStatus,
     build_rocket_url,
 )
 
@@ -126,4 +132,116 @@ def test_blocked_no_retry_or_cache(tmp_path, status):
         client.get_json("https://example.test")
     assert exc.value.status == status
     assert client.network_requests == 1
+    assert {path.name for path in tmp_path.iterdir()} == {".pace.lock", ".pace.json"}
+
+
+def test_shared_pacing_between_client_instances_and_lock_during_request(tmp_path):
+    clock = FakeTime()
+    starts = []
+
+    def opener(request, timeout):
+        with (tmp_path / ".pace.lock").open("a") as lock:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        starts.append(clock.now)
+        return Response(b"{}")
+
+    clients = [
+        PoliteClient(
+            tmp_path,
+            opener=opener,
+            wall_clock=clock.clock,
+            clock=lambda: 0,
+            sleep=clock.sleep,
+        )
+        for _ in range(2)
+    ]
+    clients[0].get_json("https://example.test/a")
+    clock.now += 0.5
+    clients[1].get_json("https://example.test/b")
+    assert clock.sleeps == [1.5]
+    assert starts == [100, 102]
+    assert json.loads((tmp_path / ".pace.json").read_text())["last_request_start"] == 102
+    with (tmp_path / ".pace.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def test_cache_atomic_replace_and_no_temporary_files(tmp_path, monkeypatch):
+    original_replace = pokebattler.os.replace
+    replacements = []
+
+    def replace(source, destination):
+        assert source.parent == destination.parent == tmp_path
+        assert json.loads(source.read_text())["body"] == {"ok": True}
+        assert not destination.exists()
+        replacements.append(destination)
+        original_replace(source, destination)
+
+    monkeypatch.setattr(pokebattler.os, "replace", replace)
+    client = PoliteClient(
+        tmp_path, min_interval=0, opener=lambda *a, **kw: Response(b'{"ok":true}')
+    )
+    assert client.get_json("https://example.test") == {"ok": True}
+    assert len(replacements) == 1
+    assert list(tmp_path.iterdir()) == replacements
+
+
+def test_failed_atomic_replace_cleans_temporary_files(tmp_path, monkeypatch):
+    def fail(source, destination):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(pokebattler.os, "replace", fail)
+    client = PoliteClient(tmp_path, min_interval=0, opener=lambda *a, **kw: Response(b"{}"))
+    with pytest.raises(pokebattler.NetworkError, match="example.test"):
+        client.get_json("https://example.test")
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("status", [400, 302, 404, 403, 429, 503])
+def test_http_error_response_closed(tmp_path, status):
+    stream = io.BytesIO()
+
+    def opener(request, timeout):
+        raise HTTPError(request.full_url, status, "test", {}, stream)
+
+    client = PoliteClient(tmp_path, min_interval=0, opener=opener)
+    with pytest.raises((NotFound, RateLimitedOrBlocked, UnexpectedStatus)):
+        client.get_json("https://example.test")
+    assert stream.closed
+    assert client.network_requests == 1
+
+
+def test_default_opener_refuses_redirect_without_second_request(tmp_path, monkeypatch):
+    calls = []
+    streams = []
+
+    class RedirectTransport(HTTPHandler):
+        def http_open(self, request):
+            calls.append(request.full_url)
+            headers = Message()
+            headers["Location"] = "http://example.test/redirected"
+            stream = io.BytesIO()
+            streams.append(stream)
+            response = addinfourl(stream, headers, request.full_url, 302)
+            response.msg = "Found"
+            return response
+
+    monkeypatch.setattr(
+        pokebattler, "build_opener", lambda *handlers: build_opener(*handlers, RedirectTransport())
+    )
+    client = PoliteClient(tmp_path, min_interval=0, max_requests=1)
+    with pytest.raises(UnexpectedStatus, match="example.test returned HTTP 302"):
+        client.get_json("http://example.test/start")
+    assert calls == ["http://example.test/start"]
+    assert streams[0].closed
+    assert client.network_requests == 1
+    with pytest.raises(BudgetExceeded):
+        client.get_json("http://example.test/start")
+
+
+def test_corrupt_cache_is_refetched(tmp_path):
+    client = PoliteClient(tmp_path, min_interval=0, opener=lambda *a, **kw: Response(b"{}"))
+    client.get_json("https://example.test")
+    next(tmp_path.glob("*.json")).write_text('{"partial":')
+    assert client.get_json("https://example.test") == {}
+    assert client.network_requests == 2

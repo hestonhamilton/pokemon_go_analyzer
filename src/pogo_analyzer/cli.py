@@ -8,7 +8,15 @@ from collections import defaultdict
 from pathlib import Path
 
 from pogo_analyzer.lineups import default_shield_strategy, load_lineups, resolve_defender
-from pogo_analyzer.pokebattler import BudgetExceeded, PoliteClient, RateLimitedOrBlocked
+from pogo_analyzer.pokebattler import (
+    BadResponse,
+    BudgetExceeded,
+    NetworkError,
+    NotFound,
+    PoliteClient,
+    RateLimitedOrBlocked,
+    UnexpectedStatus,
+)
 from pogo_analyzer.rocket_counters import parse_rocket_response, rank
 
 CREDITS = (
@@ -74,12 +82,20 @@ def output(rows, fields, fmt):
         writer = csv.DictWriter(sys.stdout, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
-        print(CREDITS)
+        print(CREDITS, file=sys.stderr)
     else:
         print(" | ".join(fields))
         for row in rows:
             print(" | ".join(str(row[field]) for field in fields))
         print(CREDITS)
+
+
+def stopped(exc, requests):
+    if isinstance(exc, RateLimitedOrBlocked):
+        print(f"stopped: {exc} after {requests} requests; try again later", file=sys.stderr)
+        return 3
+    print(f"stopped: {exc} after {requests} requests", file=sys.stderr)
+    return 4
 
 
 def main(argv=None):
@@ -113,32 +129,48 @@ def main(argv=None):
                 if args.slot is None or args.slot == i
                 for e in pool
             ]
-        rows, tally, seen = [], defaultdict(set), set()
-        sort_key = "effective_combat_time_ms" if args.sort == "time" else args.sort
+        pending, seen = [], set()
         for candidates, tier, slot in selections:
             shield_strategy = args.shield_strategy or default_shield_strategy(slot)
             key = (tuple(candidates), tier, shield_strategy)
-            if key in seen:
-                continue
-            seen.add(key)
-            resolved = resolve_defender(
-                client,
-                candidates,
-                tier,
-                args.attacker_level,
-                # Use the site sort and rank results locally.
-                sort="POWER",
-                shield_strategy=shield_strategy,
-                defender_shield_strategy=args.defender_shield_strategy,
-            )
+            if key not in seen:
+                seen.add(key)
+                pending.append((candidates, tier, shield_strategy))
+        rows, tally = [], defaultdict(set)
+        stop = None
+        remaining = []
+        sort_key = "effective_combat_time_ms" if args.sort == "time" else args.sort
+        for position, (candidates, tier, shield_strategy) in enumerate(pending):
+            try:
+                resolved = resolve_defender(
+                    client,
+                    candidates,
+                    tier,
+                    args.attacker_level,
+                    # Use the site sort and rank results locally.
+                    sort="POWER",
+                    shield_strategy=shield_strategy,
+                    defender_shield_strategy=args.defender_shield_strategy,
+                )
+            except (BudgetExceeded, RateLimitedOrBlocked) as exc:
+                stop = exc
+                remaining = pending[position:]
+                break
             if resolved is None:
                 print(f"Unresolved defender: {', '.join(candidates)} ({tier})", file=sys.stderr)
                 continue
             defender, data = resolved
-            for index, counter in enumerate(
-                rank(parse_rocket_response(data).counters, sort_key)[: args.top], 1
-            ):
-                best = counter.best
+            try:
+                counters = parse_rocket_response(data, tier=tier).counters
+            except ValueError:
+                counters = []
+            if not counters:
+                print(
+                    f"Unresolved defender: {defender} ({tier}): no usable results", file=sys.stderr
+                )
+                continue
+            for index, counter in enumerate(rank(counters, sort_key)[: args.top], 1):
+                best = counter.best_for(sort_key)
                 rows.append(
                     dict(
                         defender=defender,
@@ -153,28 +185,33 @@ def main(argv=None):
                         time_s=best.effective_combat_time_ms / 1000,
                     )
                 )
-                tally[counter.pokemon_id].add(defender)
+                tally[counter.pokemon_id].add((defender, tier))
         if args.command == "tally":
             fields = ("counter_id", "count", "defenders")
             rows = [
-                dict(counter_id=k, count=len(v), defenders=", ".join(sorted(v)))
+                dict(
+                    counter_id=k,
+                    count=len(v),
+                    defenders=", ".join(f"{defender} ({tier})" for defender, tier in sorted(v)),
+                )
                 for k, v in sorted(tally.items(), key=lambda item: (-len(item[1]), item[0]))
             ]
         else:
             fields = FIELDS
         output(rows, fields, args.format)
+        if stop is not None:
+            code = stopped(stop, client.network_requests + source.network_requests)
+            for candidates, tier, _ in remaining:
+                print(f"Not fetched: {', '.join(candidates)} ({tier})", file=sys.stderr)
+            return code
         return 0
     except RateLimitedOrBlocked as exc:
-        requests = client.network_requests + source.network_requests
-        print(
-            f"HTTP {exc.status}; {requests} requests made; "
-            "stopping; fall back to the browser option only on the owner's decision",
-            file=sys.stderr,
-        )
-        return 3
+        return stopped(exc, client.network_requests + source.network_requests)
     except BudgetExceeded as exc:
-        print(exc, file=sys.stderr)
-        return 4
+        return stopped(exc, client.network_requests + source.network_requests)
+    except (NetworkError, UnexpectedStatus, BadResponse, NotFound) as exc:
+        print(f"stopped: {exc}", file=sys.stderr)
+        return 5
 
 
 if __name__ == "__main__":
