@@ -9,3 +9,7 @@ venv/*
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+.venv/
+.cache/
+__pycache__/
