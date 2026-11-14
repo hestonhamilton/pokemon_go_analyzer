@@ -5,6 +5,7 @@ or network. Existing cache files are read only, including on repeated runs.
 Run: uv run python tools/parity/pvpoke_battle_parity.py
 """
 
+import hashlib
 import json
 import random
 import subprocess
@@ -19,16 +20,26 @@ from pogo_analyzer.sim.stats import player_stats
 
 SHA = "426e5e9f39d3a027849698fb2f5edd9df6056cbf"
 SOURCE = Path(".cache/fixture-sources") / f"pvpoke-{SHA}"
-FILES = (
-    "src/js/battle/Battle.js",
-    "src/js/battle/DamageCalculator.js",
-    "src/js/battle/actions/ActionLogic.js",
-    "src/js/battle/timeline/TimelineAction.js",
-    "src/js/battle/timeline/TimelineEvent.js",
-    "src/js/pokemon/Pokemon.js",
-    "src/data/gamemaster.json",
-    "LICENSE",
-)
+# SHA-256 of each pinned file, checked on fetch and on every run (cached or not).
+CHECKSUMS = {
+    "src/js/battle/Battle.js": "65765dc0214710f6587b4e5d5a07a7bf8d2639090be6a5a59270650d6d5225b4",
+    "src/js/battle/DamageCalculator.js": (
+        "557b9345367a272e7822b47d346b67ae05d4124050e9d3876fb2446246915f31"
+    ),
+    "src/js/battle/actions/ActionLogic.js": (
+        "9a5a7bb28a01c115e18e5b904646f5fb18bf1b17c2bf8757d2d90144ef7d0e30"
+    ),
+    "src/js/battle/timeline/TimelineAction.js": (
+        "00b77e8e046b74d52d8c385a29ea529bbedfbea0edd7ff64cf49719d2e97cba2"
+    ),
+    "src/js/battle/timeline/TimelineEvent.js": (
+        "a7793ddbc398769cfb6d8a0f539aa96f597eac3127f5cb594cf94eab7bf70f37"
+    ),
+    "src/js/pokemon/Pokemon.js": "a3646035edfe30e8136e8121ed3981aec2bcf094dca582354234b79eca34321e",
+    "src/data/gamemaster.json": "dff1f13b501c853ec57139cd23c6979b21f671672baa9a9b3085dc1e5377bd52",
+    "LICENSE": "3c8500ea8ad3bc42dbaccaf2e0ebfb2950b7db69b3ed56b80d5805dd02078924",
+}
+FILES = tuple(CHECKSUMS)
 
 ORACLE = r"""
 const fs = require('fs'), vm = require('vm');
@@ -142,6 +153,10 @@ def fetch_sources():
                 stream.write(data)
         except FileExistsError:
             pass
+    for name, expected in CHECKSUMS.items():
+        digest = hashlib.sha256((SOURCE / name).read_bytes()).hexdigest()
+        if digest != expected:
+            raise SystemExit(f"checksum mismatch for pinned {name}: {digest}")
 
 
 def fixture_sides(row, table, rocket_fast=None):
@@ -181,11 +196,11 @@ def build_cases():
         )
 
     for policy in ("fast_only", "charged_when_ready"):
-        for a_turns in range(1, 5):
-            for b_turns in range(1, 5):
+        for a_turns in range(1, 6):
+            for b_turns in range(1, 6):
                 for n in range(10):
                     sides = []
-                    for duration in (a_turns, b_turns):
+                    for side, duration in enumerate((a_turns, b_turns)):
                         fast = Move(
                             "FAST",
                             rng.choice(("normal", "steel", "dark")),
@@ -205,7 +220,8 @@ def build_cases():
                                 ("steel", "none"),
                                 fast,
                                 charged,
-                                shadow=rng.choice((False, True)),
+                                # Player only: the Rocket side is shadow by rule.
+                                shadow=rng.choice((False, True)) and side == 0,
                                 energy=rng.choice((0, 29, 95, 100)),
                             )
                         )

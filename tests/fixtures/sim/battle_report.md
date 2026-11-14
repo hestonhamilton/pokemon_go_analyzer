@@ -64,13 +64,18 @@ and actual resolutions, without changing their behavior. After every `step()`, t
 both Pokemon's HP and energy. Python compares every row, including starts, cancellations,
 resolutions and nominal damage. A mismatch prints its case and first differing turn and exits 1.
 
-The deterministic seed is 426. Both policies cover all 16 pairs of 1-, 2-, 3- and 4-turn moves,
-ten stat/HP/energy configurations each. Named cases cover equal/unequal-attack lethal charged
+The deterministic seed is 426. Both policies cover all 25 pairs of 1- to 5-turn moves,
+ten stat/HP/energy configurations each. Only the player side is ever shadow; the Rocket side is
+shadow by rule. Named cases cover equal/unequal-attack lethal charged
 ties, surviving charged ties, double fast KOs and repeated energy overflow. The same run checks
 F3 and F1 under both complete old tables. Random cases include fast/charged races, unfinished fast
 moves and 0/29/95/100 initial energy. Unit tests separately pin the ordering rules by hand.
 
-`Battle.js parity: 334 cases; 12510 turns; 0 mismatches (HP, energy, actions, damage)`
+`Battle.js parity: 514 cases; 20817 turns; 0 mismatches (HP, energy, actions, damage)`
+
+The tool checks the SHA-256 of every pinned source file, fetched or cached, before running.
+The shield callback is covered by unit tests only: the oracle starts with zero shields, so it is
+not part of this parity result.
 
 ## F3: recorded Metagross remaining HP
 
@@ -168,17 +173,9 @@ Snubbull submits and registers its 1-turn fast move every turn: Tackle does 4, B
 - Tests use checked-in fixture data and no ignored cache. The autouse network block is unchanged.
   The old F3 skips in the damage-only tests remain; the new turn tests report it separately.
   Calculator outputs, CLI, fixture grading and existing test expectations are unchanged.
-- No commits, staging, branch changes or pushes. Existing cache contents are read only. New
-  files contain no personal data, secrets or attribution trailers. No additional simulator
-  services were consulted.
 
-Before: `uv run pytest -q` → **1541 passed, 4 skipped, 44 xfailed, 35 xpassed**.
-
-After: `uv run pytest -q` → **1563 passed, 4 skipped, 46 xfailed, 39 xpassed**.
-The two added strict xfails are the F3 recorded mismatch; the four added non-strict XPASS
-reports are F1 under two moves and two old tables. Running the suite with
-`--ignore=tests/test_sim_battle.py` preserves the baseline summary exactly.
-
-`pre-commit run --all-files` and `pre-commit run --files src/pogo_analyzer/sim/battle.py
-tools/parity/pvpoke_battle_parity.py tests/test_sim_battle.py tests/fixtures/sim/battle_report.md`
-pass. The explicit file check includes all four untracked files.
+The turn-loop tests add two strict xfails, the F3 recorded mismatch under both gate tables, and
+four non-strict XPASS reports, F1's weak record under two moves and both gate tables. F1's turn
+structure (the observation limit and the energy after seven hits) is a plain test that can fail.
+Running the suite with `--ignore=tests/test_sim_battle.py` gives the same results as without the
+turn loop.

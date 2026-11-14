@@ -39,7 +39,7 @@ def fighter(*, turns=1, power=0, hp=100, energy=0, attack=100, gain=10):
     )
 
 
-@pytest.mark.parametrize("duration", (1, 2, 3, 4))
+@pytest.mark.parametrize("duration", (1, 2, 3, 4, 5))
 def test_duration_registration_and_energy(duration):
     # Battle.js 367,405–409: start at 1, hit at duration; next start duration+1.
     result = simulate(fighter(turns=duration), fighter(turns=duration), max_turns=duration * 2)
@@ -191,6 +191,55 @@ def test_ledger_j_next_turn_is_an_explicit_option():
     assert result.rules.ledger_j_next_turn_charged
 
 
+def test_ledger_j_next_turn_opponent_charge_resolves_after():
+    # Decisions come before resolution: on t2, while the player's charge from t1
+    # resolves, the Rocket (now at 10 energy) submits its own; it resolves on t3,
+    # the turn after a charge, which accepts no new inputs; t4 is empty.
+    result = simulate(
+        fighter(energy=10, hp=1000),
+        fighter(energy=10, hp=1000, gain=0),
+        player_policy=ChargedWhenReady(),
+        rocket_policy=ChargedWhenReady(),
+        rules=Rules(ledger_j_next_turn_charged=True),
+        max_turns=4,
+    )
+    actions = [t.actions for t in result.timeline]
+    assert actions[0] == (("charged:queue:C",), ("charged:queue:C",))
+    assert actions[1] == (
+        ("charged:start:C", "charged:hit:C"),
+        ("charged:start:C", "charged:hit:C"),
+    )
+    assert result.rules.ledger_j_next_turn_charged
+
+
+def test_ledger_j_next_turn_staggered_charges():
+    # The documented example: player charges at t1, Rocket reaches energy on t1
+    # (its fast hit) and submits at t2; t2 player hits, t3 Rocket hits, t4 empty.
+    result = simulate(
+        fighter(energy=10, hp=1000),
+        fighter(energy=0, hp=1000, gain=10),
+        player_policy=ChargedWhenReady(),
+        rocket_policy=ChargedWhenReady(),
+        rules=Rules(ledger_j_next_turn_charged=True),
+        max_turns=4,
+    )
+    rows = [t.actions for t in result.timeline]
+    assert rows[0][0] == ("charged:queue:C",)
+    assert "charged:hit:C" in rows[1][0] and "charged:queue:C" in rows[1][1]
+    assert "charged:hit:C" in rows[2][1]
+    assert rows[3] == ((), ())
+
+
+def test_rocket_shadow_flag_and_negative_power_are_rejected():
+    with pytest.raises(ValueError, match="Rocket side is always shadow"):
+        simulate(fighter(), replace(fighter(), shadow=True))
+    bad = Move("C", "normal", -1, 1, energy=10)
+    with pytest.raises(ValueError, match="power must be finite and nonnegative"):
+        replace(fighter(), charged=(bad,))
+    with pytest.raises(ValueError, match="power must be finite and nonnegative"):
+        replace(fighter(), fast=Move("F", "normal", -1, 1, energy_gain=10))
+
+
 @pytest.mark.parametrize("next_turn", (False, True))
 def test_ledger_j_both_fire_overrides_unequal_attack_cancellation(next_turn):
     result = simulate(
@@ -256,17 +305,27 @@ def test_f3_recorded_remaining_report(table):
 
 @pytest.mark.parametrize("table", OLD_TABLES)
 @pytest.mark.parametrize("rocket_fast", ("TACKLE", "BITE"))
+def test_f1_turn_structure(table, rocket_fast):
+    # Plain test, so it can fail: seven Bullet Punches land on turns 2, 4, ..., 14,
+    # the run stops at the 14-turn observation limit, and 7 x 7 energy = 49.
+    row = BATTLES["F1-snubbull-remaining"]
+    result = fixture_battle(row, table, rocket_fast, max_turns=14)
+    assert result.limit_reached and result.winner is None
+    assert [t.number for t in result.timeline if t.damage[0]] == [2, 4, 6, 8, 10, 12, 14]
+    assert result.timeline[-1].energy[0] == 49
+
+
+@pytest.mark.parametrize("table", OLD_TABLES)
+@pytest.mark.parametrize("rocket_fast", ("TACKLE", "BITE"))
 @pytest.mark.xfail(
     strict=False,
     raises=AssertionError,
     reason="F1 weak calculated record; Rocket fast move unknown; explicit sensitivity",
 )
 def test_f1_weak_remaining_report(table, rocket_fast):
-    # Seven BP hits at turns 2,4,...,14: 134 - 7*19 = 1. Observation limit,
-    # not a completed battle. No Rocket fast move is asserted for this record.
+    # Only the weak record's value is compared here: 134 - 7*19 = 1.
     row = BATTLES["F1-snubbull-remaining"]
     result = fixture_battle(row, table, rocket_fast, max_turns=14)
-    assert result.limit_reached and result.timeline[-1].energy[0] == 49
     assert result.hp[1] == row["observed"]["value"], result
 
 

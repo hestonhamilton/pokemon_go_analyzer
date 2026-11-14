@@ -1,8 +1,9 @@
 """Deterministic, estimated 1v1 turn mechanics. No Rocket decision model.
 
 Ported from PvPoke (MIT, copyright 2019 pvpoke), commit
-426e5e9f39d3a027849698fb2f5edd9df6056cbf, src/js/battle/Battle.js.
-Line citations below refer to that file. Full notice: data/PVPoke-LICENSE.
+426e5e9f39d3a027849698fb2f5edd9df6056cbf. Bare line numbers below cite
+src/js/battle/Battle.js; citations into other files name the file (for
+example Pokemon.js). Full notice: data/PVPoke-LICENSE.
 Only ordinary, unbuffed moves are represented by calculator.Move. Forms,
 move effects, switching, Rocket pauses, shield inventories and timers are absent.
 """
@@ -21,7 +22,12 @@ BASE_LEDGER_ROWS = ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j")
 
 @dataclass(frozen=True)
 class Combatant:
-    """Unmodified stats; the second combatant is always treated as shadow Rocket."""
+    """Unmodified stats. The second combatant is the Rocket side, always shadow.
+
+    ``shadow`` applies to the player only. The Rocket side is shadow by rule
+    (ledger g), so simulate() rejects a Rocket combatant with shadow=True rather
+    than appear to honour a flag it ignores.
+    """
 
     attack: float
     defence: float
@@ -41,6 +47,11 @@ class Combatant:
             raise ValueError("energy must be an integer")
         if not 0 <= self.energy <= ENERGY_CAP:
             raise ValueError("starting energy must be 0–100")
+        if any(
+            isinstance(m.power, bool) or not math.isfinite(m.power) or m.power < 0
+            for m in (self.fast, *self.charged)
+        ):
+            raise ValueError("move power must be finite and nonnegative")
         if (
             not math.isfinite(self.fast.turns)
             or self.fast.turns < 1
@@ -107,7 +118,16 @@ class ChargedWhenReady(NeverShield):
 
 @dataclass(frozen=True)
 class Rules:
-    """Defaults are pinned PvPoke. Alternatives are ledger-j estimates, not parity."""
+    """Defaults are pinned PvPoke. Alternatives are ledger-j estimates, not parity.
+
+    ledger_j_next_turn_charged: a charge submitted on turn t starts and resolves
+    on t + 1. Decisions still come before resolution, so the opponent may submit
+    its own charge on t + 1, while the first one resolves; that second charge then
+    resolves on t + 2, the turn after a charge, which accepts no new inputs.
+    Example: t1 player submits, t2 player's charge hits and the Rocket submits,
+    t3 the Rocket's charge hits, t4 no inputs. This is an estimate of ledger j,
+    not a measured Rocket timeline.
+    """
 
     ledger_j_next_turn_charged: bool = False
     ledger_j_both_charged_fire: bool = False
@@ -168,6 +188,8 @@ def simulate(
     """
     if isinstance(max_turns, bool) or not isinstance(max_turns, int) or max_turns < 1:
         raise ValueError("max_turns must be a positive integer")
+    if rocket.shadow:
+        raise ValueError("the Rocket side is always shadow (ledger g); leave its shadow unset")
     combatants = (player, rocket)
     policies = (player_policy or FastOnly(), rocket_policy or FastOnly())
     shields = (player_shield_policy or policies[0], rocket_shield_policy or policies[1])
