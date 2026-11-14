@@ -151,8 +151,7 @@ def test_unavailable_level_raises(row, table, level):
         predictions(row, table, level)
 
 
-@pytest.mark.parametrize("table", OLD_TABLES)
-def test_f1_metagross_hp(table):
+def test_f1_metagross_hp():
     fixture = BATTLES["F1-metagross-hp"]
     assert fixture["basis"] == "recorded" and fixture["status"] == "expected_pass"
     player = fixture["player"]
@@ -165,8 +164,6 @@ def test_f1_metagross_hp(table):
     )
     assert result.hp == fixture["observed"]["value"] == 163
     assert result.form == "shadow"
-    # F1 player stats do not depend on the selected Rocket table.
-    assert rcpm(fixture["trainer_level"], table) > 0
 
 
 @pytest.mark.parametrize("table", OLD_TABLES)
@@ -283,6 +280,19 @@ def test_rocket_floors_attack_iv_and_hp_before_scaling():
     assert result.hp == 2  # No player HP minimum is asserted for Rockets.
 
 
+def test_player_stats_missing_key_and_shedinja():
+    with pytest.raises(ValueError, match="missing base stat hp"):
+        player_stats({"atk": 1, "def": 1}, {"atk": 0, "def": 0, "hp": 0}, 1)
+    with pytest.raises(ValueError, match="missing IV def"):
+        player_stats({"atk": 1, "def": 1, "hp": 1}, {"atk": 0, "hp": 0}, 1)
+    # Shedinja (base 153/73/1): (1 + 15) * 0.84029999 = 13.44 -> 13 without the
+    # override; PvPoke Pokemon.js L384-388 sets dex 292 to 10 HP.
+    shedinja = {"atk": 153, "def": 73, "hp": 1}
+    full = {"atk": 15, "def": 15, "hp": 15}
+    assert player_stats(shedinja, full, 50).hp == 13
+    assert player_stats(shedinja, full, 50, dex=292).hp == 10
+
+
 def test_table_precision_and_unmodified_estimates():
     assert rcpm(50, "venonic-2023") == 1.31502
     assert rcpm(50, "fugerappi-2023") == 1.315
@@ -343,7 +353,64 @@ def test_table_inventory_and_review_keys():
             assert entry["reason"] == "UNEXPLAINED – needs review"
 
 
-def print_report():
+def test_review_predictions_pinned():
+    # The strict xfails only say "CP mismatches". Pin the predicted value too, so
+    # a formula change that moves a reviewed row (say 11356 -> 11300) fails here.
+    # KNOWN (Gallade) has no stored prediction: its source quote gives 10215.
+    for variant, entries in REVIEW.items():
+        for entry in entries:
+            cases = [
+                (row, table, level)
+                for _, row, v, table, level in CASES
+                if v == variant and row_key(row) == entry["row_key"]
+            ]
+            assert len(cases) == 1, (variant, entry["row_key"])
+            row, table, level = cases[0]
+            assert predictions(row, table, level) == entry["predicted"], entry["row_key"]
+            assert row["cp"] == entry["observed"]
+    (row, table, level), *rest = [
+        (row, table, level)
+        for _, row, v, table, level in CASES
+        if row_key(row) == KNOWN[0]["row_key"] and v in KNOWN[0]["xfail_variants"]
+    ]
+    assert not rest
+    assert predictions(row, table, level) == {"grunt": 10215}
+
+
+# The published headline counts (docs/simulator-verification.md "Stats results"
+# and stats_report.md). Changing a status, a table or the formula must update both.
+PUBLISHED_COUNTS = {
+    "venonic-2023": {
+        "matched": 149,
+        "mismatched": 1,
+        "unexplained": 1,
+        "weak": 5,
+        "unavailable": 16,
+    },
+    "fugerappi-2023": {
+        "matched": 123,
+        "mismatched": 30,
+        "unexplained": 30,
+        "weak": 5,
+        "unavailable": 13,
+    },
+    "flyfunner-old-50-2025": {"matched": 147, "weak": 4, "unavailable": 20},
+    "flyfunner-lower-2023": {"unavailable": 171},
+    "dec-2025": {"matched": 13},
+    "october-tl40-hypothesis:fugerappi-2023": {"matched": 13},
+    "october-tl40-hypothesis:flyfunner-lower-2023": {
+        "matched": 12,
+        "mismatched": 1,
+        "expected_fail": 1,
+    },
+}
+
+
+def test_published_counts():
+    assert summary_counts() == PUBLISHED_COUNTS
+
+
+def summary_counts(report=False):
     counts = {}
     for index, row, variant, table, level in CASES:
         summary = counts.setdefault(variant, Counter())
@@ -353,7 +420,8 @@ def print_report():
         values = predictions(row, table, level)
         if row["status"] == "weak":
             summary["weak"] += 1
-            print(f"{variant} row {index:03} (weak): {row_key(row)}; calculated {values}")
+            if report:
+                print(f"{variant} row {index:03} (weak): {row_key(row)}; calculated {values}")
         elif sum(value == row["cp"] for value in values.values()) == 1:
             summary["matched"] += 1
         else:
@@ -362,8 +430,13 @@ def print_report():
             summary[
                 "unexplained" if reason == "UNEXPLAINED – needs review" else "expected_fail"
             ] += 1
-            print(f"{variant} row {index:03}: {row_key(row)}; calculated {values}; {reason}")
-    print(json.dumps(counts, indent=2))
+            if report:
+                print(f"{variant} row {index:03}: {row_key(row)}; calculated {values}; {reason}")
+    return {variant: dict(counter) for variant, counter in counts.items()}
+
+
+def print_report():
+    print(json.dumps(summary_counts(report=True), indent=2))
     fixture = BATTLES["F1-metagross-hp"]["player"]
     f1 = player_stats(
         SPECIES[fixture["species"]]["baseStats"],

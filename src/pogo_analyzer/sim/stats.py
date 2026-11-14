@@ -38,8 +38,8 @@ class PlayerStats:
 class RocketStats:
     attack: float
     defence: float
-    hp_exact: float
     hp: int
+    hp_exact: float
     cp: int
     rank: str
     table: str
@@ -64,7 +64,10 @@ def player_cpm(level: float) -> float:
 
 
 def _stats(values: Mapping[str, int], *, ivs: bool = False) -> None:
+    # Extra keys are ignored, so PvPoke baseStats mappings pass as they are.
     for key in ("atk", "def", "hp"):
+        if key not in values:
+            raise ValueError(f"missing {'IV' if ivs else 'base stat'} {key}")
         value = values[key]
         if isinstance(value, bool) or not isinstance(value, int) or value < (0 if ivs else 1):
             raise ValueError(f"{key} must be a {'nonnegative' if ivs else 'positive'} integer")
@@ -73,11 +76,17 @@ def _stats(values: Mapping[str, int], *, ivs: bool = False) -> None:
 
 
 def player_stats(
-    base: Mapping[str, int], ivs: Mapping[str, int], level: float, *, form: str = "normal"
+    base: Mapping[str, int],
+    ivs: Mapping[str, int],
+    level: float,
+    *,
+    form: str = "normal",
+    dex: int | None = None,
 ) -> PlayerStats:
     """Unrounded attack/defence, floored battle HP; shadow/purified retain IV stats.
 
     PvPoke Pokemon.js lines 380–382 at the pinned commit implements these stats.
+    Lines 384–388 set Shedinja (dex 292) to 10 HP; pass ``dex`` to apply that.
     Form is metadata only. Purified IVs must already include any purification gain.
     """
     _stats(base)
@@ -89,7 +98,7 @@ def player_stats(
     return PlayerStats(
         attack=(base["atk"] + ivs["atk"]) * cpm,
         defence=(base["def"] + ivs["def"]) * cpm,
-        hp=max(10, math.floor(hp_exact)),
+        hp=10 if dex == 292 else max(10, math.floor(hp_exact)),
         hp_exact=hp_exact,
         form=form,
     )
@@ -117,6 +126,8 @@ def rcpm(trainer_level: int, table: str) -> float:
     Only dec-2025 prescribes a float32 cast. Older tables retain their published
     decimals (including the lower-level table's explicitly estimated column).
     Missing trainer levels raise ValueError, even when a nearby level is known.
+    Trainer levels are whole numbers, so a float such as 50.0 is rejected, unlike
+    player_cpm, whose half levels need floats.
     """
     tables = _data("rcpm.json")
     if table not in tables:
@@ -128,7 +139,7 @@ def rcpm(trainer_level: int, table: str) -> float:
     if entry is None:
         raise ValueError(f"{table} has no trainer level {trainer_level}; no extrapolation")
     value = float(entry["decimal"])
-    return struct.unpack("f", struct.pack("f", value))[0] if source["float32"] else value
+    return struct.unpack("<f", struct.pack("<f", value))[0] if source["float32"] else value
 
 
 def rocket_stats(base: Mapping[str, int], trainer_level: int, rank: str, table: str) -> RocketStats:
@@ -142,6 +153,8 @@ def rocket_stats(base: Mapping[str, int], trainer_level: int, rank: str, table: 
 
     CP uses hp_exact; only battle HP is floored. No shadow multiplier is used
     here. No extra float32 rounding of intermediates is asserted by the source.
+    Unlike cp(), no minimum of 10 is applied, because no source states one for
+    Rocket Pokemon.
     """
     _stats(base)
     if rank not in RANKS:

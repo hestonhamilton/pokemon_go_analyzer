@@ -32,7 +32,10 @@ using a different trainer-level input in the test only. No production lookup map
 TL70 to TL40. Rounded fugerappi TL40 matches 13/13; the lower table's 1.26502
 matches 12/13 and produces Gallade 10215 instead of 10214. The December TL70
 float32 value matches all 13, including Gallade. These checks do not establish
-equivalence of the entire October and December tables.
+equivalence of the entire October and December tables. They also do not test the
+float32 cast: fugerappi's 1.265 in double precision matches the same 13, and no
+reading exercises any dec-2025 level other than TL70. The cast follows the source
+text; only unit tests check it.
 
 | Battle target | venonic-2023 | fugerappi-2023 |
 | --- | --- | --- |
@@ -165,7 +168,7 @@ All 54 half-level values match `sqrt((c1²+c2²)/2)` within 1e-9.
 
 ## Reproduction and hygiene
 
-Validation: `uv run pytest -q` passes with 1,190 passed, 32 strict xfails
+Validation: `uv run pytest -q` passes with 1,192 passed, 32 strict xfails
 (31 unexplained, 1 source-documented), 6 non-strict weak xfails, and 8 non-strict
 xpasses (weak readings that match a CP). Lookups at a trainer level a table lacks are
 a separate test that asserts the lookup raises; they never count as a match.
