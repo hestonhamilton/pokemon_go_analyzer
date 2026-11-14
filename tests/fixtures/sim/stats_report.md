@@ -165,9 +165,10 @@ All 54 half-level values match `sqrt((c1²+c2²)/2)` within 1e-9.
 
 ## Reproduction and hygiene
 
-Validation: `uv run pytest -q` passes with 1,183 passed, 38 strict xfails
-(1 source-documented anomaly and 31 unexplained cases across variants, plus 6 marked
-cases elsewhere) and 14 non-strict xpasses (weak readings that happen to match).
+Validation: `uv run pytest -q` passes with 1,190 passed, 32 strict xfails
+(31 unexplained, 1 source-documented), 6 non-strict weak xfails, and 8 non-strict
+xpasses (weak readings that match a CP). Lookups at a trainer level a table lacks are
+a separate test that asserts the lookup raises; they never count as a match.
 Both pre-commit invocations pass. A wheel build and isolated offline import from
 that wheel verify both JSON resources and the packaged MIT notice. Every stored
 rCPM source quote was checked against the cached post verbatim.

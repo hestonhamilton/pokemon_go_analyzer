@@ -1,7 +1,9 @@
 """Offline stats acceptance checks. Run this file directly to print the review report.
 
-The xfail lists are fixed review decisions, not calculated from current output.
+The xfail lists were frozen after review and are not regenerated from current output.
 New mismatches fail normally; improvements to an xfailed row cause strict XPASS.
+Lookups at a trainer level a table lacks are checked separately, so no row can
+pass (or XPASS) without a CP comparison.
 """
 
 import json
@@ -89,11 +91,24 @@ def xfail_reason(row, variant):
     return None
 
 
+def available(table, level):
+    return str(level) in TABLES[table]["values"]
+
+
 def reading_params():
     for index, row, variant, table, level in CASES:
+        if not available(table, level):
+            continue
         if row["status"] == "weak":
             # Disputed or unstated-rank readings are reported, never gating.
-            marks = [pytest.mark.xfail(strict=False, reason=f"weak: {row['status_reason']}")]
+            # raises= keeps a crash from hiding as an expected failure.
+            marks = [
+                pytest.mark.xfail(
+                    strict=False,
+                    reason=f"weak: {row['status_reason']}",
+                    raises=AssertionError,
+                )
+            ]
         else:
             reason = xfail_reason(row, variant)
             marks = (
@@ -110,20 +125,30 @@ def reading_params():
         )
 
 
+def unavailable_params():
+    for index, row, variant, table, level in CASES:
+        if not available(table, level):
+            yield pytest.param(
+                row, table, level, id=f"{index:03}-{row['species']}-{row['cp']}-{variant}"
+            )
+
+
 @pytest.mark.parametrize("row,table,level", list(reading_params()))
 def test_cp_reading(row, table, level):
-    if str(level) not in TABLES[table]["values"]:
-        # Unavailable is distinct from a matching or a mismatching CP. In
-        # particular neither old table lists TL70; Venonic also omits TL47.
-        with pytest.raises(ValueError, match="no trainer level"):
-            predictions(row, table, level)
-        return
     actual = predictions(row, table, level)
     assert sum(value == row["cp"] for value in actual.values()) == 1, (
         row_key(row),
         actual,
         row["evidence"],
     )
+
+
+@pytest.mark.parametrize("row,table,level", list(unavailable_params()))
+def test_unavailable_level_raises(row, table, level):
+    # Unavailable is neither a match nor a mismatch: the lookup must refuse.
+    # Neither old table lists TL70; Venonic also omits TL47.
+    with pytest.raises(ValueError, match="no trainer level"):
+        predictions(row, table, level)
 
 
 @pytest.mark.parametrize("table", OLD_TABLES)
@@ -231,6 +256,22 @@ def test_rocket_formula_by_hand(rank, attack, defence, hp_exact, battle_hp, expe
     assert result.cp == expected_cp
     assert result.rank == rank
     assert result.table == "fugerappi-2023"
+
+
+def test_rocket_formula_source_example_granbull():
+    # Venonic's own worked example (122pfk8, "Quick Look at the New Stats"):
+    # Granbull, base 207/212/131 HP/ATK/DEF, level 41 trainer:
+    # "|New|8496|168.91|480.07|185.42|". This comes from the formula's source,
+    # not the CP corpus, and pins HP, attack and defence individually.
+    # HP  floor(.6*(207+15)) = 133; 133*1.27002 = 168.91266.
+    # ATK 212 + floor(2/3*212+25) = 212+166 = 378; 378*1.27002 = 480.06756.
+    # DEF (131+15)*1.27002 = 185.42292.
+    result = rocket_stats({"atk": 212, "def": 131, "hp": 207}, 41, "grunt", "venonic-2023")
+    assert round(result.hp_exact, 2) == 168.91
+    assert round(result.attack, 2) == 480.07
+    assert round(result.defence, 2) == 185.42
+    assert result.hp == 168
+    assert result.cp == 8496
 
 
 def test_rocket_floors_attack_iv_and_hp_before_scaling():
