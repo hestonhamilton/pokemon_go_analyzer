@@ -160,6 +160,18 @@ The Rocket move pool copies the PvPoke species lists, including elite and legacy
 Event-info lists species, not moves. The pool is a model. Neither source settles extra shadow
 Frustration, so none is added. Source fetch times accompany every output.
 
+### Turn loop
+
+The offline 1v1 turn loop is an estimate. It ports the pinned PvPoke turn core.
+Fast damage, energy and charged priority match its JavaScript turn by turn.
+Injected policies choose moves and shields. Rocket charged timing remains unknown.
+Named options expose ledger j's next-turn charged start and both charged attacks firing.
+The default follows PvPoke. Rocket pauses, shield inventories, switching and timers are absent.
+F3 ends in a double knockout with 0 HP, against 1 recorded. The discrepancy stays open.
+F1's calculated 1 HP after seven hits reproduces as a weak check.
+See the [turn report](../tests/fixtures/sim/battle_report.md) for source lines,
+parity coverage, fixture traces and assumptions. The calculator and CLI are unchanged.
+
 ## What can honestly be claimed
 
 **"Pretty dang sure" is supported for:**
