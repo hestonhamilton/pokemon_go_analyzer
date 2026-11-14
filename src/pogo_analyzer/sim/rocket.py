@@ -8,6 +8,7 @@ tests/fixtures/sim/rocket_report.md. No Rocket-only acceptance targets exist.
 
 import json
 import math
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -343,6 +344,17 @@ def simulate_rocket(
     if rules.pauses and rules.pause_reading == "cwizz1" and era["id"] not in data["cwizz1"]["eras"]:
         raise ValueError("the cwizz1 reading describes the mar-2026 era only")
     turn_rules = rules.turn_rules
+    overridden = (
+        rules.era_turn_rules
+        and turn_rules.ledger_j_both_charged_fire
+        and not era["both_charged_fire"]
+    )
+    if overridden:
+        warnings.warn(
+            f"era_turn_rules sets ledger_j_both_charged_fire=False for {era['id']}; "
+            "pass era_turn_rules=False to keep the caller's turn_rules",
+            stacklevel=2,
+        )
     if rules.era_turn_rules:
         turn_rules = replace(turn_rules, ledger_j_both_charged_fire=era["both_charged_fire"])
     battle = _RocketBattle(teams, rank, rules, era, data)
@@ -377,6 +389,10 @@ def simulate_rocket(
         "A final knockout takes precedence over timeout on the same turn. "
         "Equal timeout scores draw.",
     ]
+    # Mar 2026 accounts support the trigger and the sum; earlier eras extend them.
+    extension = (
+        "" if era["id"] in data["cwizz1"]["eras"] else f" (applied to {era['id']} by extension)"
+    )
     if rules.pauses:
         reading = era if rules.pause_reading == "9db" else data["cwizz1"]
         source = data["source"] if rules.pause_reading == "9db" else data["cwizz1"]["source"]
@@ -392,7 +408,7 @@ def simulate_rocket(
         evidence.append(
             Evidence(
                 "k",
-                data["trigger_grade"]
+                data["trigger_grade"] + extension
                 if rules.trigger == "any_charged"
                 else "narrower reading of the 9db row; not measured",
                 f"pause_trigger:{rules.trigger}",
@@ -402,7 +418,7 @@ def simulate_rocket(
         evidence.append(
             Evidence(
                 "k",
-                data["composition_grade"],
+                data["composition_grade"] + extension,
                 "pause_composition:sum",
                 data["cwizz1"]["source"],
             )
@@ -426,6 +442,8 @@ def simulate_rocket(
             data["boundary_note"],
             data["faint_note"],
         ]
+        if extension:
+            interpretations.append(data["extension_note"])
     if rules.era_turn_rules:
         for row, option in (
             ("fast_slip_in", "fast_slip_in"),
@@ -445,6 +463,11 @@ def simulate_rocket(
                 "fires is void, on either side; only the first of two simultaneous charged "
                 "moves fires, and the void one keeps its energy. This applies 9db's rows as "
                 "this project reads them."
+            )
+        if overridden:
+            interpretations.append(
+                "era_turn_rules replaced the caller's ledger_j_both_charged_fire=True "
+                "with the era's value."
             )
     else:
         interpretations.append(

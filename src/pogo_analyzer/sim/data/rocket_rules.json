@@ -49,8 +49,8 @@
         "charged": "single source (9db), method unstated",
         "faint": "single source (9db), method unstated",
         "manual_switch": "single source (9db), method unstated",
-        "fast_slip_in": "single source (9db), method unstated",
-        "simultaneous_charged": "single source (9db), method unstated"
+        "fast_slip_in": "measured-reproduced (ledger j)",
+        "simultaneous_charged": "measured-once (ledger j)"
       }
     },
     {
@@ -68,8 +68,8 @@
         "charged": "measured-reproduced",
         "faint": "measured-reproduced",
         "manual_switch": "conflicting",
-        "fast_slip_in": "single source (9db), method unstated",
-        "simultaneous_charged": "single source (9db), method unstated"
+        "fast_slip_in": "measured-reproduced (ledger j)",
+        "simultaneous_charged": "measured-once (ledger j)"
       }
     }
   ],
@@ -116,5 +116,6 @@
   "faint_note": "The faint row reads \"enemy freeze time (immediately after a swap caused by a faint)\" and does not say whose Pokemon fainted. The project owner reads it as either side's faint and replacement; rocket_replacement is the narrower option.",
   "faint_grade": "owner reading; not measured",
   "composition_note": "A charged-move pause starts after PvPoke's post-charge turn without input, so the two add: a charge resolving on t blocks Rocket inputs t+1 (core) and t+2..t+N+1 (pause). cwizz1: \"7 turns means you throw after 6 turns of fast moves\"; Jason2890: \"6 turns is the maximum number of turns you can take between charge moves to ensure the rocket (or team leader) does not use any fast moves\".",
-  "composition_grade": "practitioner-reproduced (2 accounts), not measured"
+  "composition_grade": "practitioner-reproduced (2 accounts), not measured",
+  "extension_note": "The charged trigger and the summed composition rest on Mar 2026 era accounts (cwizz1, Aug 2026, and the owner's play). Earlier eras apply them by extension, and their grades say so."
 }

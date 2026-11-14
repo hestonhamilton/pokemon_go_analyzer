@@ -1,5 +1,6 @@
 """Hand arithmetic checks of model rules, never Rocket acceptance targets."""
 
+import warnings
 from dataclasses import asdict, replace
 from datetime import date
 
@@ -435,9 +436,23 @@ def test_era_grades_reach_every_result():
     assert grades["era_turn_rules:before-dec-2025:fast_slip_in:False"] == (
         "single source (9db), method unstated"
     )
+    assert grades["pause_trigger:any_charged"].endswith("(applied to before-dec-2025 by extension)")
+    assert grades["pause_composition:sum"].endswith("(applied to before-dec-2025 by extension)")
     new = simulate_rocket([mon()], [mon()], battle_date=None, max_turns=1)
     grades = {e.option: e.grade for e in new.evidence}
     assert grades["pause_reading:9db:mar-2026:charged"] == "measured-reproduced"
+    assert grades["era_turn_rules:mar-2026:fast_slip_in:True"] == "measured-reproduced (ledger j)"
+    assert "extension" not in grades["pause_trigger:any_charged"]
+
+
+def test_era_turn_rules_override_warns():
+    rules = RocketRules(turn_rules=Rules(ledger_j_both_charged_fire=True))
+    with pytest.warns(UserWarning, match="era_turn_rules"):
+        old = simulate_rocket([mon()], [mon()], battle_date="2025-11-01", rules=rules, max_turns=1)
+    assert any("replaced the caller" in s for s in old.interpretations)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        simulate_rocket([mon()], [mon()], battle_date=None, rules=rules, max_turns=1)
 
 
 def test_queue_is_cleared_on_replacement():

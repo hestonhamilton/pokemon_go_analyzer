@@ -183,6 +183,7 @@ The default is the March 2026 era. Every result carries its era's grades.
 A charged attack from either side starts the pause. That is the owner's observation, agreeing with cwizz1; not measured.
 Either side's faint and replacement starts it too. That is the owner's reading; not measured.
 The pause starts after PvPoke's post-charge turn, so the two add. Two players' accounts support this.
+Both readings come from the March 2026 era. Older eras use them by extension, and their grades say so.
 Named options keep the narrower triggers and the alternate cwizz1 reading.
 A pause blocks new Rocket inputs. The era's 9db rows decide fast-move slip-in and simultaneous charges.
 Rocket charged timing and damage remain unverified (l).
