@@ -138,13 +138,13 @@ def ctx(rank="grunt", table="venonic-2023", level=50, coverage=COVERAGE, moves=D
 
 
 def test_coverage_is_what_the_targets_used():
-    # Every target is at TL50 except F2 (TL41); only the gate tables cover.
-    assert COVERAGE["levels"] == [
-        ["fugerappi-2023", 41],
-        ["fugerappi-2023", 50],
-        ["venonic-2023", 41],
-        ["venonic-2023", 50],
-    ]
+    # Every target is at TL50 except F2 (TL41, Rocket HP only); only gate tables cover.
+    tl50 = [["fugerappi-2023", 50], ["venonic-2023", 50]]
+    assert COVERAGE["levels"] == {
+        "rocket_hp": [["fugerappi-2023", 41], *tl50[:1], ["venonic-2023", 41], tl50[1]],
+        "rocket_attack": tl50,
+        "rocket_defence": tl50,
+    }
     assert {m["move"] for m in COVERAGE["moves"]} == {
         "BITE",
         "BULLET_PUNCH",
@@ -180,6 +180,40 @@ def test_grade_uncovered_trainer_level_is_cp_only(table, level):
     for column in ("rocket_hp", "rocket_attack", "fast_damage", "rocket_fast_damage"):
         assert column_grade(column, ctx(table=table, level=level)) == "cp-only"
     assert column_grade("attacker_hp", ctx(table=table, level=level)) == "fixture-exact"
+
+
+def test_grade_tl41_covers_rocket_hp_only():
+    # F2 (TL41) measures Rocket HP; no TL41 target checks attack, defence or damage.
+    c = ctx(level=41)
+    assert column_grade("rocket_hp", c) == "fixture-exact"
+    assert column_grade("trainer_level", c) == "fixture-exact"
+    for column in ("rocket_attack", "rocket_defence", "fast_damage", "rocket_fast_damage"):
+        assert column_grade(column, c) == "cp-only"
+
+
+def test_grade_dec_2025_grunt_keeps_player_cells_exact():
+    # Owner ruling: player stats don't depend on the Rocket table, so a dec-2025
+    # grunt row keeps them fixture-exact; every Rocket-side cell is cp-only.
+    c = ctx(table="dec-2025")
+    for column in ("attacker", "level", "ivs", "form", "attacker_hp", "attacker_attack"):
+        assert column_grade(column, c) == "fixture-exact"
+    for column in ("rocket_hp", "rocket_attack", "rocket_defence", "trainer_level", "rocket_cp"):
+        assert column_grade(column, c) == "cp-only"
+
+
+def test_pin_matches_the_fixtures():
+    # Editing a target, or the species and dated moves it uses, needs a new pin
+    # (tools/fixtures/acceptance_pin.py) and a fixture review.
+    from pogo_analyzer.sim import validation
+
+    targets = [
+        r
+        for r in BATTLES
+        if r["basis"] in ("recorded", "measured") and r["status"] == "expected_pass"
+    ]
+    assert sorted(r["id"] for r in targets) == validation.PIN["target_ids"]
+    assert validation.acceptance_digest(targets, SPECIES, MOVES) == validation.PIN["sha256"]
+    assert validation.EXPECTED_TARGETS == 44
 
 
 def test_grade_supplementary_and_current_tables_never_fixture_exact():

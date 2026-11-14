@@ -1,6 +1,8 @@
 """Runtime battle acceptance gate. No cached prediction; the target count is pinned."""
 
+import hashlib
 import json
+from importlib.resources import files
 from pathlib import Path
 
 from .calculator import BattlePredictor, matches
@@ -15,10 +17,26 @@ OLD_TABLES = (*GATE_TABLES, *SUPPLEMENTARY_TABLES)
 # The fixtures live in the source tree (tests/fixtures/sim), not in the wheel.
 # Validation therefore needs a source checkout or an explicit --fixtures-dir.
 DEFAULT_FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "sim"
-# The acceptance corpus has exactly this many recorded or measured expected_pass
-# targets. A trimmed or edited fixture set must not report itself as validated.
-# Change this only together with the fixtures and their review.
-EXPECTED_TARGETS = 44
+# The reviewed acceptance corpus: the exact target IDs and a SHA-256 of their
+# inputs and observations (plus the species and dated moves they use). A
+# trimmed, padded, swapped or edited target set fails the gate. Regenerate with
+# tools/fixtures/acceptance_pin.py only together with the fixture review.
+PIN = json.loads(files(__package__).joinpath("data", "acceptance_pin.json").read_text())
+EXPECTED_TARGETS = len(PIN["target_ids"])
+FIXTURE_FILES = ("battles.json", "species_moves.json", "move_history.json")
+# Fields that decide a target's outcome; prose (evidence, notes, reasons) is excluded.
+PINNED_FIELDS = (
+    "id",
+    "fixture",
+    "basis",
+    "status",
+    "battle_date",
+    "regime",
+    "trainer_level",
+    "player",
+    "rocket",
+    "observed",
+)
 
 
 def _plural(count, word, plural=None):
@@ -35,8 +53,40 @@ def _target_moves(row):
     return [row["observed"].get("move", row["player"]["fast_move"])]
 
 
+# Which Rocket quantities a target's prediction depends on. Coverage is kept per
+# quantity, so the HP-only F2 target at TL41 covers Rocket HP there, nothing else.
+QUANTITIES = ("rocket_hp", "rocket_attack", "rocket_defence")
+KIND_QUANTITIES = {
+    "player_hp": (),
+    "rocket_hp": ("rocket_hp",),
+    "damage_per_hit_taken": ("rocket_attack",),
+    "damage_per_hit_dealt": ("rocket_defence",),
+    "hits_to_ko": ("rocket_hp", "rocket_defence"),
+    "survives_hits": ("rocket_hp", "rocket_defence"),
+    "remaining_hp_after": ("rocket_hp", "rocket_defence"),
+}
+
+
 def _empty_coverage():
-    return {"levels": [], "moves": []}
+    return {"levels": {q: [] for q in QUANTITIES}, "moves": []}
+
+
+def acceptance_digest(targets, species, history):
+    """SHA-256 over what decides each target, in a canonical JSON form."""
+    named = {r["player"]["species"] for r in targets} | {r["rocket"]["species"] for r in targets}
+    used_species = sorted(name for name in named if name)  # F2 states no player species.
+    used_moves = sorted({(m, r["battle_date"]) for r in targets for m in _target_moves(r)})
+    document = {
+        "targets": sorted(
+            ({k: r[k] for k in PINNED_FIELDS} for r in targets), key=lambda r: r["id"]
+        ),
+        "species": {name: species[name] for name in used_species},
+        "moves": [
+            [m, date, [s for s in history[m] if s["as_of"] == date]] for m, date in used_moves
+        ],
+    }
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def run_acceptance(fixtures_dir):
@@ -49,12 +99,15 @@ def run_acceptance(fixtures_dir):
         "target_count": 0,
         "coverage": _empty_coverage(),
     }
-    levels, moves = set(), {}
+    levels, moves = {q: set() for q in QUANTITIES}, {}
     try:
         path = Path(fixtures_dir)
-        if not (path / "battles.json").is_file():
+        missing = [name for name in FIXTURE_FILES if not (path / name).is_file()]
+        if missing:
+            # File names only, never the local path.
             raise FileNotFoundError(
-                "fixtures not found; validation needs a source checkout or --fixtures-dir"
+                f"fixtures not found (missing {', '.join(missing)}); "
+                "validation needs a source checkout or --fixtures-dir"
             )
         battles = json.loads((path / "battles.json").read_text())
         targets = [
@@ -69,9 +122,21 @@ def run_acceptance(fixtures_dir):
         species = json.loads((path / "species_moves.json").read_text())["species"]
         history = json.loads((path / "move_history.json").read_text())
         predictor = BattlePredictor(species, history)
-        if len(targets) != EXPECTED_TARGETS:
+        ids = {r["id"] for r in targets}
+        expected = set(PIN["target_ids"])
+        if len(targets) != EXPECTED_TARGETS or ids != expected:
+            detail = []
+            if expected - ids:
+                detail.append("missing " + ", ".join(sorted(expected - ids)))
+            if ids - expected:
+                detail.append("unexpected " + ", ".join(sorted(ids - expected)))
             result["errors"].append(
-                f"expected {EXPECTED_TARGETS} acceptance targets, found {len(targets)}"
+                f"expected the {EXPECTED_TARGETS} reviewed acceptance targets, found "
+                f"{len(targets)}" + (f" ({'; '.join(detail)})" if detail else "")
+            )
+        elif acceptance_digest(targets, species, history) != PIN["sha256"]:
+            result["errors"].append(
+                "acceptance target inputs differ from the reviewed set (SHA-256 mismatch)"
             )
         for row in targets:
             for table in OLD_TABLES:
@@ -82,7 +147,8 @@ def run_acceptance(fixtures_dir):
                     passed = matches(row, prediction)
                     result["passed" if passed else "failed"].append(entry)
                     if passed and table in GATE_TABLES:
-                        levels.add((table, row["trainer_level"]))
+                        for quantity in KIND_QUANTITIES[row["observed"]["kind"]]:
+                            levels[quantity].add((table, row["trainer_level"]))
                         for move_id in _target_moves(row):
                             snap = predictor.dated_move(move_id, row["battle_date"])
                             moves[(move_id, row["battle_date"])] = {
@@ -115,7 +181,7 @@ def run_acceptance(fixtures_dir):
         # What the passing targets actually reproduced. Grades use this, so a
         # failed gate leaves nothing fixture-exact.
         result["coverage"] = {
-            "levels": sorted([t, tl] for t, tl in levels),
+            "levels": {q: sorted([t, tl] for t, tl in levels[q]) for q in QUANTITIES},
             "moves": sorted(moves.values(), key=lambda m: (m["move"], m["as_of"])),
         }
         notes = []
