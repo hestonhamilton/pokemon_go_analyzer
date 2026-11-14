@@ -1,0 +1,6 @@
+# Pinned rule set: ruff without a config, or with a broad select, enables far more rules than
+# a small repo wants (~/docs/dev-notes.md 2026-10-23). Widen deliberately.
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
