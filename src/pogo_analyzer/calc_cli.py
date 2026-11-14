@@ -221,14 +221,8 @@ def _check_rocket_species(item):
         raise ValueError(f"use the base species for Rocket Pokemon, not {item['speciesId']}")
 
 
-def build_output(args):
-    if args.defender and args.rank is None:
-        raise ValueError("--defender requires --rank")
-    if args.character and args.rank is not None:
-        raise ValueError("--rank is derived from --character")
-    rcpm(args.trainer_level, args.rcpm_table)  # No fallback or interpolation.
-    team = _team(args)
-    source = PoliteClient(args.cache_dir / "sources", min_interval=0, max_requests=2)
+def load_sources(cache_dir):
+    source = PoliteClient(cache_dir / "sources", min_interval=0, max_requests=2)
     characters = load_lineups(source)
     gm = source.get_json(PVPOKE_GM_URL)
     species, moves = gm["pokemon"], gm["moves"]
@@ -236,44 +230,42 @@ def build_output(args):
         {"name": name, "url": url, "fetched_at": _fetch_time(source, url), "license": "MIT"}
         for name, url in (("PvPoke", PVPOKE_GM_URL), ("WatWowMap event-info", EVENT_INFO_URL))
     ]
-    if args.defender:
-        selections = [(None, args.slot, args.defender, args.rank)]
-    else:
-        # Same word/prefix matching as counters.
-        words = set(re.findall(r"\w+", args.character.casefold()))
-        found = [
-            c
-            for c in characters
-            if words
-            and all(
-                any(
-                    word == w or (len(word) >= 3 and w.startswith(word))
-                    for w in re.findall(r"\w+", c.name.casefold())
-                )
-                for word in words
+    return characters, species, moves, sources
+
+
+def matching_characters(selector, characters):
+    # Same word/prefix matching as counters.
+    words = set(re.findall(r"\w+", selector.casefold()))
+    found = [
+        c
+        for c in characters
+        if words
+        and all(
+            any(
+                word == w or (len(word) >= 3 and w.startswith(word))
+                for w in re.findall(r"\w+", c.name.casefold())
             )
-        ]
-        if not found:
-            raise ValueError(
-                "No matching character. Available characters: "
-                + ", ".join(c.name for c in characters)
-            )
-        selections = [
-            (
-                c.name,
-                i,
-                e.species,
-                "giovanni"
-                if c.tier == "RAID_LEVEL_5"
-                else "leader"
-                if c.tier == "RAID_LEVEL_4"
-                else "grunt",
-            )
-            for c in found
-            for i, pool in enumerate(c.slots, 1)
-            if args.slot is None or args.slot == i
-            for e in pool
-        ]
+            for word in words
+        )
+    ]
+    if not found:
+        raise ValueError(
+            "No matching character. Available characters: " + ", ".join(c.name for c in characters)
+        )
+    return found
+
+
+def character_rank(character):
+    return (
+        "giovanni"
+        if character.tier == "RAID_LEVEL_5"
+        else "leader"
+        if character.tier == "RAID_LEVEL_4"
+        else "grunt"
+    )
+
+
+def build_attackers(team, species, moves):
     attackers = []
     for config in team:
         item = _resolve(config["species"], species, "speciesId", "speciesName")
@@ -292,6 +284,34 @@ def build_output(args):
                 [_move(m) for m in charged],
             )
         )
+    return attackers
+
+
+def build_output(args):
+    if args.defender and args.rank is None:
+        raise ValueError("--defender requires --rank")
+    if args.character and args.rank is not None:
+        raise ValueError("--rank is derived from --character")
+    rcpm(args.trainer_level, args.rcpm_table)  # No fallback or interpolation.
+    team = _team(args)
+    characters, species, moves, sources = load_sources(args.cache_dir)
+    if args.defender:
+        selections = [(None, args.slot, args.defender, args.rank)]
+    else:
+        found = matching_characters(args.character, characters)
+        selections = [
+            (
+                c.name,
+                i,
+                e.species,
+                character_rank(c),
+            )
+            for c in found
+            for i, pool in enumerate(c.slots, 1)
+            if args.slot is None or args.slot == i
+            for e in pool
+        ]
+    attackers = build_attackers(team, species, moves)
     rows = []
     unresolved = []
     for character, slot, name, rank in selections:

@@ -196,6 +196,20 @@ The original 514-case turn parity is unchanged. Three native PvPoke team cases a
 replacement order and shared shields. They do not establish full team turn parity.
 See the [Rocket report](../tests/fixtures/sim/rocket_report.md) for sources and judgement calls.
 
+### Win rate
+
+Win rates and slots swept are estimates. Every complete lineup and moveset has equal weight.
+No appearance-rate source exists. The move pool and player policies are models.
+The CLI requires a battle date. It uses the default Rocket rules and fixed team order.
+A faint belongs to the player member active on that turn, including a double knockout.
+Rows sort by win rate, then HP left, then turns. Draws count as not-wins.
+Timeout wins, losses and draws are separate from knockouts.
+The 1v1 grid ignores carried-over shields and HP between slots. Each battle starts fresh.
+Every result carries the union of its ledger flags and evidence. Charged Rocket moves keep l unverified.
+The stats grade is the weakest calculator stat or damage cell used, under this run's gate.
+A failing gate prints UNVALIDATED. No acceptance target is added.
+See the [win rate report](../tests/fixtures/sim/winrate_report.md) for definitions and model choices.
+
 ## What can honestly be claimed
 
 **"Pretty dang sure" is supported for:**

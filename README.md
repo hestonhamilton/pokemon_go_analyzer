@@ -171,3 +171,38 @@ switching and charged timing. Charged damage assumes full charge and no stat cha
 start at zero and ignore real battle behaviour. There is no turn loop or win prediction. Mega and
 special-move mechanics are unsupported. See the [verification ledger](docs/simulator-verification.md)
 for the supporting evidence and unresolved gaps.
+
+## Rocket simulator (estimate)
+
+`sim` enumerates every lineup and hypothetical moveset for each matched character. The supplied team
+has one to three members in fixed order. These win rates and slots swept are **estimates** until the
+[in-game checks](docs/simulator-verification.md#minimum-in-game-checks) are done.
+
+```sh
+uv run pogo-analyzer sim --character 'Fairy grunt' --battle-date 2026-11-14 --trainer-level 50 \
+  --attacker metagross --level 50 --ivs 15/15/15 --fast BULLET_PUNCH --charged METEOR_MASH
+uv run pogo-analyzer sim --character Cliff --battle-date 2026-11-14 --trainer-level 50 \
+  --team team.json --format json
+uv run pogo-analyzer sim --character Cliff --battle-date 2026-11-14 --trainer-level 50 \
+  --team team.json --per-slot --slot 1 --exclude-elite-legacy --format csv
+```
+
+Team input, character matching, rank from tier, source caching, `--rcpm-table`, `--fixtures-dir`,
+`--cache-dir`, and `--format table|json|csv` follow `calc`. `--battle-date YYYY-MM-DD` is required.
+It selects the rules era; moves come from the cached source, not a historical move table.
+`--exclude-elite-legacy` removes PvPoke elite and legacy moves from Rocket pools and reports the filter.
+Unresolved species remain visible. Incomplete results explicitly cover resolved options only.
+An empty slot prevents a full battle result.
+
+Full battles start with full HP and zero energy. They use the default Rocket rules, the player's
+first affordable charged move and first-two shield policy. Every lineup has equal weight because
+no appearance-rate source exists. Rows sort by win rate descending, mean player HP fraction left
+descending, then mean turns ascending. Draws count as not-wins. Timeout outcomes are separate.
+A Rocket faint is credited to the player member active on that turn, including a double knockout.
+
+`--per-slot` produces a 1v1 grid and attacker/slot aggregates. It **ignores carried-over shields and
+HP between slots**. Each matchup starts with fresh shields and full HP. `--slot 1|2|3` filters only
+this grid. Every result carries its era, rules, ledger flags, evidence and grades. A failed acceptance
+gate prints UNVALIDATED. Large characters continue with stdlib multiprocessing only after exceeding
+120 seconds; result order is preserved. See the [win rate report](tests/fixtures/sim/winrate_report.md)
+for metric definitions, grade dependencies, pool sizes, runtimes and model choices.
