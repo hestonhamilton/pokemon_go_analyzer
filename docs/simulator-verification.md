@@ -105,9 +105,9 @@ These are measured and reproduced, and the simulator can be held to them exactly
 - **Post-Oct-2025 HP:** checked only by CP.
 
 So win rates and "slots swept" (which depend on the Rocket side's charged attacks and on the pauses) can be shown
-only as labelled estimates until Heston's checks below are done.
+only as labelled estimates until the in-game checks below are done.
 
-## Minimum in-game checks (Heston)
+## Minimum in-game checks
 
 Each takes a few battles. Screen-record if possible; one turn = 0.5 s.
 
