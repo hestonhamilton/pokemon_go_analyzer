@@ -76,7 +76,7 @@ fast-move damage and energy per turn, and the attacker's effective attack and bu
 ## 3. Level, CP and the NPC stat boost
 
 > **Superseded (2026-11-13):** the table below is Pokebattler's 2019 tier block. Both community studies have
-> replaced it, and the 2021 formula is the best current fit. See [rocket-npc-stats.md](rocket-npc-stats.md),
+> replaced it; the current formula (2023, re-indexed in Oct 2025) is in [rocket-pokemon.md](rocket-pokemon.md). See [rocket-npc-stats.md](rocket-npc-stats.md),
 > which compares Pokebattler's model with independent evidence.
 
 **The NPC's Pokémon do not use normal player stats.** Pokebattler's public Rocket endpoint
