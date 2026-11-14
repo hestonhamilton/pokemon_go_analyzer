@@ -784,12 +784,12 @@
   {
     "trainer_level": 50,
     "species": "murkrow",
-    "rank": "grunt",
+    "rank": null,
     "cp": 6145,
     "regime": "rcpm-old",
     "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/",
     "evidence": "* Murkrow - 6145",
-    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"); unmarked ranks use the grunt-collection context."
+    "evidence_note": "Trainer level 50 is established by the later exchange (\"set for level 50 data now?\"). Rank is unstated: the row sits beside Staraptor 11100 (rank unstated) and Charizard 11339 (a leader CP in z3qck5), so the grunt-collection context does not settle it. A rank recovered from CP is a consistency check, not evidence for the rank multiplier."
   },
   {
     "trainer_level": 50,

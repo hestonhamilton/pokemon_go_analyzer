@@ -198,7 +198,8 @@ CP inventory (no fit-based filtering):
   50 data now?". Unmarked rows normally use the grunt-collection context, not a
   CP formula. Charizard 11339 and Tyranitar 15100 get leader ranks from identical
   explicitly ranked z3qck5 readings; Regice's Giovanni rank is contextual to the
-  adjacent Giovanni report. Staraptor 11100 has `rank: null`: its rank is unstated,
+  adjacent Giovanni report. Murkrow 6145 also has `rank: null`: it is listed beside Staraptor and Charizard 11339,
+  so the grunt context does not settle it. Staraptor 11100 has `rank: null`: its rank is unstated,
   and the same CP is explicitly assigned to Sierra in the paired source. These
   contextual assignments are disclosed per record. Wailord/Murkrow use the
   author's level-41 measurement campaign as context. Cyndaquil's two comments
