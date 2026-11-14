@@ -191,7 +191,7 @@ shield. Leaders and Giovanni shield your first two charged attacks.
 
 - The working assumption is: as soon as it has the energy and isn't paused. It has only one charged move, so
   there is no choice to make.
-- The open-source simulator Shadow Battler assumes exactly this.
+- At least one public simulator assumes exactly this (a tool model, not a measurement).
 - No one has measured it, and one practitioner asked "how often a Rocket throws a charged move assuming they've
   reached the energy" (Nov 2026), so there is no consensus. **Unverified.**
 
@@ -253,12 +253,9 @@ shield. Leaders and Giovanni shield your first two charged attacks.
   - the shadow 1.2× / 1.2× and the 1.3× bonus on top;
   - trainer level as an input;
   - the current 7-turn pauses, the new turn rules and the 12-minute timer.
-- **Prior art to look at first:** [Shadow Battler](https://github.com/danshestak/shadow-battler) (MIT, Java),
-  an open-source Rocket simulator and counter ranker announced on 10 Nov 2026
-  ([1xsz8v1](https://www.reddit.com/r/TheSilphRoad/comments/1xsz8v1/)).
-  - It assumes the Rocket side fires its charged attack as soon as it can, uses an 8-turn pause and a 12-minute
-    cap.
-  - A practitioner disputes several of its results.
+- **Shadow Battler** ([1xsz8v1](https://www.reddit.com/r/TheSilphRoad/comments/1xsz8v1/), Nov 2026), an
+  open-source Rocket simulator, is not a basis or reference for this project: its results have known
+  problems, and a practitioner disputes several of them.
 - **Pokebattler's published tier block** (×3 attack, ×2 defence) and the 2021 formula are both outdated.
 
 ## Open questions, and how to answer them cheaply
