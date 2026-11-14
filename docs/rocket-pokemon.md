@@ -253,9 +253,8 @@ shield. Leaders and Giovanni shield your first two charged attacks.
   - the shadow 1.2× / 1.2× and the 1.3× bonus on top;
   - trainer level as an input;
   - the current 7-turn pauses, the new turn rules and the 12-minute timer.
-- **Shadow Battler** ([1xsz8v1](https://www.reddit.com/r/TheSilphRoad/comments/1xsz8v1/), Nov 2026), an
-  open-source Rocket simulator, is not a basis or reference for this project: its results have known
-  problems, and a practitioner disputes several of them.
+- **Shadow Battler**, an open-source Rocket simulator (Nov 2026): not used here; its results are disputed in
+  [1xsz8v1](https://www.reddit.com/r/TheSilphRoad/comments/1xsz8v1/).
 - **Pokebattler's published tier block** (×3 attack, ×2 defence) and the 2021 formula are both outdated.
 
 ## Open questions, and how to answer them cheaply
