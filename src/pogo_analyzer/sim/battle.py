@@ -185,6 +185,10 @@ class _BattleHooks:
     def charged(self, actor: int, turn: int) -> None:
         pass
 
+    def nullify(self, actor: int) -> tuple[bool, bool]:
+        """After actor's charge resolves: cancel the opponent's unresolved (fast, charged)."""
+        return False, False
+
     def finish_turn(self, row: Turn) -> tuple[Combatant | None, Combatant | None]:
         return None, None
 
@@ -303,6 +307,7 @@ def _simulate(
         ready.sort(key=lambda a: -a.priority)
         any_charged = any(a.move.energy for a in ready)
         charged_used = False
+        nullified: set[int] = set()  # Hook-only; ids of actions cancelled this turn.
         for action in ready:
             i = action.actor
             other = 1 - i
@@ -310,6 +315,9 @@ def _simulate(
             move = action.move
             charged = move.energy > 0
             kind = "charged" if charged else "fast"
+            if id(action) in nullified:
+                events[i].append(f"{kind}:cancel:{move.id}")
+                continue
             if charged and rules.ledger_j_next_turn_charged:
                 events[i].append(f"charged:start:{move.id}")
             if charged:
@@ -351,6 +359,15 @@ def _simulate(
                 charged_used = True
                 if hooks:
                     hooks.charged(i, turn)
+                    fast_off, charged_off = hooks.nullify(i)
+                    for a in ready:
+                        if a.actor == other and (charged_off if a.move.energy else fast_off):
+                            nullified.add(id(a))
+                    if fast_off:
+                        for a in queue:
+                            if a.actor == other and not a.move.energy:
+                                events[other].append(f"fast:cancel:{a.move.id}")
+                        queue = [a for a in queue if a.actor != other or a.move.energy]
             else:
                 energy[i] = min(ENERGY_CAP, energy[i] + move.energy_gain)  # 1329–1340.
             hp[other] = max(0, hp[other] - damage)  # 1365.

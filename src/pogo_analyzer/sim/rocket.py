@@ -9,7 +9,7 @@ tests/fixtures/sim/rocket_report.md. No Rocket-only acceptance targets exist.
 import json
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from fractions import Fraction
 from importlib.resources import files
@@ -41,8 +41,15 @@ def rule_data() -> dict:
 class RocketRules:
     pauses: bool = True
     pause_reading: str = "9db"
-    # None selects player_charged for 9db, any_charged for cwizz1.
+    # None selects any_charged: a charged attack from either side starts the pause.
+    # player_charged is the narrower option. Neither is measured (ledger k).
     pause_trigger: str | None = None
+    # None selects any_replacement: either side's faint and replacement starts
+    # the pause (owner reading; the 9db row names no side). rocket_replacement
+    # is the narrower option.
+    faint_trigger: str | None = None
+    # True applies the era's 9db slip-in and simultaneous-charge rows.
+    era_turn_rules: bool = True
     rocket_charged: str = "when_ready"
     rocket_charged_damage_scale: float = 1.0
     rocket_shields: bool = True
@@ -52,13 +59,15 @@ class RocketRules:
     turn_rules: Rules = PVPOKE_RULES
 
     def __post_init__(self):
-        for name in ("pauses", "rocket_shields", "timer"):
+        for name in ("pauses", "era_turn_rules", "rocket_shields", "timer"):
             if not isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be boolean")
         if self.pause_reading not in ("9db", "cwizz1"):
             raise ValueError("pause_reading must be 9db or cwizz1")
         if self.pause_trigger not in (None, "player_charged", "any_charged"):
             raise ValueError("pause_trigger must be player_charged or any_charged")
+        if self.faint_trigger not in (None, "rocket_replacement", "any_replacement"):
+            raise ValueError("faint_trigger must be rocket_replacement or any_replacement")
         if self.rocket_charged not in ("when_ready", "never"):
             raise ValueError("rocket_charged must be when_ready or never")
         if isinstance(self.rocket_charged_damage_scale, bool) or (
@@ -78,9 +87,11 @@ class RocketRules:
 
     @property
     def trigger(self) -> str:
-        return self.pause_trigger or (
-            "any_charged" if self.pause_reading == "cwizz1" else "player_charged"
-        )
+        return self.pause_trigger or "any_charged"
+
+    @property
+    def faint(self) -> str:
+        return self.faint_trigger or "any_replacement"
 
 
 DEFAULT_ROCKET_RULES = RocketRules()
@@ -118,6 +129,7 @@ class RocketResult:
     era: str
     pause_lengths: tuple[int, int, int]  # Charge, faint, unused manual switch.
     pause_trigger: str
+    faint_trigger: str
     player_shield_policy: str
     rocket_shield_policy: str
     rules: RocketRules
@@ -196,14 +208,15 @@ class _Shields:
 
 class _RocketBattle(_BattleHooks):
     def __init__(self, teams, rank, rules, era, data):
-        self.teams, self.rules, self.era = teams, rules, era
+        self.teams, self.rules, self.era, self.rank = teams, rules, era, rank
         self.hp = [[p.hp for p in team] for team in teams]
         self.energy = [[p.energy for p in team] for team in teams]
         self.active = [0, 0]
-        self.shields = [2, 2]
         self.rocket_shield_policy = (
             "first_two" if rank != "grunt" and rules.rocket_shields else "never"
         )
+        # A side that never shields reports none, rather than two unused.
+        self.shields = [2, 2 if self.rocket_shield_policy == "first_two" else 0]
         reading = era if rules.pause_reading == "9db" else data["cwizz1"]
         self.lengths = tuple(reading[k] for k in ("charged", "faint", "manual_switch"))
         self.pause_through = 0
@@ -231,9 +244,18 @@ class _RocketBattle(_BattleHooks):
         if self.deadline is not None:
             self.deadline += self.per_charge
         if self.rules.pauses and (actor == 0 or self.rules.trigger == "any_charged"):
-            # Trigger resolves on t. Suppress t+1 .. t+N inclusive, resume t+N+1.
-            # The core independently suppresses t+1; these overlap, never add.
-            self.pause_through = max(self.pause_through, turn + self.lengths[0])
+            # Trigger resolves on t. The core suppresses t+1; the pause then
+            # suppresses t+2 .. t+N+1 (the two add), so the Rocket resumes t+N+2.
+            self.pause_through = max(self.pause_through, turn + 1 + self.lengths[0])
+
+    def nullify(self, actor):
+        # 9db, before Dec 2025: an opponent fast move not yet registered is void
+        # (no slip-in), and only the first of two simultaneous charges fires.
+        # Applying both to either side, and keeping the void charge's energy,
+        # is this project's reading.
+        if not self.rules.era_turn_rules:
+            return False, False
+        return not self.era["fast_slip_in"], not self.era["both_charged_fire"]
 
     def finish_turn(self, row):
         slots = tuple(i + 1 for i in self.active)
@@ -259,19 +281,20 @@ class _RocketBattle(_BattleHooks):
                 if scores[0] == scores[1]
                 else ("player" if scores[0] > scores[1] else "rocket")
             )
+            if self.era["leader_timeout_loss"] and self.rank != "grunt":
+                # Timer post: "Previously, a timeout vs the Rocket Leaders counts
+                # as a loss." Giovanni is treated as a leader (this project's reading).
+                self.winner = "rocket"
         else:
             for side in range(2):
                 if row.hp[side] == 0:
                     self.active[side] += 1
                     replacements[side] = self.teams[side][self.active[side]]
-            # Faint pause starts at Rocket replacement arrival, after row t.
-            # Player-only replacement does not trigger it in the 9db reading.
-            if replacements[1] is not None and self.rules.pauses:
-                self.pause_through = max(self.pause_through, row.number + self.lengths[1])
-            elif (
-                replacements[0] is not None
-                and self.rules.pauses
-                and (self.rules.pause_reading == "cwizz1")
+            # Faint pause starts at replacement arrival, after row t. Whose
+            # replacement counts is the faint_trigger reading.
+            if self.rules.pauses and (
+                replacements[1] is not None
+                or (replacements[0] is not None and self.rules.faint == "any_replacement")
             ):
                 self.pause_through = max(self.pause_through, row.number + self.lengths[1])
         self.timeline.append(
@@ -299,9 +322,10 @@ def simulate_rocket(
 ) -> RocketResult:
     """Fixed-order teams of one to three (three for a full battle).
 
-    battle_date is mandatory. Passing None explicitly selects the static Sep
-    2026 default era, never today's date. This chooses pauses only: the caller
-    must supply dated moves and an explicit stat table via rocket_combatant.
+    battle_date is mandatory. Passing None explicitly selects the static
+    mar-2026 default era, never today's date. The era chooses pauses, the 9db
+    slip-in and simultaneous-charge rows, and the leader timeout rule only: the
+    caller must supply dated moves and an explicit stat table via rocket_combatant.
     Player move selection defaults to first affordable charge, a model policy.
     max_turns is a separate observation limit; it cannot award a timeout win.
     """
@@ -316,6 +340,11 @@ def simulate_rocket(
         raise ValueError("Rocket Pokemon have at most one supplied charged move")
     data = rule_data()
     era, stamp = _era(battle_date, data)
+    if rules.pauses and rules.pause_reading == "cwizz1" and era["id"] not in data["cwizz1"]["eras"]:
+        raise ValueError("the cwizz1 reading describes the mar-2026 era only")
+    turn_rules = rules.turn_rules
+    if rules.era_turn_rules:
+        turn_rules = replace(turn_rules, ledger_j_both_charged_fire=era["both_charged_fire"])
     battle = _RocketBattle(teams, rank, rules, era, data)
     core = _simulate(
         teams[0][0],
@@ -324,7 +353,7 @@ def simulate_rocket(
         rocket_policy=ChargedWhenReady() if rules.rocket_charged == "when_ready" else FastOnly(),
         player_shield_policy=_Shields(battle, 0),
         rocket_shield_policy=_Shields(battle, 1),
-        rules=rules.turn_rules,
+        rules=turn_rules,
         max_turns=max_turns,
         hooks=battle,
     )
@@ -349,31 +378,85 @@ def simulate_rocket(
         "Equal timeout scores draw.",
     ]
     if rules.pauses:
+        reading = era if rules.pause_reading == "9db" else data["cwizz1"]
         source = data["source"] if rules.pause_reading == "9db" else data["cwizz1"]["source"]
         for event in ("charged", "faint", "manual_switch"):
             evidence.append(
                 Evidence(
                     "k",
-                    data["grades"][event],
-                    f"pause_reading:{rules.pause_reading}:{event}",
+                    reading["grades"][event],
+                    f"pause_reading:{rules.pause_reading}:{era['id']}:{event}",
                     source,
                 )
             )
+        evidence.append(
+            Evidence(
+                "k",
+                data["trigger_grade"]
+                if rules.trigger == "any_charged"
+                else "narrower reading of the 9db row; not measured",
+                f"pause_trigger:{rules.trigger}",
+                "docs/rocket-pokemon.md#4-how-the-rocket-side-battles",
+            )
+        )
+        evidence.append(
+            Evidence(
+                "k",
+                data["composition_grade"],
+                "pause_composition:sum",
+                data["cwizz1"]["source"],
+            )
+        )
+        evidence.append(
+            Evidence(
+                "k",
+                data["faint_grade"]
+                if rules.faint == "any_replacement"
+                else "narrower reading of the 9db row; not measured",
+                f"faint_trigger:{rules.faint}",
+                data["source"],
+            )
+        )
         interpretations += [
-            "Pause suppresses only new Rocket inputs. "
-            "In-flight fast moves retain PvPoke resolution.",
-            "Pause counts t+1 through t+N after resolution or replacement. "
-            "It overlaps post-charge input suppression by max, never sum.",
+            "Pause suppresses only new Rocket inputs. Whether an in-flight fast move "
+            "still lands follows the era's 9db slip-in row when era_turn_rules is on.",
+            "A charged pause counts t+2 through t+N+1, after the core's post-charge turn; "
+            "a faint pause counts t+1 through t+N after replacement. Overlapping pauses "
+            "take the later end.",
             data["boundary_note"],
-            "9db faint pause requires a Rocket replacement. "
-            "cwizz1 also pauses on player replacement.",
+            data["faint_note"],
         ]
-    if battle.fired[1]:
+    if rules.era_turn_rules:
+        for row, option in (
+            ("fast_slip_in", "fast_slip_in"),
+            ("simultaneous_charged", "both_charged_fire"),
+        ):
+            evidence.append(
+                Evidence(
+                    "j",
+                    era["grades"][row],
+                    f"era_turn_rules:{era['id']}:{option}:{era[option]}",
+                    data["source"],
+                )
+            )
+        if not era["fast_slip_in"]:
+            interpretations.append(
+                "Before Dec 2025: an opponent fast move not yet registered when a charged move "
+                "fires is void, on either side; only the first of two simultaneous charged "
+                "moves fires, and the void one keeps its energy. This applies 9db's rows as "
+                "this project reads them."
+            )
+    else:
+        interpretations.append(
+            "era_turn_rules is off: PvPoke's fast-move slip-in and turn_rules apply in every era."
+        )
+    rocket_charge_used = battle.fired[1] or any(p.charged for p in teams[1])
+    if rocket_charge_used:
         evidence += [
             Evidence(
                 "l",
                 "assumed",
-                "rocket_charged:when_ready",
+                f"rocket_charged:{rules.rocket_charged}",
                 "docs/rocket-pokemon.md#4-how-the-rocket-side-battles",
             ),
             Evidence(
@@ -393,6 +476,7 @@ def simulate_rocket(
         evidence.append(Evidence("n", "measured-once", "timer", data["timer"]["source"]))
         interpretations += [
             data["timer"]["interpretation"],
+            data["timer"]["era_note"],
             "Timeout HP fraction is the sum of each team member's current HP / maximum HP.",
         ]
     rows = (
@@ -414,11 +498,12 @@ def simulate_rocket(
         era["id"],
         battle.lengths,
         rules.trigger,
+        rules.faint,
         rules.player_shield_policy,
         battle.rocket_shield_policy,
         rules,
         rows,
         tuple(evidence),
-        ("unverified",) if battle.fired[1] else (),
+        ("unverified",) if rocket_charge_used else (),
         tuple(interpretations),
     )

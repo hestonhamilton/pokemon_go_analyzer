@@ -46,11 +46,11 @@ def starts(result, side, kind="fast"):
 @pytest.mark.parametrize(
     "stamp,era,charge,faint,switch",
     [
-        ("2025-11-30", "before-dec-2025", 5, 7, 7),
-        ("2025-12-01", "dec-2025", 8, 12, 12),
-        ("2026-08-31", "dec-2025", 8, 12, 12),
-        ("2026-09-01", "sep-2026", 7, 7, 9),
-        (None, "sep-2026", 7, 7, 9),
+        ("2025-12-09", "before-dec-2025", 5, 7, 7),
+        ("2025-12-10", "dec-2025", 8, 12, 12),
+        ("2026-03-11", "dec-2025", 8, 12, 12),
+        ("2026-03-12", "mar-2026", 7, 7, 9),
+        (None, "mar-2026", 7, 7, 9),
     ],
 )
 def test_era_charge_pause(stamp, era, charge, faint, switch):
@@ -60,12 +60,12 @@ def test_era_charge_pause(stamp, era, charge, faint, switch):
         battle_date=stamp,
         max_turns=16,
     )
-    # t1 charge hits, no new inputs t2..t(1+N). Resume t(N+2).
-    # t2 is also PvPoke's one post-charge turn, so no extra turn is added.
+    # t1 charge hits. t2 is PvPoke's post-charge turn; the pause adds to it,
+    # blocking t3..t(N+2). First new Rocket input t(N+3).
     assert result.era == era
     assert result.pause_lengths == (charge, faint, switch)
-    assert starts(result, 1) == [1, *range(charge + 2, 17)]
-    assert result.timeline[0].pause_through == charge + 1
+    assert starts(result, 1) == [1, *range(charge + 3, 17)]
+    assert result.timeline[0].pause_through == charge + 2
     assert result.timeline[1].core.actions == ((), ())
 
 
@@ -88,29 +88,57 @@ def test_faint_pause(stamp, n):
     assert result.timeline[0].pause_through == 1 + n
 
 
-def test_cwizz1_reading_and_trigger_override():
-    # t1 Rocket charge=1, default player shields ->1; t2 core suppresses;
-    # cwizz1 additionally blocks t2..8, so t9 is first new Rocket input.
+def test_trigger_default_and_player_charged_option():
+    # t1 Rocket charge=1, default player shields ->1; t2 core suppresses.
+    # Default any_charged then blocks t3..9 (mar-2026: 7), so t10 is the
+    # first new Rocket input. player_charged ignores the Rocket's own charge.
     rocket = mon(charged=(C,), energy=20)
     default = run(rocket=rocket, turns=12)
     alternative = run(rocket=rocket, turns=12, pause_reading="cwizz1")
-    overridden = run(
-        rocket=rocket, turns=12, pause_reading="cwizz1", pause_trigger="player_charged"
-    )
-    assert starts(default, 1) == list(range(3, 13))
-    assert starts(alternative, 1) == list(range(9, 13))
-    assert starts(overridden, 1) == starts(default, 1)
+    narrower = run(rocket=rocket, turns=12, pause_trigger="player_charged")
+    assert starts(default, 1) == list(range(10, 13))
+    assert starts(alternative, 1) == list(range(10, 13))
+    assert starts(narrower, 1) == list(range(3, 13))
     assert alternative.pause_lengths == (7, 7, 6)
-    assert alternative.pause_trigger == "any_charged"
-    assert default.pause_trigger == "player_charged"
+    assert default.pause_trigger == alternative.pause_trigger == "any_charged"
+    assert narrower.pause_trigger == "player_charged"
+    grades = {e.option: e.grade for e in default.evidence}
+    assert grades["pause_trigger:any_charged"] == (
+        "owner observation, agrees with cwizz1; not measured"
+    )
+    assert "pause_trigger:player_charged" in {e.option for e in narrower.evidence}
 
 
-def test_any_charge_option_and_max_composition():
+def test_any_charge_pause_adds_to_post_charge_turn():
     rocket = mon(charged=(C,), energy=20)
-    result = run(rocket=rocket, turns=10, pause_trigger="any_charged")
-    # Seven paused turns t2..8 overlap the core's t2. t9 (not t10) resumes.
-    assert starts(result, 1) == [9, 10]
+    result = run(rocket=rocket, turns=11, pause_trigger="any_charged")
+    # Core t2, then seven paused turns t3..9. t10 (not t9) resumes.
+    assert starts(result, 1) == [10, 11]
     assert "l" in result.ledger_rows and "unverified" in result.flags
+    grades = {e.option: e.grade for e in result.evidence}
+    assert grades["pause_composition:sum"] == ("practitioner-reproduced (2 accounts), not measured")
+
+
+@pytest.mark.parametrize("between,sneaks", [(6, False), (7, True)])
+def test_six_fast_turns_safe_seventh_sneaks(between, sneaks):
+    # cwizz1: "7 turns means you throw after 6 turns of fast moves"; Jason2890:
+    # 6 turns between charges keeps the Rocket from any fast move.
+    # Player 1-turn fast +5 energy, charge costs 5*between, thrown t1.
+    # Core t2; pause t3..9; Rocket's first input t10.
+    # Fast moves t3..t(2+between); second charge t(3+between): t9 or t10.
+    # The Rocket's t1 fast slips in on t2 either way (flushed by the charge).
+    # Six: t9 charge renews the pause before t10; no later Rocket move starts.
+    # Seven: the Rocket's 3-turn fast starts t10 beside the charge, then
+    # flushes and lands t11 (slip-in, mar-2026).
+    lock_on = Move("LO", "normal", 0, 1, energy_gain=5)
+    charge = Move("PC", "normal", 0, 1, energy=5 * between)
+    player = mon(999, fast=lock_on, charged=(charge,), energy=5 * between)
+    rocket = mon(999, fast=replace(F, turns=3))
+    result = run(player=player, rocket=rocket, turns=6 + between)
+    assert starts(result, 0, "charged") == [1, 3 + between]
+    assert starts(result, 1) == ([1, 10] if sneaks else [1])
+    late = [r.core.number for r in result.timeline if r.core.damage[1] and r.core.number > 2]
+    assert late == ([11] if sneaks else [])
 
 
 def test_fast_already_in_flight_lands_inside_pause():
@@ -126,11 +154,50 @@ def test_fast_already_in_flight_lands_inside_pause():
         max_turns=11,
     )
     # Rocket F starts t1 (normally due t5). Player C hits t2. PvPoke flushes
-    # F on t3 (post-charge), even though new Rocket inputs pause t3..9.
-    assert starts(result, 1) == [1, 10]
+    # F on t3 (post-charge); new Rocket inputs pause t4..10, resume t11.
+    # The 9db slip-in row (since Dec 2025) supports the landing.
+    assert starts(result, 1) == [1, 11]
     assert result.timeline[2].core.actions[1] == ("fast:hit:F",)
     assert result.timeline[2].core.damage == (0, 1)
-    assert result.timeline[2].pause_through == 9
+    assert result.timeline[2].pause_through == 10
+
+
+def test_before_dec_2025_in_flight_fast_is_void():
+    class AtTwo(FastOnly):
+        def choose_charged(self, own, opponent, turn):
+            return 0 if turn == 2 else None
+
+    result = simulate_rocket(
+        [mon(charged=(C,), energy=20)],
+        [mon(fast=replace(F, turns=5))],
+        battle_date="2025-11-01",
+        player_policy=AtTwo(),
+        max_turns=9,
+    )
+    # Same timeline, old era: no slip-in, so the pending F is void on t2.
+    # Pause 5: core t3, blocked t4..8, Rocket resumes t9. No damage dealt.
+    assert "fast:cancel:F" in result.timeline[1].core.actions[1]
+    assert result.timeline[2].core.actions[1] == ()
+    assert result.damage[1] == 0
+    assert starts(result, 1) == [1, 9]
+    assert result.timeline[1].pause_through == 8
+
+
+@pytest.mark.parametrize("stamp,both", [("2025-11-01", False), ("2026-10-01", True)])
+def test_simultaneous_charges_by_era(stamp, both):
+    # Equal attack: the player's t1 charge resolves first. Before Dec 2025
+    # only the first fires; the Rocket's is void and keeps its 20 energy.
+    result = simulate_rocket(
+        [mon(charged=(C,), energy=20)],
+        [mon(charged=(C,), energy=20)],
+        battle_date=stamp,
+        max_turns=1,
+    )
+    first = result.timeline[0].core
+    assert ("charged:hit:C" in first.actions[1]) is both
+    assert ("charged:cancel:C" in first.actions[1]) is not both
+    assert first.energy[1] == (0 if both else 20)
+    assert result.timeline[0].deadline == 1440 + 14 * (2 if both else 1)
 
 
 @pytest.mark.parametrize("rank", ["leader", "giovanni"])
@@ -154,7 +221,7 @@ def test_first_two_rocket_shields_then_unshielded(rank):
 def test_grunt_never_shields():
     result = run(player=mon(charged=(replace(C, power=20),), energy=60), turns=5)
     assert [result.timeline[t - 1].core.damage[0] for t in (1, 3, 5)] == [19] * 3
-    assert result.shields[1] == 2  # Available but unused, as in the source.
+    assert result.shields[1] == 0  # A side that never shields reports none.
     assert result.rocket_shield_policy == "never"
 
 
@@ -169,9 +236,12 @@ def test_grunt_never_shields():
 def test_player_shield_policies(policy, damages, remaining):
     # Rocket charge power20: raw18.72 ->19. Threshold=.2 of current HP:
     # at 100HP, 19<20 -> no shield; at 81HP, 19>=16.2 -> shield twice.
+    # player_charged keeps the Rocket's own charges from pausing it, so
+    # three charges land on t1, t3 and t5.
     result = run(
         rocket=mon(charged=(replace(C, power=20),), energy=60),
         turns=5,
+        pause_trigger="player_charged",
         player_shield_policy=policy,
         player_shield_threshold=0.2,
     )
@@ -195,7 +265,9 @@ def test_never_rocket_charge():
     result = run(rocket=mon(charged=(C,), energy=100), turns=10, rocket_charged="never")
     assert starts(result, 1, "charged") == []
     assert result.energy[1] == (100,)
-    assert "l" not in result.ledger_rows and "unverified" not in result.flags
+    # "never" is itself an unverified assumption about a charge-holding Rocket.
+    assert "l" in result.ledger_rows and "unverified" in result.flags
+    assert any(e.option == "rocket_charged:never" for e in result.evidence)
 
 
 @pytest.mark.parametrize("scale,damage", [(1.0, 3), (0.5625, 2)])
@@ -243,8 +315,9 @@ def test_timer_both_sides_and_shielded_charge():
 
 
 def test_timeout_pokemon_count_precedes_hp_fraction():
-    # Zero-power F hits for1; player slot1 (1HP) faints on t1. Remaining
-    # player has far more raw HP, but only2 survivors versus Rocket3.
+    # Zero-power F hits for1; player slot1 (1HP) faints on t1. Its
+    # replacement pauses the Rocket t2..8, so slot2 takes t9..1440 = 1432.
+    # Remaining player has far more raw HP, but only2 survivors versus Rocket3.
     result = simulate_rocket(
         [mon(1), mon(20000), mon(1)],
         [mon(2000)] * 3,
@@ -252,7 +325,7 @@ def test_timeout_pokemon_count_precedes_hp_fraction():
         player_policy=FastOnly(),
     )
     assert result.ended_by == "timeout" and result.turns_elapsed == 1440
-    assert result.hp[0] == (0, 18561, 1)
+    assert result.hp[0] == (0, 18568, 1)
     assert result.winner == "rocket"  # 3 left beats2, despite much less raw HP.
     assert result.hp[1] == (560, 2000, 2000)
 
@@ -300,19 +373,30 @@ def test_sweep_carries_hp_energy_and_reserves():
     assert result.energy == ((30, 0, 0), (0, 0, 0))
 
 
-def test_loss_fixed_order_and_player_replacement_no_9db_pause():
-    # t1..3 each player1HP faints; each deals1. No Rocket replacement
-    # occurs, hence no faint pause; R lead carries97HP and30 energy.
-    result = simulate_rocket(
+def test_loss_fixed_order_and_player_replacement_pause():
+    # Default: either side's faint pauses. P1 faints t1; P2 hits t2..9 while
+    # the Rocket is paused t2..8, then dies t9; P3 hits t10..17, dies t17.
+    # Rocket lead takes 17 and hits only t1, t9 and t17 (30 energy).
+    rocket_team = [mon(fast=replace(F, energy_gain=10)), mon(), mon()]
+    result = simulate_rocket([mon(1)] * 3, rocket_team, battle_date=None, player_policy=FastOnly())
+    assert result.winner == "rocket" and result.ended_by == "knockout"
+    assert result.turns_elapsed == 17 and result.faint_trigger == "any_replacement"
+    assert [result.timeline[t - 1].active_slots[0] for t in (1, 9, 17)] == [1, 2, 3]
+    assert result.hp == ((0, 0, 0), (83, 100, 100))
+    assert result.energy[1] == (30, 0, 0)
+    grades = {e.option: e.grade for e in result.evidence}
+    assert grades["faint_trigger:any_replacement"] == "owner reading; not measured"
+    # Rocket-faint-only option: t1..3 each player faints; each deals1.
+    narrower = simulate_rocket(
         [mon(1)] * 3,
-        [mon(fast=replace(F, energy_gain=10)), mon(), mon()],
+        rocket_team,
         battle_date=None,
         player_policy=FastOnly(),
+        rules=RocketRules(faint_trigger="rocket_replacement"),
     )
-    assert result.winner == "rocket" and result.ended_by == "knockout"
-    assert [r.active_slots for r in result.timeline] == [(1, 1), (2, 1), (3, 1)]
-    assert result.hp == ((0, 0, 0), (97, 100, 100))
-    assert result.energy[1] == (30, 0, 0)
+    assert [r.active_slots for r in narrower.timeline] == [(1, 1), (2, 1), (3, 1)]
+    assert narrower.hp == ((0, 0, 0), (97, 100, 100))
+    assert narrower.energy[1] == (30, 0, 0)
 
 
 def test_cwizz1_pauses_after_player_replacement():
@@ -325,6 +409,35 @@ def test_cwizz1_pauses_after_player_replacement():
         max_turns=10,
     )
     assert starts(result, 1) == [1, 9, 10]
+
+
+def test_cwizz1_reading_is_dated_to_mar_2026():
+    with pytest.raises(ValueError):
+        simulate_rocket(
+            [mon()], [mon()], battle_date="2025-11-01", rules=RocketRules(pause_reading="cwizz1")
+        )
+
+
+@pytest.mark.parametrize("rank,winner", [("leader", "rocket"), ("grunt", None)])
+def test_before_dec_2025_leader_timeout_is_loss(rank, winner):
+    # Equal leads lose1 per turn: an even timeout. The old leader rule
+    # ("a timeout vs the Rocket Leaders counts as a loss") gives the Rocket it.
+    result = simulate_rocket(
+        [mon(5000)], [mon(5000)], battle_date="2025-11-01", rank=rank, player_policy=FastOnly()
+    )
+    assert result.ended_by == "timeout" and result.winner == winner
+
+
+def test_era_grades_reach_every_result():
+    old = simulate_rocket([mon()], [mon()], battle_date="2025-11-01", max_turns=1)
+    grades = {e.option: e.grade for e in old.evidence}
+    assert grades["pause_reading:9db:before-dec-2025:charged"].startswith("conflicting")
+    assert grades["era_turn_rules:before-dec-2025:fast_slip_in:False"] == (
+        "single source (9db), method unstated"
+    )
+    new = simulate_rocket([mon()], [mon()], battle_date=None, max_turns=1)
+    grades = {e.option: e.grade for e in new.evidence}
+    assert grades["pause_reading:9db:mar-2026:charged"] == "measured-reproduced"
 
 
 def test_queue_is_cleared_on_replacement():
@@ -381,6 +494,7 @@ def test_all_rocket_options_off_matches_core(turn_rules):
         rocket_charged="never",
         rocket_shields=False,
         player_shield_policy="never",
+        era_turn_rules=False,
         turn_rules=turn_rules,
     )
     team = simulate_rocket([p], [r], battle_date=None, rules=rules)
@@ -395,10 +509,10 @@ def test_next_turn_charge_pause_begins_after_resolution():
         turns=11,
         turn_rules=Rules(ledger_j_next_turn_charged=True),
     )
-    # Queue t1, resolve t2, pause t3..9, resume t10.
+    # Queue t1, resolve t2, core t3, pause t4..10, resume t11.
     assert result.timeline[0].pause_through == 0
-    assert result.timeline[1].pause_through == 9
-    assert starts(result, 1) == [1, 2, 10, 11]
+    assert result.timeline[1].pause_through == 10
+    assert starts(result, 1) == [1, 2, 11]
 
 
 def test_metadata_dates_sources_and_stat_adapter():
@@ -408,7 +522,8 @@ def test_metadata_dates_sources_and_stat_adapter():
     assert set("kmn") <= set(result.ledger_rows)
     assert all(e.grade and e.source and e.option for e in result.evidence)
     data = rule_data()
-    assert all(key in data["rows"] and data["rows"][key] for key in data["grades"])
+    for era in data["eras"]:
+        assert all(key in data["rows"] and data["rows"][key] for key in era["grades"])
     assert "approximate" in data["boundary_note"]
     for rank in ("grunt", "leader", "giovanni"):
         base = {"atk": 100, "def": 100, "hp": 100}
@@ -429,6 +544,8 @@ def test_metadata_dates_sources_and_stat_adapter():
     [
         {"pause_reading": "unknown"},
         {"pause_trigger": "unknown"},
+        {"faint_trigger": "unknown"},
+        {"era_turn_rules": 1},
         {"rocket_charged": "sometimes"},
         {"rocket_charged_damage_scale": 0.5},
         {"player_shield_policy": "unknown"},
@@ -462,10 +579,13 @@ def test_player_shields_carry_across_player_faint():
     # t1 shield1 reduces19 to1, but that still KOs the1HP player lead.
     # P2 arrives with the side's remaining1 shield. Rocket still has40
     # energy: t3 shield2 takes1HP; t5 third charge takes19HP unshielded.
+    # player_charged keeps the Rocket's own charges from pausing it.
     result = simulate_rocket(
         [mon(1), mon(), mon()],
         [mon(charged=(replace(C, power=20),), energy=60)] * 3,
         battle_date=None,
+        # Rocket faint only, too: the player lead's t1 faint must not pause.
+        rules=RocketRules(pause_trigger="player_charged", faint_trigger="rocket_replacement"),
         max_turns=5,
         player_policy=FastOnly(),
     )
