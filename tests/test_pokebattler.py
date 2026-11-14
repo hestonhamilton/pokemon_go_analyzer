@@ -1,8 +1,10 @@
 import fcntl
 import io
 import json
+from contextlib import contextmanager
 from email.message import Message
-from urllib.error import HTTPError
+from http.client import HTTPException, IncompleteRead
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import HTTPHandler, build_opener
 from urllib.response import addinfourl
@@ -12,6 +14,9 @@ import pytest
 from pogo_analyzer import pokebattler
 from pogo_analyzer.pokebattler import (
     BudgetExceeded,
+    CacheError,
+    CacheMiss,
+    NetworkError,
     NotFound,
     PoliteClient,
     RateLimitedOrBlocked,
@@ -174,6 +179,9 @@ def test_cache_atomic_replace_and_no_temporary_files(tmp_path, monkeypatch):
         assert source.parent == destination.parent == tmp_path
         assert json.loads(source.read_text())["body"] == {"ok": True}
         assert not destination.exists()
+        with (tmp_path / ".pace.lock").open("a") as lock:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         replacements.append(destination)
         original_replace(source, destination)
 
@@ -183,7 +191,7 @@ def test_cache_atomic_replace_and_no_temporary_files(tmp_path, monkeypatch):
     )
     assert client.get_json("https://example.test") == {"ok": True}
     assert len(replacements) == 1
-    assert list(tmp_path.iterdir()) == replacements
+    assert set(tmp_path.iterdir()) == {*replacements, tmp_path / ".pace.lock"}
 
 
 def test_failed_atomic_replace_cleans_temporary_files(tmp_path, monkeypatch):
@@ -192,9 +200,10 @@ def test_failed_atomic_replace_cleans_temporary_files(tmp_path, monkeypatch):
 
     monkeypatch.setattr(pokebattler.os, "replace", fail)
     client = PoliteClient(tmp_path, min_interval=0, opener=lambda *a, **kw: Response(b"{}"))
-    with pytest.raises(pokebattler.NetworkError, match="example.test"):
+    with pytest.raises(CacheError, match="replace failed") as exc:
         client.get_json("https://example.test")
-    assert list(tmp_path.iterdir()) == []
+    assert exc.value.path.parent == tmp_path
+    assert list(tmp_path.iterdir()) == [tmp_path / ".pace.lock"]
 
 
 @pytest.mark.parametrize("status", [400, 302, 404, 403, 429, 503])
@@ -245,3 +254,169 @@ def test_corrupt_cache_is_refetched(tmp_path):
     next(tmp_path.glob("*.json")).write_text('{"partial":')
     assert client.get_json("https://example.test") == {}
     assert client.network_requests == 2
+
+
+def test_future_pace_stamp_caps_sleep(tmp_path):
+    clock = FakeTime()
+    (tmp_path / ".pace.json").write_text(json.dumps({"last_request_start": clock.now + 3600}))
+    client = PoliteClient(
+        tmp_path,
+        opener=lambda *a, **kw: Response(b"{}"),
+        clock=clock.clock,
+        wall_clock=clock.clock,
+        sleep=clock.sleep,
+    )
+    assert client.get_json("https://example.test") == {}
+    assert clock.sleeps == [client.min_interval]
+
+
+@pytest.mark.parametrize("status", [200, 404])
+def test_cache_rechecked_after_lock_before_budget_or_request(tmp_path, monkeypatch, status):
+    clock = FakeTime()
+    calls = []
+
+    def opener(request, timeout):
+        calls.append(request.full_url)
+        if status == 404:
+            raise HTTPError(request.full_url, 404, "missing", {}, None)
+        return Response(b'{"winner":1}')
+
+    first, second = [
+        PoliteClient(
+            tmp_path,
+            opener=opener,
+            clock=clock.clock,
+            wall_clock=clock.clock,
+            sleep=clock.sleep,
+        )
+        for _ in range(2)
+    ]
+    second.max_requests = 0
+    original_lock = second._pace_lock
+    url = "https://example.test/shared"
+
+    @contextmanager
+    def another_process_wins_lock():
+        # The second client's initial read has missed. Another client now fills it.
+        if status == 404:
+            with pytest.raises(NotFound):
+                first.get_json(url)
+        else:
+            first.get_json(url)
+        with original_lock():
+            yield
+
+    monkeypatch.setattr(second, "_pace_lock", another_process_wins_lock)
+    if status == 404:
+        with pytest.raises(NotFound):
+            second.get_json(url)
+    else:
+        assert second.get_json(url) == {"winner": 1}
+    assert calls == [url]
+    assert first.network_requests == 1
+    assert second.network_requests == 0
+    assert clock.sleeps == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        IncompleteRead(b"partial", 100),
+        HTTPException("bad HTTP"),
+        URLError("offline"),
+        TimeoutError("timed out"),
+        ConnectionError("connection lost"),
+        OSError("read failed"),
+    ],
+)
+@pytest.mark.parametrize("during_read", [False, True])
+def test_http_exchange_errors_are_network_errors(tmp_path, failure, during_read):
+    class BrokenResponse(Response):
+        def read(self, *args, **kwargs):
+            raise failure
+
+    def opener(request, timeout):
+        if during_read:
+            return BrokenResponse()
+        raise failure
+
+    client = PoliteClient(tmp_path, opener=opener)
+    with pytest.raises(NetworkError, match="example.test") as exc:
+        client.get_json("https://example.test")
+    assert exc.value.__cause__ is failure
+    assert client.network_requests == 1
+
+
+@pytest.mark.parametrize("operation", ["mkdir", "flock", "pace_write", "cache_write", "read"])
+def test_cache_failures_name_path(tmp_path, monkeypatch, operation):
+    client = PoliteClient(tmp_path / "cache", opener=lambda *a, **kw: Response(b"{}"))
+    reason = PermissionError("read-only cache")
+
+    def fail(*args, **kwargs):
+        raise reason
+
+    if operation == "mkdir":
+        monkeypatch.setattr(pokebattler.Path, "mkdir", fail)
+    elif operation == "flock":
+        monkeypatch.setattr(pokebattler.fcntl, "flock", fail)
+    elif operation == "read":
+        monkeypatch.setattr(pokebattler.Path, "read_text", fail)
+    else:
+        original = pokebattler.os.replace
+
+        def replace(source, destination):
+            if (destination.name == ".pace.json") == (operation == "pace_write"):
+                raise reason
+            original(source, destination)
+
+        monkeypatch.setattr(pokebattler.os, "replace", replace)
+
+    with pytest.raises(CacheError, match="read-only cache") as exc:
+        client.get_json("https://example.test")
+    expected = {
+        "mkdir": client.cache_dir,
+        "flock": client.cache_dir / ".pace.lock",
+        "pace_write": client.cache_dir / ".pace.json",
+    }.get(operation)
+    if expected is not None:
+        assert exc.value.path == expected
+    else:
+        assert exc.value.path.parent == client.cache_dir
+        assert exc.value.path.name.endswith(".json")
+    assert client.network_requests == (1 if operation == "cache_write" else 0)
+
+
+def test_cache_only_never_locks_or_requests(tmp_path, monkeypatch):
+    client = PoliteClient(tmp_path, opener=lambda *a, **kw: Response(b"{}"))
+    url = "https://example.test/cached"
+    client.get_json(url)
+    client.cache_only = True
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("cache-only mode must not lock, pace, or request")
+
+    monkeypatch.setattr(client, "_pace_lock", forbidden)
+    monkeypatch.setattr(client, "opener", forbidden)
+    assert client.get_json(url) == {}
+    with pytest.raises(CacheMiss):
+        client.get_json("https://example.test/missing")
+    assert client.network_requests == 1
+
+
+def test_cache_only_ignores_expired_entries(tmp_path):
+    clock = FakeTime()
+    client = PoliteClient(
+        tmp_path,
+        ttl_seconds=10,
+        opener=lambda *a, **kw: Response(b"{}"),
+        wall_clock=clock.clock,
+        clock=clock.clock,
+        sleep=clock.sleep,
+    )
+    url = "https://example.test/expired"
+    client.get_json(url)
+    clock.now += 10
+    client.cache_only = True
+    with pytest.raises(CacheMiss):
+        client.get_json(url)
+    assert client.network_requests == 1

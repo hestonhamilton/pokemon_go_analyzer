@@ -6,6 +6,11 @@ Research from 2026-11-13. Three things are kept apart on purpose:
 2. **The real game**: independent evidence only, with how each figure was measured.
 3. **Whether 1 matches 2**, figure by figure.
 
+> **Update 2026-11-14:** a broader research pass found later measurements. The 2021 formula was
+> replaced in late 2022 (fit in March 2023, with damage tests), and the rocket-CPM table was re-indexed
+> for the level-80 update in Oct 2025. The current picture is in [rocket-pokemon.md](rocket-pokemon.md).
+> Where this page calls the 2021 formula "best available", read "superseded".
+
 A figure that only Pokebattler gives is marked **unverified, Pokebattler only**. Tags: **POKEBATTLER** (their
 pages or staff), **COMMUNITY** (player research), **DATAMINED** (game master), **OFFICIAL** (Niantic or The
 Pokémon Company), **OURS** (our own API observations or arithmetic).
@@ -123,24 +128,23 @@ read. Reddit was blocked, so this is a gap in our search, not proof that none ex
 | Figure | Pokebattler | Independent evidence | Verdict |
 |---|---|---|---|
 | Tier block: level 27/30, ×3 atk, ×2 def, ×1 sta (`UNSET` 2.5) | Published by `/rocket` today | Superseded by both community studies (2019: ×4/×2 at 0.63251; 2021: ×2/×0.8/×1.1 with boosted IVs) | **Stale. Matches no current study.** Don't use. |
-| 2021 formula (IVs, ×2 / ×0.8 / ×1.1, rank 1 / 1.05 / 1.15) | Matches the `stats` block | One CP study with 433 readings and a described method; Bulbapedia repeats it | **Best available, partly verified.** CP fit only; no published HP or damage data; the study involved Pokebattler's founder, so it isn't fully independent. |
+| 2021 formula (IVs, ×2 / ×0.8 / ×1.1, rank 1 / 1.05 / 1.15) | Matches the `stats` block | One CP study with 433 readings and a described method; Bulbapedia repeats it | **Superseded** by the March 2023 formula (see [rocket-pokemon.md](rocket-pokemon.md)); its attack-IV rule survives. The study involved Pokebattler's founder, so it isn't fully independent. |
 | Rocket CPM rising with trainer level | Yes (CP tracks attacker level) | Both studies, from CP readings | **Consistent.** CP-based evidence only. |
-| HP | 1.1 × (base + 9) × rCPM × rank (2021) | The 2019 study gives a lower HP; no direct HP measurement published since | **Sources disagree; unverified.** |
-| Nov 2023 rocket CPM retune | Applied | Reddit post unreadable | **Unverified, Pokebattler only** (for now). |
+| HP | 1.1 × (base + 9) × rCPM × rank (2021) | 2023: floor(0.6 × (base + 15)) × rCPM × rank, checked by damage and hit counts (May 2023) | **Pokebattler's 2021 HP is outdated.** The 2023 HP is measured, but only by CP since Oct 2025. |
+| Nov 2023 rocket CPM retune | Applied | [184iqov](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/): an rCPM table back-solved from CP; re-indexed again for level 80 in Dec 2025 ([1puc05x](https://www.reddit.com/r/TheSilphRoad/comments/1puc05x/)) | **Measured by CP.** Whether Pokebattler has adopted the Dec 2025 table is unknown. |
 | Grunts don't shield; leaders and Giovanni shield the first two | Stated on its hub page | GO Hub, Bulbapedia, TPCi | **Matches.** But the API's default `defenderShieldStrategy` is SHIELD_2 even for grunts. |
 | Simulated grunt results (0% win, 515 damage in 2.5 s) | API output | Contradicts every stat model above, by our arithmetic | **Doesn't match.** Cause not settled. |
 
 ## What this means for the offline simulator
 
-- **NPC stats:** use the 2021 formula as the default model, with the rank and rocket-CPM tables in config, and
-  label it "community fit, CP-verified only".
-- **HP needs a validation step**, since the 2019 and 2021 studies disagree. Either:
-  - ask for a small player-recorded sample (damage per hit and hits to knock out one grunt Pokémon at a known
-    trainer level), or
-  - fit HP so that our results match known outcomes for a few common matchups.
-- **Shields:** grunts never shield; leaders and Giovanni shield the first two charged attacks. These are solid.
-- **Don't take Pokebattler's tier block or its simulated grunt outcomes as ground truth.** Its CP values and
-  rank encoding can serve as a cross-check for the stat formula.
+Superseded by the conclusions in [rocket-pokemon.md](rocket-pokemon.md):
+
+- use the March 2023 formula with the Dec 2025 rocket-CPM table;
+- apply the shadow 1.2× / 1.2× and the 1.3× bonus on top;
+- take trainer level as an input;
+- confirm with a small damage check, because only CP has been tested since Oct 2025.
+
+Pokebattler's CP values and rank encoding remain useful as a cross-check.
 
 ## Open questions
 

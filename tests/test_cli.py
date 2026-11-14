@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from pogo_analyzer import cli, lineups
-from pogo_analyzer.pokebattler import NotFound, RateLimitedOrBlocked
+from pogo_analyzer.pokebattler import CacheMiss, NotFound, RateLimitedOrBlocked
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -23,6 +23,7 @@ class FakeClient:
     def __init__(self, cache_dir, **kwargs):
         self.kwargs = kwargs
         self.network_requests = 0
+        self.cache_only = False
         self.urls = []
         self.instances.append(self)
 
@@ -32,6 +33,8 @@ class FakeClient:
             return fixture("lineups.json")
         if url == lineups.PVPOKE_GM_URL:
             return fixture("species.json")
+        if self.cache_only:
+            raise CacheMiss(url)
         self.network_requests += 1
         if self.blocked:
             raise RateLimitedOrBlocked(429)
@@ -296,3 +299,120 @@ def test_time_output_keeps_loser_own_time(monkeypatch, capsys):
     assert [row["counter_id"] for row in rows] == ["ALPHA", "GAMMA", "BETA"]
     assert rows[0]["time_s"] == 9.1
     assert rows[1]["time_s"] == 0.123
+
+
+@pytest.mark.parametrize("command", ["counters", "tally"])
+@pytest.mark.parametrize("fmt", ["csv", "table"])
+@pytest.mark.parametrize("credits_column", [False, True])
+def test_credits_column(command, fmt, credits_column, capsys):
+    args = [command, "--defender", "TEST", "--tier", "RAID_LEVEL_1", "--format", fmt]
+    if credits_column:
+        args.append("--credits-column")
+    assert cli.main(args) == 0
+    captured = capsys.readouterr()
+    if fmt == "csv":
+        reader = csv.DictReader(io.StringIO(captured.out))
+        rows = list(reader)
+        fields = reader.fieldnames
+        assert cli.CREDITS in captured.err
+    else:
+        lines = captured.out.splitlines()
+        fields = lines[0].split(" | ")
+        rows = [dict(zip(fields, line.split(" | "), strict=True)) for line in lines[1:-1]]
+    assert ("source" in fields) == credits_column
+    assert rows
+    if credits_column:
+        assert all(row["source"] == cli.SHORT_CREDIT for row in rows)
+
+
+def test_credits_column_keeps_json_credits(capsys):
+    assert (
+        cli.main(
+            [
+                "counters",
+                "--defender",
+                "TEST",
+                "--tier",
+                "RAID_LEVEL_1",
+                "--format",
+                "json",
+                "--credits-column",
+            ]
+        )
+        == 0
+    )
+    data = json.loads(capsys.readouterr().out)
+    assert data["credits"] == cli.CREDITS
+    assert all("source" not in row for row in data["results"])
+
+
+@pytest.mark.parametrize(
+    ("selector", "selected"),
+    [
+        ("male", {"FIRE_MALE", "WATER_MALE"}),
+        ("FeMaLe", {"FIRE_FEMALE"}),
+        ("grunt", {"FIRE_MALE", "FIRE_FEMALE", "WATER_MALE", "ICE"}),
+        ("FiRe grunt", {"FIRE_MALE", "FIRE_FEMALE"}),
+        ("  fire   male  ", {"FIRE_MALE"}),
+        ("cliff", {"CLIFF"}),
+        ("ice grunt", {"ICE"}),
+    ],
+)
+def test_character_whole_word_matching(monkeypatch, capsys, selector, selected):
+    names = {
+        "FIRE_MALE": "Fire grunt (male)",
+        "FIRE_FEMALE": "Fire grunt (female)",
+        "WATER_MALE": "Water grunt (male)",
+        "CLIFF": "Cliff",
+        "ICE": "Ice-grunt (unknown)",
+    }
+    monkeypatch.setattr(
+        cli,
+        "load_lineups",
+        lambda source: [
+            lineups.Character(name, "RAID_LEVEL_1", [[lineups.Encounter(key, [key])], [], []])
+            for key, name in names.items()
+        ],
+    )
+    assert cli.main(["counters", "--character", selector, "--format", "json"]) == 0
+    rows = json.loads(capsys.readouterr().out)["results"]
+    assert {row["defender"] for row in rows} == selected
+
+
+@pytest.mark.parametrize("selector", ["fir", "male fire cliff", "missing", "", "() -"])
+def test_character_no_match_lists_available(selector, capsys):
+    assert cli.main(["counters", "--character", selector]) == 2
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "Available characters:" in captured.err
+    for name in ("Fire grunt (female)", "Mixed grunt (male)", "Cliff", "Giovanni"):
+        assert name in captured.err
+    assert not FakeClient.instances[1].urls
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [{"not_pokemon": []}, [], {"pokemon": "x"}],
+)
+def test_malformed_species_source_exits_5(bad, monkeypatch, capsys):
+    original = FakeClient.get_json
+
+    def get_json(self, url):
+        return bad if url == lineups.PVPOKE_GM_URL else original(self, url)
+
+    monkeypatch.setattr(FakeClient, "get_json", get_json)
+    assert cli.main(["lineups"]) == 5
+    err = capsys.readouterr().err
+    assert "raw.githubusercontent.com" in err and "Traceback" not in err
+
+
+def test_species_entries_without_fields_are_skipped(monkeypatch):
+    data = fixture("species.json")
+    data["pokemon"] = [{"dex": 1}, "junk", *data["pokemon"]]
+    original = FakeClient.get_json
+
+    def get_json(self, url):
+        return data if url == lineups.PVPOKE_GM_URL else original(self, url)
+
+    monkeypatch.setattr(FakeClient, "get_json", get_json)
+    assert lineups.load_lineups(FakeClient("cache"))
