@@ -1,0 +1,306 @@
+{
+  "source": "https://raw.githubusercontent.com/alexelgt/game_masters/master/GAME_MASTER.json",
+  "checked_on": "2026-11-13",
+  "method": "Read-only comparison of literal JSON cpMultiplier against pinned PvPoke whole levels 1\u201355. No game-master file is distributed. No float32 conversion applied to the JSON literals.",
+  "threshold": 1e-09,
+  "whole_level_differences": [
+    {
+      "level": 1,
+      "pvpoke": 0.0939999967813491,
+      "game_master": 0.094,
+      "difference": -3.218650901359865e-09
+    },
+    {
+      "level": 5,
+      "pvpoke": 0.29024988412857,
+      "game_master": 0.29024988,
+      "difference": 4.128569985883956e-09
+    },
+    {
+      "level": 6,
+      "pvpoke": 0.321087598800659,
+      "game_master": 0.3210876,
+      "difference": -1.1993409598787252e-09
+    },
+    {
+      "level": 7,
+      "pvpoke": 0.349212676286697,
+      "game_master": 0.34921268,
+      "difference": -3.7133029984204313e-09
+    },
+    {
+      "level": 8,
+      "pvpoke": 0.375235587358474,
+      "game_master": 0.3752356,
+      "difference": -1.2641525992673763e-08
+    },
+    {
+      "level": 9,
+      "pvpoke": 0.399567276239395,
+      "game_master": 0.39956728,
+      "difference": -3.760605049585308e-09
+    },
+    {
+      "level": 10,
+      "pvpoke": 0.422500014305114,
+      "game_master": 0.4225,
+      "difference": 1.430511403777146e-08
+    },
+    {
+      "level": 11,
+      "pvpoke": 0.443107545375824,
+      "game_master": 0.44310755,
+      "difference": -4.624176042078432e-09
+    },
+    {
+      "level": 12,
+      "pvpoke": 0.46279838681221,
+      "game_master": 0.4627984,
+      "difference": -1.318778997116965e-08
+    },
+    {
+      "level": 13,
+      "pvpoke": 0.481684952974319,
+      "game_master": 0.48168495,
+      "difference": 2.9743190133046937e-09
+    },
+    {
+      "level": 14,
+      "pvpoke": 0.499858438968658,
+      "game_master": 0.49985844,
+      "difference": -1.0313420117924466e-09
+    },
+    {
+      "level": 15,
+      "pvpoke": 0.517393946647644,
+      "game_master": 0.51739395,
+      "difference": -3.3523559483938925e-09
+    },
+    {
+      "level": 16,
+      "pvpoke": 0.534354329109191,
+      "game_master": 0.5343543,
+      "difference": 2.9109191057585804e-08
+    },
+    {
+      "level": 17,
+      "pvpoke": 0.550792694091796,
+      "game_master": 0.5507927,
+      "difference": -5.908204037119447e-09
+    },
+    {
+      "level": 18,
+      "pvpoke": 0.566754519939422,
+      "game_master": 0.5667545,
+      "difference": 1.993942200240184e-08
+    },
+    {
+      "level": 19,
+      "pvpoke": 0.582278907299041,
+      "game_master": 0.5822789,
+      "difference": 7.299040927222222e-09
+    },
+    {
+      "level": 20,
+      "pvpoke": 0.59740000963211,
+      "game_master": 0.5974,
+      "difference": 9.632109998491956e-09
+    },
+    {
+      "level": 21,
+      "pvpoke": 0.61215728521347,
+      "game_master": 0.6121573,
+      "difference": -1.4786530000421294e-08
+    },
+    {
+      "level": 22,
+      "pvpoke": 0.626567125320434,
+      "game_master": 0.6265671,
+      "difference": 2.5320433971742773e-08
+    },
+    {
+      "level": 23,
+      "pvpoke": 0.640652954578399,
+      "game_master": 0.64065295,
+      "difference": 4.57839899326018e-09
+    },
+    {
+      "level": 24,
+      "pvpoke": 0.654435634613037,
+      "game_master": 0.65443563,
+      "difference": 4.6130369524277626e-09
+    },
+    {
+      "level": 26,
+      "pvpoke": 0.681164920330047,
+      "game_master": 0.6811649,
+      "difference": 2.033004709023345e-08
+    },
+    {
+      "level": 27,
+      "pvpoke": 0.694143652915954,
+      "game_master": 0.69414365,
+      "difference": 2.915954033788637e-09
+    },
+    {
+      "level": 28,
+      "pvpoke": 0.706884205341339,
+      "game_master": 0.7068842,
+      "difference": 5.341339037734372e-09
+    },
+    {
+      "level": 29,
+      "pvpoke": 0.719399094581604,
+      "game_master": 0.7193991,
+      "difference": -5.4183959541376225e-09
+    },
+    {
+      "level": 30,
+      "pvpoke": 0.731700003147125,
+      "game_master": 0.7317,
+      "difference": 3.1471250050429944e-09
+    },
+    {
+      "level": 31,
+      "pvpoke": 0.737769484519958,
+      "game_master": 0.7377695,
+      "difference": -1.5480041914983644e-08
+    },
+    {
+      "level": 32,
+      "pvpoke": 0.743789434432983,
+      "game_master": 0.74378943,
+      "difference": 4.432982980695499e-09
+    },
+    {
+      "level": 33,
+      "pvpoke": 0.749761044979095,
+      "game_master": 0.74976104,
+      "difference": 4.979095025170466e-09
+    },
+    {
+      "level": 34,
+      "pvpoke": 0.75568550825119,
+      "game_master": 0.7556855,
+      "difference": 8.25118995351204e-09
+    },
+    {
+      "level": 35,
+      "pvpoke": 0.761563837528228,
+      "game_master": 0.76156384,
+      "difference": -2.4717720092937157e-09
+    },
+    {
+      "level": 36,
+      "pvpoke": 0.767397165298461,
+      "game_master": 0.76739717,
+      "difference": -4.701538935947269e-09
+    },
+    {
+      "level": 37,
+      "pvpoke": 0.77318650484085,
+      "game_master": 0.7731865,
+      "difference": 4.840850054144141e-09
+    },
+    {
+      "level": 39,
+      "pvpoke": 0.784636974334716,
+      "game_master": 0.784637,
+      "difference": -2.5665284009157574e-08
+    },
+    {
+      "level": 40,
+      "pvpoke": 0.790300011634826,
+      "game_master": 0.7903,
+      "difference": 1.1634825991535536e-08
+    },
+    {
+      "level": 41,
+      "pvpoke": 0.795300006866455,
+      "game_master": 0.7953,
+      "difference": 6.866454960174906e-09
+    },
+    {
+      "level": 42,
+      "pvpoke": 0.800300002098083,
+      "game_master": 0.8003,
+      "difference": 2.0980830406358564e-09
+    },
+    {
+      "level": 43,
+      "pvpoke": 0.805299997329711,
+      "game_master": 0.8053,
+      "difference": -2.6702889899254956e-09
+    },
+    {
+      "level": 44,
+      "pvpoke": 0.81029999256134,
+      "game_master": 0.8103,
+      "difference": -7.438660021286125e-09
+    },
+    {
+      "level": 45,
+      "pvpoke": 0.815299987792968,
+      "game_master": 0.8153,
+      "difference": -1.2207032051847477e-08
+    },
+    {
+      "level": 46,
+      "pvpoke": 0.820299983024597,
+      "game_master": 0.8203,
+      "difference": -1.6975403083208107e-08
+    },
+    {
+      "level": 47,
+      "pvpoke": 0.825299978256225,
+      "game_master": 0.8253,
+      "difference": -2.1743775002747157e-08
+    },
+    {
+      "level": 48,
+      "pvpoke": 0.830299973487854,
+      "game_master": 0.8303,
+      "difference": -2.6512146034107786e-08
+    },
+    {
+      "level": 49,
+      "pvpoke": 0.835300028324127,
+      "game_master": 0.8353,
+      "difference": 2.832412693276609e-08
+    },
+    {
+      "level": 50,
+      "pvpoke": 0.840300023555755,
+      "game_master": 0.8403,
+      "difference": 2.355575490220474e-08
+    },
+    {
+      "level": 51,
+      "pvpoke": 0.845300018787384,
+      "game_master": 0.8453,
+      "difference": 1.8787383981866412e-08
+    },
+    {
+      "level": 52,
+      "pvpoke": 0.850300014019012,
+      "game_master": 0.8503,
+      "difference": 1.4019012062327363e-08
+    },
+    {
+      "level": 53,
+      "pvpoke": 0.85530000925064,
+      "game_master": 0.8553,
+      "difference": 9.250640031766011e-09
+    },
+    {
+      "level": 54,
+      "pvpoke": 0.860300004482269,
+      "game_master": 0.8603,
+      "difference": 4.482269000405381e-09
+    }
+  ],
+  "half_level_differences": [],
+  "half_level_count": 54,
+  "float32_interpretation": "Casting each whole-level game-master decimal to binary32 removes every difference beyond 1e-9. The runtime still uses the verbatim PvPoke table.",
+  "whole_level_float32_differences": []
+}

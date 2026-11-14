@@ -1,0 +1,18 @@
+[
+  {
+    "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/|70|gallade|grunt|10214",
+    "reason": "Source flags the difference from the old TL40 comparison. The dec-2025 table reproduces this reading.",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+    "source_quotes": [
+      "|Grunt|GALLADE|11038|10214 (-1)|",
+      "However, the very first test did show an anomaly. Gallade with the previous Lvl 40 rCPM would have been `10215`, but actual CP was `10214`."
+    ],
+    "xfail_variants": [
+      "october-tl40-hypothesis:flyfunner-lower-2023"
+    ],
+    "quote_sources": [
+      "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/",
+      "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/"
+    ]
+  }
+]

@@ -1,0 +1,640 @@
+{
+  "venonic-2023": {
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/",
+    "fetched_on": "2026-11-13",
+    "precision": "published decimal; no float32 cast prescribed",
+    "float32": false,
+    "values": {
+      "41": {
+        "decimal": "1.27002",
+        "quote": "|Level 41|1.27002|"
+      },
+      "45": {
+        "decimal": "1.29002",
+        "quote": "|Level 45|1.29002|"
+      },
+      "49": {
+        "decimal": "1.31002",
+        "quote": "|Level 49|1.31002|"
+      },
+      "50": {
+        "decimal": "1.31502",
+        "quote": "|Level 50:|1.31502|"
+      }
+    }
+  },
+  "fugerappi-2023": {
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/184iqov/",
+    "fetched_on": "2026-11-13",
+    "precision": "published 3-decimal; no float32 cast prescribed",
+    "float32": false,
+    "values": {
+      "8": {
+        "decimal": "0.280",
+        "quote": "|TL8|0.280|"
+      },
+      "9": {
+        "decimal": "0.340",
+        "quote": "|TL9|0.340|"
+      },
+      "10": {
+        "decimal": "0.390",
+        "quote": "|TL10|0.390|"
+      },
+      "11": {
+        "decimal": "0.445",
+        "quote": "|TL11|0.445|"
+      },
+      "12": {
+        "decimal": "0.464",
+        "quote": "|TL12|0.464|"
+      },
+      "13": {
+        "decimal": "0.508",
+        "quote": "|TL13|0.508|"
+      },
+      "14": {
+        "decimal": "0.538",
+        "quote": "|TL14|0.538|"
+      },
+      "15": {
+        "decimal": "0.575",
+        "quote": "|TL15|0.575|"
+      },
+      "16": {
+        "decimal": "0.605",
+        "quote": "|TL16|0.605|"
+      },
+      "17": {
+        "decimal": "0.647",
+        "quote": "|TL17|0.647|"
+      },
+      "18": {
+        "decimal": "0.687",
+        "quote": "|TL18|0.687|"
+      },
+      "19": {
+        "decimal": "0.725",
+        "quote": "|TL19|0.725|"
+      },
+      "20": {
+        "decimal": "0.751",
+        "quote": "|TL20|0.751|"
+      },
+      "21": {
+        "decimal": "0.794",
+        "quote": "|TL21|0.794|"
+      },
+      "22": {
+        "decimal": "0.825",
+        "quote": "|TL22|0.825|"
+      },
+      "23": {
+        "decimal": "0.854",
+        "quote": "|TL23|0.854|"
+      },
+      "24": {
+        "decimal": "0.880",
+        "quote": "|TL24|0.880|"
+      },
+      "25": {
+        "decimal": "0.906",
+        "quote": "|TL25|0.906|"
+      },
+      "26": {
+        "decimal": "0.929",
+        "quote": "|TL26|0.929|"
+      },
+      "27": {
+        "decimal": "0.948",
+        "quote": "|TL27|0.948|"
+      },
+      "28": {
+        "decimal": "0.971",
+        "quote": "|TL28|0.971|"
+      },
+      "29": {
+        "decimal": "0.996",
+        "quote": "|TL29|0.996|"
+      },
+      "30": {
+        "decimal": "1.020",
+        "quote": "|TL30|1.020|"
+      },
+      "31": {
+        "decimal": "1.040",
+        "quote": "|TL31|1.040|"
+      },
+      "32": {
+        "decimal": "1.067",
+        "quote": "|TL32\\*|1.067|",
+        "flag": "I lost the data of TL32 and TL48, so these are only results."
+      },
+      "33": {
+        "decimal": "1.090",
+        "quote": "|TL33|1.090|"
+      },
+      "34": {
+        "decimal": "1.117",
+        "quote": "|TL34|1.117|"
+      },
+      "35": {
+        "decimal": "1.140",
+        "quote": "|TL35|1.140|"
+      },
+      "36": {
+        "decimal": "1.165",
+        "quote": "|TL36|1.165|"
+      },
+      "37": {
+        "decimal": "1.187",
+        "quote": "|TL37|1.187|"
+      },
+      "38": {
+        "decimal": "1.209",
+        "quote": "|TL38|1.209|"
+      },
+      "39": {
+        "decimal": "1.230",
+        "quote": "|TL39|1.230|"
+      },
+      "40": {
+        "decimal": "1.265",
+        "quote": "|TL40|1.265|"
+      },
+      "41": {
+        "decimal": "1.270",
+        "quote": "|TL41|1.270|"
+      },
+      "42": {
+        "decimal": "1.275",
+        "quote": "|TL42|1.275|"
+      },
+      "43": {
+        "decimal": "1.280",
+        "quote": "|TL43|1.280|"
+      },
+      "44": {
+        "decimal": "1.285",
+        "quote": "|TL44|1.285|"
+      },
+      "45": {
+        "decimal": "1.290",
+        "quote": "|TL45|1.290|"
+      },
+      "46": {
+        "decimal": "1.295",
+        "quote": "|TL46|1.295|"
+      },
+      "47": {
+        "decimal": "1.300",
+        "quote": "|TL47|1.300|"
+      },
+      "48": {
+        "decimal": "1.305",
+        "quote": "|TL48\\*|1.305|",
+        "flag": "I lost the data of TL32 and TL48, so these are only results."
+      },
+      "49": {
+        "decimal": "1.310",
+        "quote": "|TL49|1.310|"
+      },
+      "50": {
+        "decimal": "1.315",
+        "quote": "|TL50|1.315|"
+      }
+    }
+  },
+  "flyfunner-lower-2023": {
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/12ib623/",
+    "fetched_on": "2026-11-13",
+    "precision": "published estimated CPMr column; retain min/max without replacing estimate",
+    "float32": false,
+    "values": {
+      "8": {
+        "decimal": "0.280412376",
+        "quote": "|8|0.280412376|0.280410171|0.280414551|148|Sceptile|",
+        "min": "0.280410171",
+        "max": "0.280414551",
+        "remaining_floats": 148
+      },
+      "9": {
+        "decimal": "0.339924574",
+        "quote": "|9|0.339924574|0.339921087|0.339928031|234|Donphan and Bellsprout|",
+        "min": "0.339921087",
+        "max": "0.339928031",
+        "remaining_floats": 234
+      },
+      "10": {
+        "decimal": "0.390268505",
+        "quote": "|10|0.390268505|0.390259832|0.390277177|583|A-Sandslash, Hypno, Lapras, Forretress, Teddiursa & Tyranitar|",
+        "min": "0.390259832",
+        "max": "0.390277177",
+        "remaining_floats": 583
+      },
+      "11": {
+        "decimal": "0.4447335",
+        "quote": "|11|0.4447335|0.444726914|0.444740117|444|Charizard, Golduck, Quilava & Dusknoir|",
+        "min": "0.444726914",
+        "max": "0.444740117",
+        "remaining_floats": 444
+      },
+      "12": {
+        "decimal": "0.464291066",
+        "quote": "|12|0.464291066|0.464282006|0.464300126|609|Golduck, Weepinbell, Kingler, Hitmonchan, Dragonite, Ampharos & Scizor|",
+        "min": "0.464282006",
+        "max": "0.464300126",
+        "remaining_floats": 609
+      },
+      "27": {
+        "decimal": "0.94817543",
+        "quote": "|27|0.94817543|0.948166132|0.948184669|312|multiple|",
+        "min": "0.948166132",
+        "max": "0.948184669",
+        "remaining_floats": 312
+      },
+      "28": {
+        "decimal": "0.971454859",
+        "quote": "|28|0.971454859|0.971450746|0.971458912|138|Ninetales, Kingler, Voltorb, Gyarados, Ampharos, Kingdra, Dusclops & Foongus|",
+        "min": "0.971450746",
+        "max": "0.971458912",
+        "remaining_floats": 138
+      },
+      "29": {
+        "decimal": "0.995577097",
+        "quote": "|29|0.995577097|0.995555818|0.995598435|716|many|",
+        "min": "0.995555818",
+        "max": "0.995598435",
+        "remaining_floats": 716
+      },
+      "30": {
+        "decimal": "1.020491",
+        "quote": "|30|1.020491|1.02048159|1.02050042|159|multiple|",
+        "min": "1.02048159",
+        "max": "1.02050042",
+        "remaining_floats": 159
+      },
+      "32": {
+        "decimal": "1.06728399",
+        "quote": "|32|1.06728399|1.06728292|1.06728506|19|Alakazam, Meganium, Blaziken & Aggron|",
+        "min": "1.06728292",
+        "max": "1.06728506",
+        "remaining_floats": 19
+      },
+      "33": {
+        "decimal": "1.09030831",
+        "quote": "|33|1.09030831|1.090294|1.09032261|241|many|",
+        "min": "1.090294",
+        "max": "1.09032261",
+        "remaining_floats": 241
+      },
+      "34": {
+        "decimal": "1.116755",
+        "quote": "|34|1.116755|1.11676025|1.11677086|90|Nidoking, Poliwrath, Muk (+A), Typhlosion, Shuckle, Ursaring, Tyranitar, Treecko, Staraptor, Dusknoir, Zebstrika, Golurk|",
+        "min": "1.11676025",
+        "max": "1.11677086",
+        "remaining_floats": 90
+      },
+      "37": {
+        "decimal": "1.18663049",
+        "quote": "|37|1.18663049|1.18662989|1.18663108|11|none currently available|",
+        "min": "1.18662989",
+        "max": "1.18663108",
+        "remaining_floats": 11
+      },
+      "38": {
+        "decimal": "1.20930004",
+        "quote": "|38|1.20930004|1.20929861|1.20930159|26|Kingler|",
+        "min": "1.20929861",
+        "max": "1.20930159",
+        "remaining_floats": 26
+      },
+      "39": {
+        "decimal": "1.23048902",
+        "quote": "|39|1.23048902|1.23048103|1.23049688|134|many|",
+        "min": "1.23048103",
+        "max": "1.23049688",
+        "remaining_floats": 134
+      },
+      "40": {
+        "decimal": "1.26502",
+        "quote": "|40 (Reference)|1.26502|\\-|\\-|\\-|\\-|"
+      }
+    },
+    "note": "TL34 estimated value is below its published minimum; preserved verbatim. TL40 is a reference, not a measured bound."
+  },
+  "dec-2025": {
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1puc05x/",
+    "fetched_on": "2026-11-13",
+    "precision": "3-decimal converted to IEEE 754 binary32",
+    "float32": true,
+    "values": {
+      "8": {
+        "decimal": "0.299",
+        "quote": "8 | 0.299"
+      },
+      "9": {
+        "decimal": "0.352",
+        "quote": "9 | 0.352"
+      },
+      "10": {
+        "decimal": "0.400",
+        "quote": "10 | 0.400"
+      },
+      "11": {
+        "decimal": "0.444",
+        "quote": "11 | 0.444"
+      },
+      "12": {
+        "decimal": "0.487",
+        "quote": "12 | 0.487"
+      },
+      "13": {
+        "decimal": "0.529",
+        "quote": "13 | 0.529"
+      },
+      "14": {
+        "decimal": "0.569",
+        "quote": "14 | 0.569"
+      },
+      "15": {
+        "decimal": "0.608",
+        "quote": "15 | 0.608"
+      },
+      "16": {
+        "decimal": "0.646",
+        "quote": "16 | 0.646"
+      },
+      "17": {
+        "decimal": "0.683",
+        "quote": "17 | 0.683"
+      },
+      "18": {
+        "decimal": "0.712",
+        "quote": "18 | 0.712"
+      },
+      "19": {
+        "decimal": "0.755",
+        "quote": "19 | 0.755"
+      },
+      "20": {
+        "decimal": "0.796",
+        "quote": "20 | 0.796"
+      },
+      "21": {
+        "decimal": "0.808",
+        "quote": "21 | 0.808"
+      },
+      "22": {
+        "decimal": "0.820",
+        "quote": "22 | 0.820"
+      },
+      "23": {
+        "decimal": "0.832",
+        "quote": "23 | 0.832"
+      },
+      "24": {
+        "decimal": "0.844",
+        "quote": "24 | 0.844"
+      },
+      "25": {
+        "decimal": "0.855",
+        "quote": "25 | 0.855"
+      },
+      "26": {
+        "decimal": "0.867",
+        "quote": "26 | 0.867"
+      },
+      "27": {
+        "decimal": "0.878",
+        "quote": "27 | 0.878"
+      },
+      "28": {
+        "decimal": "0.890",
+        "quote": "28 | 0.890"
+      },
+      "29": {
+        "decimal": "0.901",
+        "quote": "29 | 0.901"
+      },
+      "30": {
+        "decimal": "0.912",
+        "quote": "30 | 0.912"
+      },
+      "31": {
+        "decimal": "0.923",
+        "quote": "31 | 0.923"
+      },
+      "32": {
+        "decimal": "0.934",
+        "quote": "32 | 0.934"
+      },
+      "33": {
+        "decimal": "0.945",
+        "quote": "33 | 0.945"
+      },
+      "34": {
+        "decimal": "0.955",
+        "quote": "34 | 0.955"
+      },
+      "35": {
+        "decimal": "0.965",
+        "quote": "35 | 0.965"
+      },
+      "36": {
+        "decimal": "0.976",
+        "quote": "36 | 0.976"
+      },
+      "37": {
+        "decimal": "0.986",
+        "quote": "37 | 0.986"
+      },
+      "38": {
+        "decimal": "0.997",
+        "quote": "38 | 0.997"
+      },
+      "39": {
+        "decimal": "1.007",
+        "quote": "39 | 1.007"
+      },
+      "40": {
+        "decimal": "1.016",
+        "quote": "40 | 1.016"
+      },
+      "41": {
+        "decimal": "1.026",
+        "quote": "41 | 1.026"
+      },
+      "42": {
+        "decimal": "1.036",
+        "quote": "42 | 1.036"
+      },
+      "43": {
+        "decimal": "1.046",
+        "quote": "43 | 1.046"
+      },
+      "44": {
+        "decimal": "1.056",
+        "quote": "44 | 1.056"
+      },
+      "45": {
+        "decimal": "1.065",
+        "quote": "45 | 1.065"
+      },
+      "46": {
+        "decimal": "1.075",
+        "quote": "46 | 1.075"
+      },
+      "47": {
+        "decimal": "1.084",
+        "quote": "47 | 1.084"
+      },
+      "48": {
+        "decimal": "1.093",
+        "quote": "48 | 1.093"
+      },
+      "49": {
+        "decimal": "1.102",
+        "quote": "49 | 1.102"
+      },
+      "50": {
+        "decimal": "1.111",
+        "quote": "50 | 1.111"
+      },
+      "51": {
+        "decimal": "1.120",
+        "quote": "51 | 1.120"
+      },
+      "52": {
+        "decimal": "1.128",
+        "quote": "52 | 1.128"
+      },
+      "53": {
+        "decimal": "1.137",
+        "quote": "53 | 1.137"
+      },
+      "54": {
+        "decimal": "1.145",
+        "quote": "54 | 1.145"
+      },
+      "55": {
+        "decimal": "1.153",
+        "quote": "55 | 1.153"
+      },
+      "56": {
+        "decimal": "1.161",
+        "quote": "56 | 1.161"
+      },
+      "57": {
+        "decimal": "1.168",
+        "quote": "57 | 1.168"
+      },
+      "58": {
+        "decimal": "1.176",
+        "quote": "58 | 1.176"
+      },
+      "59": {
+        "decimal": "1.184",
+        "quote": "59 | 1.184"
+      },
+      "60": {
+        "decimal": "1.191",
+        "quote": "60 | 1.191"
+      },
+      "61": {
+        "decimal": "1.199",
+        "quote": "61 | 1.199"
+      },
+      "62": {
+        "decimal": "1.206",
+        "quote": "62 | 1.206"
+      },
+      "63": {
+        "decimal": "1.214",
+        "quote": "63 | 1.214"
+      },
+      "64": {
+        "decimal": "1.221",
+        "quote": "64 | 1.221"
+      },
+      "65": {
+        "decimal": "1.229",
+        "quote": "65 | 1.229"
+      },
+      "66": {
+        "decimal": "1.236",
+        "quote": "66 | 1.236"
+      },
+      "67": {
+        "decimal": "1.243",
+        "quote": "67 | 1.243"
+      },
+      "68": {
+        "decimal": "1.251",
+        "quote": "68 | 1.251"
+      },
+      "69": {
+        "decimal": "1.258",
+        "quote": "69 | 1.258"
+      },
+      "70": {
+        "decimal": "1.265",
+        "quote": "70 | 1.265"
+      },
+      "71": {
+        "decimal": "1.270",
+        "quote": "71 | 1.270"
+      },
+      "72": {
+        "decimal": "1.275",
+        "quote": "72 | 1.275"
+      },
+      "73": {
+        "decimal": "1.280",
+        "quote": "73 | 1.280"
+      },
+      "74": {
+        "decimal": "1.285",
+        "quote": "74 | 1.285"
+      },
+      "75": {
+        "decimal": "1.290",
+        "quote": "75 | 1.290"
+      },
+      "76": {
+        "decimal": "1.295",
+        "quote": "76 | 1.295"
+      },
+      "77": {
+        "decimal": "1.300",
+        "quote": "77 | 1.300"
+      },
+      "78": {
+        "decimal": "1.305",
+        "quote": "78 | 1.305"
+      },
+      "79": {
+        "decimal": "1.310",
+        "quote": "79 | 1.310"
+      },
+      "80": {
+        "decimal": "1.315",
+        "quote": "80 | 1.315"
+      }
+    },
+    "precision_quote": "What we noticed is that rocket CPM values seem to have a value with just 3 decimals which is, like basically any decimal number in this game, read in as a float and thus causes floating point errors to appear in the CP values of rockets. As an example: In whatever configuration table niantic / scopely uses, they have written a 1.191 as the cpm value for level 60, however the game interprets that value as 1.19099998 because that is the closest number to 1.191 that a float value can store. This is also different from before, where rocket cpm values did not necessarily align with any 3-decimal number cast into a float, as they often differed by several \"float-steps\" from the expected value. e.g. the old level 50 cpmr was 1.31502044, which was several floats away from the float that 1.315 would be casted into."
+  },
+  "flyfunner-old-50-2025": {
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1puc05x/",
+    "fetched_on": "2026-11-13",
+    "precision": "Retrospective old TL50 value, published to 8 decimals. Retain the decimal literally, as with the other old tables.",
+    "float32": false,
+    "values": {
+      "50": {
+        "decimal": "1.31502044",
+        "quote": "What we noticed is that rocket CPM values seem to have a value with just 3 decimals which is, like basically any decimal number in this game, read in as a float and thus causes floating point errors to appear in the CP values of rockets. As an example: In whatever configuration table niantic / scopely uses, they have written a 1.191 as the cpm value for level 60, however the game interprets that value as 1.19099998 because that is the closest number to 1.191 that a float value can store. This is also different from before, where rocket cpm values did not necessarily align with any 3-decimal number cast into a float, as they often differed by several \"float-steps\" from the expected value. e.g. the old level 50 cpmr was 1.31502044, which was several floats away from the float that 1.315 would be casted into."
+      }
+    },
+    "note": "An alternative old-era value reported retrospectively in the December 2025 post, not part of its new TL8–80 table. No other levels are supplied."
+  }
+}
