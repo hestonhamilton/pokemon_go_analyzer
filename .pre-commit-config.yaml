@@ -41,7 +41,7 @@ repos:
 
   # Rule set is pinned in ruff.toml (ruff with no config enables ~790 rules).
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.2
+    rev: v0.17.4
     hooks:
       - id: ruff-check
       - id: ruff-format
