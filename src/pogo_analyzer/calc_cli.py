@@ -343,7 +343,7 @@ def build_output(args):
         "grades": GRADES,
         "unresolved": unresolved,
         # Grades follow this run's gate: a failed gate leaves nothing fixture-exact.
-        "results": [grade_row(row, validation["coverage"], used) for row, used in rows],
+        "results": [grade_row(row, validation, used) for row, used in rows],
     }
 
 

@@ -125,26 +125,29 @@ def test_purified_is_plain_and_shadow_only_applied_in_damage():
     assert shadow["rocket_fast_damage"] > plain["rocket_fast_damage"]
 
 
-COVERAGE = run_acceptance(FIXTURES)["coverage"]
+GATE = run_acceptance(FIXTURES)
+COVERAGE = GATE["coverage"]
 DATED = {
     "fast": PREDICTOR.move("BULLET_PUNCH", "2022-12-03"),
     "rocket_fast": PREDICTOR.move("BITE", "2022-12-03"),
 }
 
 
-def ctx(rank="grunt", table="venonic-2023", level=50, coverage=COVERAGE, moves=DATED):
+def ctx(
+    rank="grunt", table="venonic-2023", level=50, coverage=COVERAGE, moves=DATED, validated=True
+):
     row = {"rank": rank, "rcpm_table": table, "trainer_level": level}
-    return GradeContext.for_row(row, coverage, moves)
+    return GradeContext.for_row(row, coverage, moves, validated=validated)
 
 
 def test_coverage_is_what_the_targets_used():
-    # Every target is at TL50 except F2 (TL41); only the gate tables cover.
-    assert COVERAGE["levels"] == [
-        ["fugerappi-2023", 41],
-        ["fugerappi-2023", 50],
-        ["venonic-2023", 41],
-        ["venonic-2023", 50],
-    ]
+    # Every target is at TL50 except F2 (TL41, Rocket HP only); only gate tables cover.
+    tl50 = [["fugerappi-2023", 50], ["venonic-2023", 50]]
+    assert COVERAGE["levels"] == {
+        "rocket_hp": [["fugerappi-2023", 41], *tl50[:1], ["venonic-2023", 41], tl50[1]],
+        "rocket_attack": tl50,
+        "rocket_defence": tl50,
+    }
     assert {m["move"] for m in COVERAGE["moves"]} == {
         "BITE",
         "BULLET_PUNCH",
@@ -167,9 +170,10 @@ def test_grade_fixture_exact_needs_everything(column):
 @pytest.mark.parametrize(
     "column", ["fast_damage", "rocket_fast_damage", "rocket_hp", "attacker_hp", "fast_move"]
 )
-@pytest.mark.parametrize("coverage", [{"levels": [], "moves": []}, None])
+@pytest.mark.parametrize("coverage", [{"levels": [], "moves": []}, None, COVERAGE])
 def test_grade_failed_gate_leaves_nothing_fixture_exact(column, coverage):
-    grade = column_grade(column, ctx(coverage=coverage))
+    # The gate's own result decides; even full coverage cannot override a failure.
+    grade = column_grade(column, ctx(coverage=coverage, validated=False))
     assert grade != "fixture-exact"
     # Rocket stats keep their CP backing; damage and player stats fall to PvPoke parity.
     assert grade == ("cp-only" if column == "rocket_hp" else "parity-only")
@@ -180,6 +184,98 @@ def test_grade_uncovered_trainer_level_is_cp_only(table, level):
     for column in ("rocket_hp", "rocket_attack", "fast_damage", "rocket_fast_damage"):
         assert column_grade(column, ctx(table=table, level=level)) == "cp-only"
     assert column_grade("attacker_hp", ctx(table=table, level=level)) == "fixture-exact"
+
+
+def test_grade_tl41_covers_rocket_hp_only():
+    # F2 (TL41) measures Rocket HP; no TL41 target checks attack, defence or damage.
+    # One floored HP reading bounds the TL41 rCPM only to about 1%, so the shared
+    # scaling inputs need every quantity checked: at TL41 they are cp-only too.
+    c = ctx(level=41)
+    assert column_grade("rocket_hp", c) == "fixture-exact"
+    for column in (
+        "rocket_attack",
+        "rocket_defence",
+        "fast_damage",
+        "rocket_fast_damage",
+        "rocket_cpm",
+        "rank",
+        "rank_multiplier",
+        "trainer_level",
+    ):
+        assert column_grade(column, c) == "cp-only"
+    assert column_grade("rocket_cpm", ctx(level=50)) == "fixture-exact"
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        {"levels": {"bogus": [["venonic-2023", 50]]}, "moves": []},
+        {"levels": {"rocket_hp": [[]]}, "moves": []},
+        {"levels": [["venonic-2023", 50]], "moves": []},
+        {"levels": {"rocket_hp": [["venonic-2023", "50"]]}, "moves": [{"move": "BITE"}]},
+        "nonsense",
+    ],
+)
+def test_grade_malformed_coverage_fails_closed(coverage):
+    # No crash, and no Rocket or damage cell is fixture-exact from a bad shape.
+    for validated in (False, True):
+        c = ctx(coverage=coverage, validated=validated)
+        for column in ("rocket_hp", "rocket_cpm", "fast_damage", "rocket_fast_damage", "fast_move"):
+            assert column_grade(column, c) != "fixture-exact"
+        if not validated:
+            assert column_grade("attacker_hp", c) == "parity-only"
+
+
+def test_grade_dec_2025_grunt_keeps_player_cells_exact():
+    # Design decision: player stats don't depend on the Rocket table, so a dec-2025
+    # grunt row keeps them fixture-exact; every Rocket-side cell is cp-only.
+    c = ctx(table="dec-2025")
+    for column in ("attacker", "level", "ivs", "form", "attacker_hp", "attacker_attack"):
+        assert column_grade(column, c) == "fixture-exact"
+    for column in ("rocket_hp", "rocket_attack", "rocket_defence", "trainer_level", "rocket_cp"):
+        assert column_grade(column, c) == "cp-only"
+
+
+def test_pin_matches_the_fixtures():
+    # Editing a target, or the species and dated moves it uses, needs a new pin
+    # (tools/fixtures/acceptance_pin.py) and a fixture review.
+    from pogo_analyzer.sim import validation
+
+    targets = validation.acceptance_targets(BATTLES)
+    assert validation.pin_errors(BATTLES, SPECIES, MOVES) == []
+    assert sorted(r["id"] for r in targets) == validation.PIN["target_ids"]
+    assert validation.PIN["discrepancy_ids"] == [
+        "F3-metagross-remaining",
+        "F4-ducklett-shadow-tyranitar",
+    ]
+    # The count is a code constant, not read from the pin.
+    assert validation.EXPECTED_TARGETS == 44 == len(validation.PIN["target_ids"])
+
+
+def test_pin_with_another_count_fails_even_if_regenerated():
+    from pogo_analyzer.sim import validation
+
+    trimmed = [r for r in BATTLES if r["id"] != "F2-cyndaquil-hp"]
+    targets = validation.acceptance_targets(trimmed)
+    repinned = {
+        "target_ids": sorted(r["id"] for r in targets),
+        "discrepancy_ids": validation.PIN["discrepancy_ids"],
+        "discrepancy_sha256": validation.PIN["discrepancy_sha256"],
+        "sha256": validation.acceptance_digest(targets, SPECIES, MOVES),
+    }
+    errors = validation.pin_errors(trimmed, SPECIES, MOVES, pin=repinned)
+    assert "the pin lists 43 targets, not 44" in errors
+    assert any("found 43" in e for e in errors)
+
+
+def test_digest_ignores_species_move_lists():
+    from pogo_analyzer.sim import validation
+
+    targets = validation.acceptance_targets(BATTLES)
+    refreshed = {name: dict(entry, fastMoves=["X"]) for name, entry in SPECIES.items()}
+    assert validation.acceptance_digest(targets, refreshed, MOVES) == validation.PIN["sha256"]
+    moved = [dict(r, source=r["source"] + "x") if r in targets[:1] else r for r in BATTLES]
+    assert validation.pin_errors(moved, SPECIES, MOVES)
 
 
 def test_grade_supplementary_and_current_tables_never_fixture_exact():
@@ -200,7 +296,7 @@ def test_grade_move_stats_must_equal_a_dated_snapshot():
 
 @pytest.mark.parametrize("rank", ["leader", "giovanni"])
 def test_grade_leader_and_giovanni_never_fixture_exact(rank):
-    row = grade_row(matchup(rank=rank), COVERAGE, DATED)
+    row = grade_row(matchup(rank=rank), GATE, DATED)
     grades = {key: cell["grade"] for key, cell in row.items()}
     assert "fixture-exact" not in grades.values()
     for column in ("attacker", "attacker_hp", "rocket_hp", "fast_damage", "rocket_fast_damage"):
@@ -230,7 +326,7 @@ def test_grade_behaviour_and_lineup_are_model(column):
 
 def test_grade_weakest_dependency_and_row():
     assert weakest("fixture-exact", "cp-only", "parity-only", "model") == "model"
-    r = grade_row(matchup(), COVERAGE, DATED)
+    r = grade_row(matchup(), GATE, DATED)
     assert r["row_grade"] == {"value": "model", "grade": "model"}
     assert r["charged"]["value"][0]["damage"]["grade"] == "parity-only"
     assert r["charged"]["value"][0]["fast_moves_to_energy"]["grade"] == "model"
@@ -399,3 +495,15 @@ def test_label_wording_singular_and_plural():
     assert _plural(2, "target") == "2 targets"
     assert _plural(1, "open discrepancy", "open discrepancies") == "1 open discrepancy"
     assert _plural(2, "open discrepancy", "open discrepancies") == "2 open discrepancies"
+
+
+def test_discrepancy_records_are_pinned_by_content():
+    from pogo_analyzer.sim import validation
+
+    edited = [
+        dict(r, observed=dict(r["observed"], value=2)) if r["id"] == "F3-metagross-remaining" else r
+        for r in BATTLES
+    ]
+    assert validation.pin_errors(edited, SPECIES, MOVES) == [
+        "open discrepancy records differ from the reviewed set (SHA-256 mismatch)"
+    ]

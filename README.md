@@ -84,7 +84,8 @@ move. `--sort` defaults to `fast_turns_to_ko`, ascending. Other choices include 
 | `attacker`, `level`, `ivs`, `form`, `attacker_attack`, `attacker_defence`, `attacker_hp` | Given build and the player totals used | Player formula path (HP checked by F1): fixture-exact on grunt rows when the gate passes |
 | `defender` | Rocket species from the lineup source or `--defender` | No fixture checks the lineup; model |
 | `fast_move` | Attacker's chosen move | fixture-exact only if today's stats equal a dated snapshot the targets used; otherwise parity-only |
-| `rocket_attack`, `rocket_defence`, `rocket_hp`, `rank`, `rank_multiplier`, `rcpm_table`, `rocket_cpm`, `trainer_level` | Rocket totals (HP floored for battle) and scaling inputs | fixture-exact only for a grunt, a gate table, and a trainer level the targets used (TL41 or TL50); otherwise cp-only |
+| `rocket_attack`, `rocket_defence`, `rocket_hp` | Rocket totals (HP floored for battle) | fixture-exact only for a grunt, a gate table, and a trainer level where passing targets checked that quantity (HP at TL41 or TL50; attack and defence at TL50); otherwise cp-only |
+| `rank`, `rank_multiplier`, `rcpm_table`, `rocket_cpm`, `trainer_level` | Rocket scaling inputs, shared by every Rocket stat | fixture-exact only at a level where targets checked every quantity (TL50). TL41 rests on one floored HP reading, which bounds its rCPM only to about 1%, so it is cp-only there |
 | `rocket_cp` | Display CP, calculated with unfloored stamina | CP readings; cp-only at best |
 | `fast_damage`, `fast_hits_to_ko` | Damage per hit; ceil(Rocket HP / damage) | Weakest of player path, Rocket stats and the fast move's snapshot match |
 | `rocket_fast_damage`, `ko_on_incoming_hit` | Incoming damage; ceil(player HP / damage) | Same, with the Rocket fast move's snapshot match; KO occurs on the counted hit |
@@ -100,7 +101,8 @@ claims more than its weakest input; when in doubt the weaker grade applies.
 
 - **fixture-exact:** reproduced on this run by the recorded or measured pre-Oct-2025 grunt targets
   (F1, F2, F4, F5). It needs all of: the gate passed; a grunt; for Rocket stats, a gate table
-  (`venonic-2023` or `fugerappi-2023`) at a trainer level the passing targets used; for damage, move
+  (`venonic-2023` or `fugerappi-2023`) at a trainer level where passing targets checked that same
+  quantity (the TL41 target checks HP only); for damage, move
   stats equal to a dated snapshot the passing targets used. Today's PvPoke values often differ from
   those snapshots (Bullet Punch 6 → 7, Smack Down 12 → 11), and then the damage is parity-only. This
   grade does not claim a recorded battle for each possible build.
@@ -125,15 +127,30 @@ Frustration is added; each pool reports whether its PvPoke list already includes
 Every run recomputes recorded/measured `expected_pass` battle targets using the dated move and
 species fixtures. `--fixtures-dir` defaults to `tests/fixtures/sim` relative to the package source.
 The fixtures are not in the wheel, so validation needs a source checkout (or `--fixtures-dir`); an
-installed package without them reports UNVALIDATED. The gate requires exactly 44 targets, so a trimmed
-or edited fixture set cannot report itself as validated. A failure names the failing targets.
+installed package without them reports UNVALIDATED, naming the missing files. The gate is pinned to
+the reviewed corpus (`src/pogo_analyzer/sim/data/acceptance_pin.json`): the exact target IDs, the
+open-discrepancy IDs and a SHA-256 of their records, and a SHA-256 of what decides each target (its source, inputs and observation,
+and the base stats, types and dated moves it uses). The target count, 44, is a code constant
+(`validation.EXPECTED_TARGETS`), not read from the pin. Free prose such as evidence notes is not
+pinned. A trimmed, padded, swapped or edited target set, or a deleted discrepancy, reports
+UNVALIDATED.
+
+The pin catches accidental or unreviewed drift. It does **not** stop a deliberate change made together
+with a regenerated pin: that is defended only by the owner reviewing the pin's diff. `.github/CODEOWNERS`
+marks the file but does not enforce review here (the owner's own account opens these PRs, so GitHub
+cannot require the owner's review). `tools/fixtures/acceptance_pin.py` shows the id changes and the
+old and new hash, refuses to write while the gate fails (ignoring the pin), refuses to drop an open
+discrepancy without `--allow-discrepancy-removal`, and refuses a count change without
+`--allow-count-change` (the gate then still fails until `EXPECTED_TARGETS` changes in a
+reviewed commit). A failure names the failing targets.
 Every target must pass under both gate tables, `venonic-2023` and `fugerappi-2023`, which publish every
 trainer level the targets use. Targets that the TL50-only `flyfunner-old-50-2025` covers must pass too;
 a level it lacks is listed as not covered and is never filled from another table. Missing fixtures, a
 failing target, or a gate-table gap produce **UNVALIDATED** with the reason. Success prints
 `Validated against N pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (...); M open
 discrepancies: <ids>`.
-All open discrepancies and their reasons remain in every report when the fixture files are readable.
+All open discrepancies and their reasons remain in every report when the fixture files are readable;
+deleting one, or changing its status, fails the gate.
 Today all 44 targets pass under both gate tables. The TL50-only table covers 43 and passes them; it has
 no TL41 for F2. Missing entries never count as passes.
 

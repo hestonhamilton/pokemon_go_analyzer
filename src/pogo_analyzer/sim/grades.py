@@ -1,9 +1,11 @@
 """Dependency grades. The data file defines the grade vocabulary and strength order.
 
 A cell never claims more than its weakest input. fixture-exact needs all of:
-- the acceptance gate passed on this run (validation coverage is non-empty);
+- the acceptance gate passed on this run (its own "validated" result, passed in);
 - a grunt (no leader or Giovanni target exists);
-- for Rocket stats, a gate table at a trainer level the passing targets used;
+- for Rocket stats, a gate table at a trainer level where passing targets
+  checked that same quantity (HP, attack or defence); for the shared scaling
+  inputs (rCPM, rank, table, level), a level where every quantity was checked;
 - for damage, every move it uses has today's stats equal to a dated snapshot
   the passing targets used.
 Otherwise: Rocket stats fall to cp-only (CP readings back the formula and
@@ -15,7 +17,7 @@ import json
 from dataclasses import dataclass
 from importlib.resources import files
 
-from .validation import GATE_TABLES
+from .validation import GATE_TABLES, QUANTITIES
 
 GRADES = json.loads(files(__package__).joinpath("data", "grades.json").read_text())
 ORDER = [g["id"] for g in GRADES]
@@ -32,10 +34,12 @@ MODEL_COLUMNS = {
     "slot",
     "defender",
 }
+# Rocket stats a target can check one by one (see validation.KIND_QUANTITIES).
+ROCKET_QUANTITY_COLUMNS = {"rocket_attack", "rocket_defence", "rocket_hp"}
+# Scaling inputs shared by every Rocket stat. A level where only one quantity
+# was checked (TL41: one floored HP reading) bounds rCPM only loosely, so these
+# need every quantity checked at that level.
 ROCKET_STAT_COLUMNS = {
-    "rocket_attack",
-    "rocket_defence",
-    "rocket_hp",
     "rank",
     "rank_multiplier",
     "rocket_cpm",
@@ -64,17 +68,43 @@ class GradeContext:
     rank: str
     table: str
     trainer_level: int
-    levels: frozenset = frozenset()
+    # Per Rocket quantity: {"rocket_hp": frozenset({(table, level), ...}), ...}.
+    levels: tuple = ()
     fast_move_covered: bool = False
     rocket_fast_move_covered: bool = False
 
     @classmethod
-    def for_row(cls, row, coverage, moves=None):
-        """coverage: validation["coverage"]; moves: {"fast": Move, "rocket_fast": Move}."""
-        coverage = coverage or {}
-        levels = frozenset(tuple(level) for level in coverage.get("levels", []))
-        validated = bool(levels)
-        snapshots = {(m["move"], *(m[k] for k in MOVE_FIELDS)) for m in coverage.get("moves", [])}
+    def for_row(cls, row, coverage, moves=None, *, validated):
+        """validated: the gate's own result. coverage: validation["coverage"].
+
+        moves: {"fast": Move, "rocket_fast": Move}. Any coverage entry that is not
+        a known quantity holding (table, level) pairs is ignored (fails closed).
+        """
+        validated = validated is True
+        coverage = coverage if isinstance(coverage, dict) else {}
+        raw = coverage.get("levels")
+        raw = raw if isinstance(raw, dict) else {}
+        by_quantity = {}
+        for quantity in QUANTITIES:
+            covered = raw.get(quantity)
+            pairs = covered if isinstance(covered, list) else []
+            by_quantity[quantity] = frozenset(
+                tuple(pair)
+                for pair in pairs
+                if isinstance(pair, list | tuple)
+                and len(pair) == 2
+                and isinstance(pair[0], str)
+                and isinstance(pair[1], int)
+                and not isinstance(pair[1], bool)
+            )
+        levels = tuple(sorted(by_quantity.items()))
+        moves_list = coverage.get("moves")
+        moves_list = moves_list if isinstance(moves_list, list) else []
+        snapshots = {
+            (m["move"], *(m[k] for k in MOVE_FIELDS))
+            for m in moves_list
+            if isinstance(m, dict) and all(k in m for k in ("move", *MOVE_FIELDS))
+        }
 
         def covered(move):
             if move is None or not validated:
@@ -96,8 +126,11 @@ class GradeContext:
     def grunt_checked(self):
         return self.validated and self.rank == "grunt"
 
-    def rocket(self):
-        level_ok = (self.table, self.trainer_level) in self.levels
+    def rocket(self, *quantities):
+        """quantities: the Rocket stats a cell uses; none means all (scaling inputs)."""
+        levels = dict(self.levels)
+        key = (self.table, self.trainer_level)
+        level_ok = all(key in levels.get(q, ()) for q in quantities or QUANTITIES)
         exact = self.grunt_checked and self.table in GATE_TABLES and level_ok
         return "fixture-exact" if exact else "cp-only"
 
@@ -106,8 +139,8 @@ class GradeContext:
             return "parity-only"  # PvPoke's CPM table and stat formula, unchecked here.
         return "fixture-exact" if self.rank == "grunt" else "cp-only"
 
-    def damage(self, move_covered):
-        base = weakest(self.player(), self.rocket())
+    def damage(self, move_covered, *quantities):
+        base = weakest(self.player(), self.rocket(*quantities))
         return base if move_covered else weakest(base, "parity-only")
 
 
@@ -115,6 +148,8 @@ def column_grade(column, ctx):
     """Derive strength from dependencies; never assign a grade to a particular row."""
     if column in MODEL_COLUMNS:
         return "model"
+    if column in ROCKET_QUANTITY_COLUMNS:
+        return ctx.rocket(column)
     if column in ROCKET_STAT_COLUMNS:
         return ctx.rocket()
     if column == "rocket_cp":
@@ -124,14 +159,16 @@ def column_grade(column, ctx):
     if column == "fast_move":
         # No leader or Giovanni target used any move: leader rows never earn it.
         return "fixture-exact" if ctx.fast_move_covered and ctx.grunt_checked else "parity-only"
-    if column in ("fast_damage", "fast_hits_to_ko"):
-        return ctx.damage(ctx.fast_move_covered)
+    if column == "fast_damage":
+        return ctx.damage(ctx.fast_move_covered, "rocket_defence")
+    if column == "fast_hits_to_ko":
+        return ctx.damage(ctx.fast_move_covered, "rocket_defence", "rocket_hp")
     if column in ("rocket_fast_damage", "ko_on_incoming_hit"):
-        return ctx.damage(ctx.rocket_fast_move_covered)
+        return ctx.damage(ctx.rocket_fast_move_covered, "rocket_attack")
     if column == "fast_damage_per_turn":
-        return weakest(ctx.damage(ctx.fast_move_covered), "parity-only")
+        return weakest(ctx.damage(ctx.fast_move_covered, "rocket_defence"), "parity-only")
     if column == "rocket_fast_damage_per_turn":
-        return weakest(ctx.damage(ctx.rocket_fast_move_covered), "parity-only")
+        return weakest(ctx.damage(ctx.rocket_fast_move_covered, "rocket_attack"), "parity-only")
     if column == "charged_damage":
         return weakest(ctx.damage(False), "parity-only")
     if column in PARITY_COLUMNS:
@@ -182,8 +219,11 @@ def cell(value, column, ctx):
     return {"value": value, "grade": column_grade(column, ctx)}
 
 
-def grade_row(row, coverage, moves=None):
-    ctx = GradeContext.for_row(row, coverage, moves)
+def grade_row(row, validation, moves=None):
+    """validation: run_acceptance()'s result; its "validated" decides, not coverage."""
+    ctx = GradeContext.for_row(
+        row, validation.get("coverage"), moves, validated=validation.get("validated")
+    )
     result = {}
     for key, value in row.items():
         if key in ("charged", "rocket_charged"):

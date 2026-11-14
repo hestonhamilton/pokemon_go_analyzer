@@ -1,0 +1,5 @@
+# Marker only: the acceptance pin decides what "Validated" means, and a pin change is defended
+# only by the owner reviewing its diff. The owner's own account opens these PRs, so GitHub
+# cannot request or require the owner's review here; this file marks the pin, it does not
+# enforce review.
+/src/pogo_analyzer/sim/data/acceptance_pin.json @hestonhamilton

@@ -63,13 +63,26 @@ def args(cache, fmt="json"):
     ]
 
 
-def copied_targets(tmp_path, *, drop_f2=False, broken=False):
+def copied_targets(
+    tmp_path, *, drop_f2=False, broken=False, swap=False, edit=False, no_discrepancies=False
+):
     path = tmp_path / "targets"
     shutil.copytree(DEFAULT_FIXTURES, path)
     rows = json.loads((path / "battles.json").read_text())
+    if no_discrepancies:
+        rows = [r for r in rows if r["status"] != "open_discrepancy"]
+    if swap:
+        # Same count: drop one target and add a copy of another under a new ID.
+        rows = [r for r in rows if r["id"] != "F2-cyndaquil-hp"]
+        rows.append(dict(next(r for r in rows if r["id"] == "F1-kirlia-hits"), id="F1-copy"))
+    if edit:
+        # Same IDs, a consistent change of input and observation: still passes
+        # the arithmetic, but it is not the reviewed target.
+        row = next(r for r in rows if r["id"] == "F1-metagross-hp")
+        row["player"] = dict(row["player"], ivs=dict(row["player"]["ivs"], hp=13))
+        row["observed"] = dict(row["observed"], value=163)
     if drop_f2:
-        # The success branch uses a deliberately smaller, fully evaluable set.
-        # Production fixtures keep F2 and must report the missing TL41 coverage.
+        # A trimmed set (43 targets): must fail the pinned gate.
         rows = [r for r in rows if r["fixture"] != "F2"]
     if broken:
         next(r for r in rows if r["id"] == "F1-metagross-hp")["observed"]["value"] += 1
@@ -127,7 +140,8 @@ def test_validation_header_every_format(cache, capsys, tmp_path, fmt, state):
     else:
         assert label.startswith("UNVALIDATED:")
         expected = (
-            "fixtures not found; validation needs a source checkout or --fixtures-dir"
+            "fixtures not found (missing battles.json, species_moves.json, move_history.json); "
+            "validation needs a source checkout or --fixtures-dir"
             if state == "missing"
             else "1 target failed: F1-metagross-hp"
         )
@@ -343,20 +357,36 @@ def _grades(data):
     }
 
 
-@pytest.mark.parametrize("state", ["missing", "broken", "trimmed"])
+@pytest.mark.parametrize(
+    "state", ["missing", "broken", "trimmed", "swapped", "edited", "no_discrepancies"]
+)
 def test_failed_gate_leaves_no_fixture_exact_cell(cache, capsys, tmp_path, state):
     if state == "missing":
         path = tmp_path / "absent"
-    elif state == "trimmed":
-        path = copied_targets(tmp_path, drop_f2=True)
     else:
-        path = copied_targets(tmp_path, broken=True)
+        path = copied_targets(
+            tmp_path,
+            drop_f2=state == "trimmed",
+            broken=state == "broken",
+            swap=state == "swapped",
+            edit=state == "edited",
+            no_discrepancies=state == "no_discrepancies",
+        )
     extra = ["--rcpm-table", "venonic-2023", "--fixtures-dir", str(path)]
     assert cli.main(args(cache) + extra) == 0
     data = json.loads(capsys.readouterr().out)
     assert data["validation_label"].startswith("UNVALIDATED:")
+    label = data["validation_label"]
     if state == "trimmed":
-        assert "expected 44 acceptance targets, found 43" in data["validation_label"]
+        assert "expected the 44 reviewed acceptance targets, found 43" in label
+        assert "missing F2-cyndaquil-hp" in label
+    if state == "swapped":
+        assert "found 44 (missing F2-cyndaquil-hp; unexpected F1-copy)" in label
+    if state == "edited":
+        assert "differ from the reviewed set" in label
+    if state == "no_discrepancies":
+        assert "open discrepancies differ from the reviewed set (missing F3-" in label
+        assert "0 open discrepancies" not in label
     assert "fixture-exact" not in _grades(data)
     # The same run with the real fixtures does show fixture-exact cells.
     assert cli.main(args(cache) + ["--rcpm-table", "venonic-2023"]) == 0
@@ -400,3 +430,28 @@ def test_clean_input_errors(cache, capsys, option, value, message):
     with pytest.raises(SystemExit):
         cli.main(argv)
     assert message in capsys.readouterr().err
+
+
+def test_missing_fixture_file_is_named(cache, capsys, tmp_path):
+    path = copied_targets(tmp_path)
+    (path / "move_history.json").unlink()
+    assert cli.main(args(cache) + ["--fixtures-dir", str(path)]) == 0
+    label = json.loads(capsys.readouterr().out)["validation_label"]
+    assert label.startswith("UNVALIDATED: fixtures not found (missing move_history.json);")
+    assert str(tmp_path) not in label
+
+
+def test_unreadable_fixture_names_the_file_not_the_path(cache, capsys, tmp_path, monkeypatch):
+    path = copied_targets(tmp_path)
+    original = Path.read_text
+
+    def read_text(self, *args, **kwargs):
+        if self.name == "move_history.json":
+            raise PermissionError(13, "Permission denied", str(self))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert cli.main(args(cache) + ["--fixtures-dir", str(path)]) == 0
+    label = json.loads(capsys.readouterr().out)["validation_label"]
+    assert "fixtures invalid: cannot read move_history.json: PermissionError" in label
+    assert str(tmp_path) not in label
