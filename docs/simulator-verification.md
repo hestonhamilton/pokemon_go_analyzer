@@ -35,7 +35,7 @@ Below *measured-reproduced* is flagged ⚑.
 | h | STAB 1.2; type effectiveness 1.6, 0.625, 0.390625 | Game master | data-mined | PvPoke; Bulbapedia | — |
 | i | Move power, energy, turns **at the date of the battle** | Game master `combatMove` + season notes ([official](https://pokemongo.com/news/go-battle-league-precious-paths)); move history (Flyfunner [1lu9w8w](https://www.reddit.com/r/TheSilphRoad/comments/1lu9w8w/)) | official / data-mined | PvPoke moves | Fixtures only reproduce with the powers in force then: Bullet Punch 6 in Dec 2022, Smack Down 12 and Razor Leaf 10 in Jan–Feb 2023 (today 7, 11, 9). The simulator needs a dated move table. |
 | j | Turn rules since the 2026 rebuild: a fast move can land after a charged attack starts; simultaneous charged attacks both fire; charged attacks start next turn | [9db.jp](https://9db.jp/pokemongo/data/24341); cwizz1 Jan 2026; [official rebuild post](https://pokemongo.com/news/pvp-updates2026) (GO Battle League) | fast move landing: measured-reproduced; simultaneous charged: measured-once ⚑; next-turn start: assumed ⚑ | Bulbapedia still describes the old cancel rule (outdated) | A recorded charged attack on the turn a Rocket fast move lands |
-| k | Rocket pauses: after a charged attack, a faint, your switch | [9db.jp](https://9db.jp/pokemongo/data/24341) table; cwizz1 [1vyspr1](https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/) | after a charged attack, 7 turns: measured-reproduced; after a faint, 7: measured-reproduced; after your switch: conflicting (9 or 7) ⚑ | Changed in Dec 2025 (12 turns) and again by Sep 2026 | A frame count of a manual switch |
+| k | Rocket pauses: after a charged attack, a faint, your switch | [9db.jp](https://9db.jp/pokemongo/data/24341) table; cwizz1 [1vyspr1](https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/) | since Mar 2026: after a charged attack, 7 turns, measured-reproduced; after a faint, 7, measured-reproduced; after your switch, conflicting (9 or 7). Older eras: 9db alone (old charged 5 conflicts with one player's recalled 4). Trigger, either side's charged attack: owner observation, agrees with cwizz1; not measured. Either side's faint: owner reading; not measured. The pause adds to PvPoke's post-charge turn: practitioner-reproduced (2 accounts), not measured ⚑ | Changed about 10 Dec 2025 (12 turns) and again about 12 Mar 2026 | A frame count of a manual switch; a pause after the Rocket's own charged attack |
 | l | When the Rocket side fires charged attacks, and their damage | none | assumed ⚑. A 2019 measurement put Rocket charged damage at about 0.5625× the formula: measured-once and outdated ⚑ | Practitioners assume "as soon as it has the energy" | A Rocket Pokémon holding energy past the cost; unshielded charged damage that isn't 1× (or 0.5625×) |
 | m | Shields: grunts none; leaders and Giovanni the first two charged attacks | Bulbapedia *Team GO Rocket*; GO Hub | observed in play (consistent community reports; not measured or official) ⚑ | Community reports; F8's shielded Power-Up Punch 1 is a calculation | A grunt shielding; a third leader shield |
 | n | Timer about 12 min, about 7 s added per charged attack; timeout decided by Pokémon left, then HP% | freezyefc [1q13cga](https://www.reddit.com/r/TheSilphRoad/comments/1q13cga/) (2 videos) | measured-once ⚑ | — | Time a stall battle to the 30-second warning |
@@ -174,6 +174,26 @@ F3 ends in a double knockout with 0 HP, against 1 recorded. The discrepancy stay
 F1's calculated 1 HP after seven hits reproduces as a weak check.
 See the [turn report](../tests/fixtures/sim/battle_report.md) for source lines,
 parity coverage, fixture traces and assumptions. The calculator and CLI are unchanged.
+
+### Rocket rules
+
+Fixed-order teams of three are an estimate. Dated pauses use ledger k.
+The battle date picks the era. Boundaries are about 10 Dec 2025 and 12 Mar 2026, both approximate.
+The default is the March 2026 era. Every result carries its era's grades.
+A charged attack from either side starts the pause. That is the owner's observation, agreeing with cwizz1; not measured.
+Either side's faint and replacement starts it too. That is the owner's reading; not measured.
+The pause starts after PvPoke's post-charge turn, so the two add. Two players' accounts support this.
+Named options keep the narrower triggers and the alternate cwizz1 reading.
+A pause blocks new Rocket inputs. The era's 9db rows decide fast-move slip-in and simultaneous charges.
+Rocket charged timing and damage remain unverified (l).
+Shields belong to each side (m). The player's default shields the first two incoming charges.
+The timer uses 1440 turns plus 14 per resolved charge on either side (n, measured-once).
+Timeout compares survivors, then member HP fractions. This last reading is an interpretation.
+Before Dec 2025, a leader timeout is a loss.
+Results report the era, policies, evidence and ending reason. No Rocket-only target is added.
+The original 514-case turn parity is unchanged. Three native PvPoke team cases also check
+replacement order and shared shields. They do not establish full team turn parity.
+See the [Rocket report](../tests/fixtures/sim/rocket_report.md) for sources and judgement calls.
 
 ## What can honestly be claimed
 

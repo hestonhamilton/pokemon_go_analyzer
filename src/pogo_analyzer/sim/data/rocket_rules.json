@@ -1,0 +1,120 @@
+{
+  "ledger_row": "k",
+  "source": "https://9db.jp/pokemongo/data/24341",
+  "source_date": "2026-09-29",
+  "table_update_label": "2026年3月12日(木) 更新",
+  "boundary_note": "The columns name states, not changeover days: 2026/9時点 means \"as of Sep 2026\". The article dates the latest change to the March 2026 update (2026年3月のアップデートで…変更が入りました); its table is labelled 2026年3月12日(木) 更新, and page comments from 12-15 Mar 2026 describe the shorter faint pause. The Dec 2025 change is dated by the earliest retrieved page comments, 10-11 Dec 2025. Both boundaries are approximate. Values as of Sep 2026 are assumed to hold from the March update.",
+  "column_row": "2025/12以前 | 2025/12時点 | 2026/9時点",
+  "trigger_note": "The charged row reads \"enemy freeze time (immediately after a charged move activates)\" and does not say whose charged move. The project owner reports from play that a charged attack from either side starts the pause, which agrees with cwizz1's \"any charged move\". Default any_charged; player_charged is an option.",
+  "trigger_grade": "owner observation, agrees with cwizz1; not measured",
+  "rows": {
+    "charged": "敵の硬直時間 (ゲージ技発動直後) | 2.5秒 | 4秒 | 3.5秒",
+    "faint": "敵の硬直時間 (瀕死による交代直後) | 3.5秒 | 6秒 | 3.5秒",
+    "manual_switch": "敵の硬直時間 (手動交代直後) | 3.5秒 | 6秒 | 4.5秒",
+    "simultaneous_charged": "ゲージ技の同時発動 | 先行側のみ発動 | 後攻側も発動 | 後攻側も発動",
+    "fast_slip_in": "通常技の差し込み | なし | あり | あり"
+  },
+  "eras": [
+    {
+      "id": "before-dec-2025",
+      "from": null,
+      "until": "2025-12-10",
+      "column": "2025/12以前",
+      "charged": 5,
+      "faint": 7,
+      "manual_switch": 7,
+      "fast_slip_in": false,
+      "both_charged_fire": false,
+      "leader_timeout_loss": true,
+      "grades": {
+        "charged": "conflicting: 9db 5; OrbitalSong recalls \"4 turns for using a charge attack … taking action on the turn after\", possibly a counting difference",
+        "faint": "9db; agrees with OrbitalSong's recollection of 7; not measured",
+        "manual_switch": "9db; agrees with OrbitalSong's recollection of 7; not measured",
+        "fast_slip_in": "single source (9db), method unstated",
+        "simultaneous_charged": "single source (9db), method unstated"
+      }
+    },
+    {
+      "id": "dec-2025",
+      "from": "2025-12-10",
+      "until": "2026-03-12",
+      "column": "2025/12時点",
+      "charged": 8,
+      "faint": 12,
+      "manual_switch": 12,
+      "fast_slip_in": true,
+      "both_charged_fire": true,
+      "leader_timeout_loss": false,
+      "grades": {
+        "charged": "single source (9db), method unstated",
+        "faint": "single source (9db), method unstated",
+        "manual_switch": "single source (9db), method unstated",
+        "fast_slip_in": "single source (9db), method unstated",
+        "simultaneous_charged": "single source (9db), method unstated"
+      }
+    },
+    {
+      "id": "mar-2026",
+      "from": "2026-03-12",
+      "until": null,
+      "column": "2026/9時点",
+      "charged": 7,
+      "faint": 7,
+      "manual_switch": 9,
+      "fast_slip_in": true,
+      "both_charged_fire": true,
+      "leader_timeout_loss": false,
+      "grades": {
+        "charged": "measured-reproduced",
+        "faint": "measured-reproduced",
+        "manual_switch": "conflicting",
+        "fast_slip_in": "single source (9db), method unstated",
+        "simultaneous_charged": "single source (9db), method unstated"
+      }
+    }
+  ],
+  "default_era": "mar-2026",
+  "cwizz1": {
+    "source": "https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/",
+    "source_date": "2026-08-26",
+    "quote": "It's actually 7 turns after any charged move or switch. On your own switch, it's functionally 6 turns because switching takes 1 turn.",
+    "quote_basis": "Retrieved from the thread archive (Arctic Shift); the quote is exact.",
+    "own_switch_note": "Stored as 6 from \"functionally 6 turns\"; no voluntary switches are simulated.",
+    "charged": 7,
+    "faint": 7,
+    "manual_switch": 6,
+    "comment": "p609c70",
+    "eras": [
+      "mar-2026"
+    ],
+    "grades": {
+      "charged": "measured-reproduced",
+      "faint": "measured-reproduced",
+      "manual_switch": "conflicting"
+    }
+  },
+  "timer": {
+    "ledger_row": "n",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1q13cga/",
+    "source_date": "2026-01-01",
+    "grade": "measured-once",
+    "quote": "It's set to around 12mins",
+    "charged_quote": "7s are added per charge move used",
+    "base_turns": 1440,
+    "per_charged_turns": 14,
+    "interpretation": "Use these approximate measurements as exact model parameters. Each resolved charged attack, on either side, including shielded attacks, extends the turn deadline. No animation turns are added.",
+    "previous_quote": "Previously, a timeout vs the Rocket Leaders counts as a loss.",
+    "era_note": "Measured once in the Dec 2025 era and assumed unchanged since. Before Dec 2025 a leader timeout is a loss, per the same post; the older timer length and the older grunt timeout rule are not sourced, so they reuse the current values."
+  },
+  "prose": {
+    "march_update": "2026年3月のアップデートで、ロケット団のバトルの挙動に変更が入りました。",
+    "march_comment": "No.30, 3月14日: 倒した後すぐに次を出してくれる点はありがたい。",
+    "december_comment": "No.11, 2025年12月10日; No.14, 2025年12月11日: 硬直が長くなったため…",
+    "slip_in": "2025年12月以前のロケット団戦では、通常技のダメージ判定より先に相手がゲージ技を発動した場合、その通常技は無効化されており",
+    "simultaneous": "2025年12月以前の仕様では、自分と相手のゲージ技の発動タイミングが重なった場合でも同発とはならず、先行側のゲージ技のみ発動した。"
+  },
+  "faint_note": "The faint row reads \"enemy freeze time (immediately after a swap caused by a faint)\" and does not say whose Pokemon fainted. The project owner reads it as either side's faint and replacement; rocket_replacement is the narrower option.",
+  "faint_grade": "owner reading; not measured",
+  "composition_note": "A charged-move pause starts after PvPoke's post-charge turn without input, so the two add: a charge resolving on t blocks Rocket inputs t+1 (core) and t+2..t+N+1 (pause). cwizz1: \"7 turns means you throw after 6 turns of fast moves\"; Jason2890: \"6 turns is the maximum number of turns you can take between charge moves to ensure the rocket (or team leader) does not use any fast moves\".",
+  "composition_grade": "practitioner-reproduced (2 accounts), not measured"
+}

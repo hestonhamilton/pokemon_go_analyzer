@@ -175,14 +175,25 @@ shield. Leaders and Giovanni shield your first two charged attacks.
   ([report](https://bleedingcool.com/games/its-not-just-you-team-go-rocket-battles-are-broken-in-pokemon-go)).
 - **Its length has changed several times** (one turn = 0.5 s; 9db.jp table, method not stated):
 
-  | Pause after… | Before Dec 2025 | Dec 2025 | Sep 2026 |
+  | Pause after… | Before about 10 Dec 2025 | Dec 2025 | From about 12 Mar 2026 |
   |---|---|---|---|
-  | your charged attack | 5 turns | 8 | 7 |
-  | a faint and replacement | 7 | 12 | 7 |
+  | a charged attack (either side; see below) | 5 turns | 8 | 7 |
+  | a faint and replacement (either side; see below) | 7 | 12 | 7 |
   | your manual switch | 7 | 12 | 9 |
 
 - **A practitioner's counts agree** (cwizz1, [r/TheSilphArena/1vyspr1](https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/),
   Aug 2026): "7 turns after any charged move or switch", with your own switch effectively 6.
+- **Dates:** the table's last column reads "as of Sep 2026", but the article ties the change to the March 2026
+  update (table dated 12 Mar 2026; page comments from 12–15 Mar). The Dec 2025 change dates from page comments
+  on 10–11 Dec 2025. Only the latest column has a second source.
+- **Whose charged attack starts it:** 9db's table doesn't say. The project owner has seen in play that a charged
+  attack from either side starts it, which agrees with cwizz1. That is two accounts, not a measurement.
+- **Whose faint starts it:** the table doesn't say either. The project owner reads it as either side's.
+- **It adds to the turn after a charged attack.** In PvPoke nobody acts on the turn after a charged attack; the
+  pause comes after that. cwizz1 and Jason2890 (same thread) both say 6 fast-move turns between your charged
+  attacks are safe and the 7th lets the Rocket sneak a move in.
+- **The same table has two more dated rows.** Before Dec 2025 a fast move did not "slip in" when the other side
+  fired a charged attack, and only the first of two simultaneous charged attacks fired. Since then both happen.
 - **Sources disagree** on the manual switch (9 turns or 7) and on how to count; one player says 6 turns is the
   safe maximum.
 - **Earlier claims of "4 turns" were about charged attacks**, and are outdated.
