@@ -1,8 +1,8 @@
 # Lean CI backstop: the same pre-commit gate as the local hook, plus a full-history secret
 # scan, and the offline test suite. Local pre-commit is the real gate for lint; the main
 # ruleset requires the pre-commit job, and the pytest job guards the simulator's
-# acceptance tests. No matrix, superseded runs cancelled. Opt out with the template's `ci` question. With
-# `existing_code` the hooks check only the files a change touches.
+# acceptance tests. No matrix, superseded runs cancelled. Opt out with the template's `ci`
+# question. With `existing_code` the hooks check only the files a change touches.
 # Actions are pinned to full commit SHAs; Dependabot bumps the pins.
 name: ci
 

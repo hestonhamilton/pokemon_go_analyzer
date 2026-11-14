@@ -23,8 +23,8 @@ EXPECTED_TARGETS = 44
 # The pin: the exact target IDs, the open-discrepancy IDs, and a SHA-256 of what
 # decides each target. It catches accidental or unreviewed drift in the fixtures.
 # It does NOT stop a deliberate change made together with a regenerated pin
-# (tools/fixtures/acceptance_pin.py): that is defended only by reviewing the pin
-# diff, which CODEOWNERS routes to the owner.
+# (tools/fixtures/acceptance_pin.py): that is defended only by the owner reviewing
+# the pin diff. CODEOWNERS marks the file but does not enforce review here.
 PIN = json.loads(files(__package__).joinpath("data", "acceptance_pin.json").read_text())
 FIXTURE_FILES = ("battles.json", "species_moves.json", "move_history.json")
 # Fields that decide or identify a target; free prose (evidence, notes, reasons)
@@ -140,6 +140,16 @@ def _id_diff(expected, found):
     return "; ".join(detail)
 
 
+def discrepancy_digest(battles):
+    """SHA-256 of the open discrepancies' identifying and outcome fields."""
+    rows = sorted(
+        ({k: r[k] for k in PINNED_FIELDS} for r in open_discrepancies(battles)),
+        key=lambda r: r["id"],
+    )
+    canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 def pin_errors(battles, species, history, pin=None):
     """Every way the fixtures differ from the pin; empty means they match."""
     pin = PIN if pin is None else pin
@@ -164,6 +174,8 @@ def pin_errors(battles, species, history, pin=None):
         errors.append(
             f"open discrepancies differ from the reviewed set ({_id_diff(reviewed, found)})"
         )
+    elif discrepancy_digest(battles) != pin.get("discrepancy_sha256"):
+        errors.append("open discrepancy records differ from the reviewed set (SHA-256 mismatch)")
     return errors
 
 

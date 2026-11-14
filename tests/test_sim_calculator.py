@@ -260,6 +260,7 @@ def test_pin_with_another_count_fails_even_if_regenerated():
     repinned = {
         "target_ids": sorted(r["id"] for r in targets),
         "discrepancy_ids": validation.PIN["discrepancy_ids"],
+        "discrepancy_sha256": validation.PIN["discrepancy_sha256"],
         "sha256": validation.acceptance_digest(targets, SPECIES, MOVES),
     }
     errors = validation.pin_errors(trimmed, SPECIES, MOVES, pin=repinned)
@@ -494,3 +495,15 @@ def test_label_wording_singular_and_plural():
     assert _plural(2, "target") == "2 targets"
     assert _plural(1, "open discrepancy", "open discrepancies") == "1 open discrepancy"
     assert _plural(2, "open discrepancy", "open discrepancies") == "2 open discrepancies"
+
+
+def test_discrepancy_records_are_pinned_by_content():
+    from pogo_analyzer.sim import validation
+
+    edited = [
+        dict(r, observed=dict(r["observed"], value=2)) if r["id"] == "F3-metagross-remaining" else r
+        for r in BATTLES
+    ]
+    assert validation.pin_errors(edited, SPECIES, MOVES) == [
+        "open discrepancy records differ from the reviewed set (SHA-256 mismatch)"
+    ]

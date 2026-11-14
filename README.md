@@ -129,17 +129,19 @@ species fixtures. `--fixtures-dir` defaults to `tests/fixtures/sim` relative to 
 The fixtures are not in the wheel, so validation needs a source checkout (or `--fixtures-dir`); an
 installed package without them reports UNVALIDATED, naming the missing files. The gate is pinned to
 the reviewed corpus (`src/pogo_analyzer/sim/data/acceptance_pin.json`): the exact target IDs, the
-open-discrepancy IDs, and a SHA-256 of what decides each target (its source, inputs and observation,
+open-discrepancy IDs and a SHA-256 of their records, and a SHA-256 of what decides each target (its source, inputs and observation,
 and the base stats, types and dated moves it uses). The target count, 44, is a code constant
 (`validation.EXPECTED_TARGETS`), not read from the pin. Free prose such as evidence notes is not
 pinned. A trimmed, padded, swapped or edited target set, or a deleted discrepancy, reports
 UNVALIDATED.
 
 The pin catches accidental or unreviewed drift. It does **not** stop a deliberate change made together
-with a regenerated pin: that is defended only by reviewing the pin's diff, and `.github/CODEOWNERS`
-routes every change to it to the owner. `tools/fixtures/acceptance_pin.py` shows the id changes and the
-old and new hash, refuses to write while the gate fails (ignoring the pin), and refuses a count change
-without `--allow-count-change` (the gate then still fails until `EXPECTED_TARGETS` changes in a
+with a regenerated pin: that is defended only by the owner reviewing the pin's diff. `.github/CODEOWNERS`
+marks the file but does not enforce review here (the owner's own account opens these PRs, so GitHub
+cannot require the owner's review). `tools/fixtures/acceptance_pin.py` shows the id changes and the
+old and new hash, refuses to write while the gate fails (ignoring the pin), refuses to drop an open
+discrepancy without `--allow-discrepancy-removal`, and refuses a count change without
+`--allow-count-change` (the gate then still fails until `EXPECTED_TARGETS` changes in a
 reviewed commit). A failure names the failing targets.
 Every target must pass under both gate tables, `venonic-2023` and `fugerappi-2023`, which publish every
 trainer level the targets use. Targets that the TL50-only `flyfunner-old-50-2025` covers must pass too;
