@@ -39,14 +39,20 @@ def load_lineups(client):
         if not isinstance(item, dict):
             continue
         name, dex = item.get("speciesId"), item.get("dex")
-        if not isinstance(name, str) or dex is None:
+        if not isinstance(name, str) or type(dex) is not int:
             continue
         if "_shadow" not in name and "_mega" not in name:
             if dex not in species or len(name) < len(species[dex]):
                 species[dex] = name
     characters = []
-    for entry in entries.values():
-        if not isinstance(entry, dict):
+    for key, entry in entries.items():
+        if (
+            not isinstance(entry, dict)
+            or not isinstance(entry.get("active"), bool)
+            or not isinstance(entry.get("grunt"), str)
+            or not isinstance(entry.get("type"), str)
+        ):
+            print(f"Skipping malformed entry {key}", file=sys.stderr)
             continue
         if not entry["active"]:
             continue
@@ -58,20 +64,40 @@ def load_lineups(client):
             if kind == "Executive"
             else (3 if typ == "Decoy" else 2 if typ == "Mixed" else 1)
         )
+        gender = entry.get("gender")
+        gender_name = "male" if gender == 1 else "female" if gender == 2 else "unknown"
         name = (
             typ
             if kind == "Executive"
             else "Giovanni"
             if kind == "Giovanni"
-            else (f"{typ} grunt ({ {1: 'male', 2: 'female'}.get(entry.get('gender'), 'unknown') })")
+            else f"{typ} grunt ({gender_name})"
         )
         slots = []
+        encounters = entry.get("encounters")
+        if not isinstance(encounters, dict):
+            encounters = {}
+            print(f"Skipping malformed encounters in entry {key}", file=sys.stderr)
         for slot in ("first", "second", "third"):
             pool = []
-            for encounter in (entry.get("encounters") or {}).get(slot, []):
-                if not isinstance(encounter, dict) or "id" not in encounter:
+            slot_encounters = encounters.get(slot, [])
+            if not isinstance(slot_encounters, list):
+                print(f"Skipping malformed encounters in {name}, {slot}", file=sys.stderr)
+                slot_encounters = []
+            for encounter in slot_encounters:
+                if (
+                    not isinstance(encounter, dict)
+                    or type(encounter.get("id")) is not int
+                    or ("form" in encounter and type(encounter["form"]) is not int)
+                    or (
+                        "template" in encounter
+                        and (
+                            not isinstance(encounter["template"], str) or not encounter["template"]
+                        )
+                    )
+                ):
                     print(
-                        f"Skipping malformed encounter in {name}, {slot}: missing id",
+                        f"Skipping malformed encounter in {name}, {slot}",
                         file=sys.stderr,
                     )
                     continue

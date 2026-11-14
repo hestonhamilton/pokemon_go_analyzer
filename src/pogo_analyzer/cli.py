@@ -147,7 +147,14 @@ def main(argv=None):
             characters = [
                 c
                 for c in available
-                if words and words <= set(re.findall(r"\w+", c.name.casefold()))
+                if words
+                and all(
+                    any(
+                        word == name_word or (len(word) >= 3 and name_word.startswith(word))
+                        for name_word in re.findall(r"\w+", c.name.casefold())
+                    )
+                    for word in words
+                )
             ]
             if not characters:
                 print(
@@ -155,7 +162,7 @@ def main(argv=None):
                     + ", ".join(c.name for c in available),
                     file=sys.stderr,
                 )
-                return 2
+                return 7
             selections = [
                 (e.candidates, c.tier, i)
                 for c in characters

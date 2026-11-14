@@ -11,6 +11,18 @@ uv run pogo-analyzer counters --defender WEEZING_SHADOW_FORM --tier RAID_LEVEL_1
 uv run pogo-analyzer tally --character grunt --top 5
 ```
 
+Character selectors match whole words or prefixes of at least 3 letters, e.g. `--character gio`.
+
+Exit codes:
+
+- 0: ok
+- 2: bad arguments
+- 3: blocked or rate-limited
+- 4: request budget spent
+- 5: network or bad reply
+- 6: cache error
+- 7: no matching character
+
 Counter requests run sequentially at least two seconds apart, use a 24-hour cache (including missing IDs), a default budget of 80 network requests, and a descriptive User-Agent. Requests mirror the parameters of Pokebattler's default Rocket view; sorting happens locally, so there is one request per defender per slot setting per day whatever the sort. `--cache-dir` and `--max-requests` adjust the cache and counter request budget. Lineup sources have a separate cache.
 
 CSV output carries no credits line (it goes to stderr), so credit Pokebattler, WatWowMap event-info and PvPoke when sharing a saved CSV; `--credits-column` adds a `source` credit to every CSV or table row.

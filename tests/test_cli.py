@@ -355,6 +355,9 @@ def test_credits_column_keeps_json_credits(capsys):
         ("FiRe grunt", {"FIRE_MALE", "FIRE_FEMALE"}),
         ("  fire   male  ", {"FIRE_MALE"}),
         ("cliff", {"CLIFF"}),
+        ("gio", {"GIOVANNI"}),
+        ("giovanni", {"GIOVANNI"}),
+        ("fem", {"FIRE_FEMALE"}),
         ("ice grunt", {"ICE"}),
     ],
 )
@@ -364,6 +367,7 @@ def test_character_whole_word_matching(monkeypatch, capsys, selector, selected):
         "FIRE_FEMALE": "Fire grunt (female)",
         "WATER_MALE": "Water grunt (male)",
         "CLIFF": "Cliff",
+        "GIOVANNI": "Giovanni",
         "ICE": "Ice-grunt (unknown)",
     }
     monkeypatch.setattr(
@@ -379,9 +383,11 @@ def test_character_whole_word_matching(monkeypatch, capsys, selector, selected):
     assert {row["defender"] for row in rows} == selected
 
 
-@pytest.mark.parametrize("selector", ["fir", "male fire cliff", "missing", "", "() -"])
+@pytest.mark.parametrize(
+    "selector", ["cl", "fire gr", "exec", "male fire cliff", "missing", "", "() -"]
+)
 def test_character_no_match_lists_available(selector, capsys):
-    assert cli.main(["counters", "--character", selector]) == 2
+    assert cli.main(["counters", "--character", selector]) == 7
     captured = capsys.readouterr()
     assert not captured.out
     assert "Available characters:" in captured.err
@@ -416,3 +422,65 @@ def test_species_entries_without_fields_are_skipped(monkeypatch):
 
     monkeypatch.setattr(FakeClient, "get_json", get_json)
     assert lineups.load_lineups(FakeClient("cache"))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("active", None), ("active", 1), ("grunt", None), ("grunt", []), ("type", None), ("type", 1)],
+)
+@pytest.mark.parametrize("missing", [True, False])
+def test_malformed_entry_is_skipped(field, value, missing, monkeypatch, capsys):
+    data = fixture("lineups.json")
+    if missing:
+        del data["1"][field]
+    else:
+        data["1"][field] = value
+    original = FakeClient.get_json
+    monkeypatch.setattr(
+        FakeClient,
+        "get_json",
+        lambda self, url: data if url == lineups.EVENT_INFO_URL else original(self, url),
+    )
+    assert all(c.name != "Fire grunt (female)" for c in lineups.load_lineups(FakeClient("cache")))
+    assert capsys.readouterr().err.splitlines() == ["Skipping malformed entry 1"]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {},
+        {"id": []},
+        {"id": "122"},
+        {"id": 122, "form": []},
+        {"id": 122, "template": ""},
+        {"id": 122, "template": []},
+    ],
+)
+def test_malformed_encounter_is_skipped(bad, monkeypatch, capsys):
+    data = fixture("lineups.json")
+    data["1"]["encounters"]["first"] = [bad, {"id": 122}]
+    original = FakeClient.get_json
+    monkeypatch.setattr(
+        FakeClient,
+        "get_json",
+        lambda self, url: data if url == lineups.EVENT_INFO_URL else original(self, url),
+    )
+    assert len(lineups.load_lineups(FakeClient("cache"))[0].slots[0]) == 1
+    assert "Skipping malformed encounter" in capsys.readouterr().err
+
+
+def test_invalid_species_fields_are_skipped_silently(monkeypatch, capsys):
+    data = fixture("species.json")
+    data["pokemon"] = [
+        {"dex": [], "speciesId": "bad"},
+        {"dex": 122, "speciesId": []},
+        *data["pokemon"],
+    ]
+    original = FakeClient.get_json
+    monkeypatch.setattr(
+        FakeClient,
+        "get_json",
+        lambda self, url: data if url == lineups.PVPOKE_GM_URL else original(self, url),
+    )
+    assert lineups.load_lineups(FakeClient("cache"))[0].slots[0][0].species == "mr_mime"
+    assert not capsys.readouterr().err
