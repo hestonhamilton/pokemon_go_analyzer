@@ -1,7 +1,7 @@
 import io
 import json
 from urllib.error import HTTPError
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import pytest
 
@@ -34,16 +34,16 @@ class FakeTime:
 def test_url():
     url = build_rocket_url("INFERNAPE_SHADOW_FORM", "RAID_LEVEL_1", 40)
     parsed = urlparse(url)
-    assert (
-        parsed.path
-        == "/rocket/defenders/INFERNAPE_SHADOW_FORM/levels/RAID_LEVEL_1/attackers/levels/40"
+    assert parsed.path == "/rocket/defenders/INFERNAPE/levels/RAID_LEVEL_1/attackers/levels/40"
+    assert parsed.query == (
+        "sort=POWER&view=GROUPED&shieldStrategy=SHIELD_1&defenderShieldStrategy=SHIELD_2"
+        "&meta=DUAL_MOVE&aggregation=AVERAGE&attackerTypes=POKEMON_TYPE_ALL"
+        "&dodgeStrategy=DODGE_REACTION_TIME&includeLegendary=true&includeMegas=true"
+        "&includeShadow=true&numParty=1&weatherCondition=NO_WEATHER"
     )
-    assert parse_qs(parsed.query) == {
-        "sort": ["OVERALL"],
-        "shieldStrategy": ["SHIELD_2"],
-        "defenderShieldStrategy": ["SHIELD_0"],
-        "meta": ["DUAL_MOVE"],
-    }
+    assert "/INFERNAPE_SHADOW_FORM_EXTRA/" in build_rocket_url(
+        "INFERNAPE_SHADOW_FORM_EXTRA", "RAID_LEVEL_1", 40
+    )
 
 
 @pytest.mark.parametrize(
@@ -52,8 +52,8 @@ def test_url():
         (("X", "RAID_LEVEL_6", 40), {}),
         (("X", "RAID_LEVEL_1", 42), {}),
         (("X", "RAID_LEVEL_1", 40), {"sort": "DODGE_100"}),
-        (("X", "RAID_LEVEL_1", 40), {"attacker_shields": "TOTAL_SHIELD"}),
-        (("X", "RAID_LEVEL_1", 40), {"defender_shields": "SHIELD_1"}),
+        (("X", "RAID_LEVEL_1", 40), {"shield_strategy": "TOTAL_SHIELD"}),
+        (("X", "RAID_LEVEL_1", 40), {"defender_shield_strategy": "TOTAL_SHIELD"}),
     ],
 )
 def test_invalid_url_options(args, kwargs):

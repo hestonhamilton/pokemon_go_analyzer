@@ -7,7 +7,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from pogo_analyzer.lineups import default_shields, load_lineups, resolve_defender
+from pogo_analyzer.lineups import default_shield_strategy, load_lineups, resolve_defender
 from pogo_analyzer.pokebattler import BudgetExceeded, PoliteClient, RateLimitedOrBlocked
 from pogo_analyzer.rocket_counters import parse_rocket_response, rank
 
@@ -45,9 +45,16 @@ def parser():
             "--attacker-level", type=int, choices=(20, 25, 30, 35, 40, 45, 50), default=40
         )
         sub.add_argument(
-            "--attacker-shields", choices=("SHIELD_0", "SHIELD_1", "SHIELD_2"), default="SHIELD_2"
+            "--shield-strategy",
+            choices=("SHIELD_0", "SHIELD_1", "SHIELD_2"),
+            help="Passed to Pokebattler as shieldStrategy; the per-slot default copies its site.",
         )
-        sub.add_argument("--defender-shields", choices=("SHIELD_0", "SHIELD_2"))
+        sub.add_argument(
+            "--defender-shield-strategy",
+            choices=("SHIELD_0", "SHIELD_1", "SHIELD_2"),
+            default="SHIELD_2",
+            help="Passed to Pokebattler as defenderShieldStrategy; the default copies its site.",
+        )
         sub.add_argument(
             "--sort",
             choices=("overall_rating", "power", "win_ratio", "tdo", "time"),
@@ -94,13 +101,13 @@ def main(argv=None):
             print(CREDITS)
             return 0
         if args.defender:
-            selections = [([args.defender], args.tier)]
+            selections = [([args.defender], args.tier, None)]
         else:
             characters = [
                 c for c in load_lineups(source) if args.character.lower() in c.name.lower()
             ]
             selections = [
-                (e.candidates, c.tier)
+                (e.candidates, c.tier, i)
                 for c in characters
                 for i, pool in enumerate(c.slots, 1)
                 if args.slot is None or args.slot == i
@@ -108,8 +115,9 @@ def main(argv=None):
             ]
         rows, tally, seen = [], defaultdict(set), set()
         sort_key = "effective_combat_time_ms" if args.sort == "time" else args.sort
-        for candidates, tier in selections:
-            key = (tuple(candidates), tier)
+        for candidates, tier, slot in selections:
+            shield_strategy = args.shield_strategy or default_shield_strategy(slot)
+            key = (tuple(candidates), tier, shield_strategy)
             if key in seen:
                 continue
             seen.add(key)
@@ -118,10 +126,10 @@ def main(argv=None):
                 candidates,
                 tier,
                 args.attacker_level,
-                # Always the default view: one cached URL per defender, ranked locally.
-                sort="OVERALL",
-                attacker_shields=args.attacker_shields,
-                defender_shields=args.defender_shields or default_shields(tier),
+                # Use the site sort and rank results locally.
+                sort="POWER",
+                shield_strategy=shield_strategy,
+                defender_shield_strategy=args.defender_shield_strategy,
             )
             if resolved is None:
                 print(f"Unresolved defender: {', '.join(candidates)} ({tier})", file=sys.stderr)

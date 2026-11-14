@@ -21,8 +21,8 @@ class Character:
     slots: list[list[Encounter]]
 
 
-def default_shields(tier):
-    return "SHIELD_2" if tier in {"RAID_LEVEL_4", "RAID_LEVEL_5"} else "SHIELD_0"
+def default_shield_strategy(slot):
+    return "SHIELD_0" if slot == 3 else "SHIELD_1"
 
 
 def load_lineups(client):
@@ -64,11 +64,7 @@ def load_lineups(client):
                     # Dex number PvPoke doesn't list yet: keep it visible, unresolvable.
                     pool.append(Encounter(f"dex_{encounter['id']}", []))
                     continue
-                candidates = (
-                    [f"{template}_SHADOW_FORM", f"{template}_FORM_SHADOW_FORM"]
-                    if template
-                    else [f"{base.upper()}_SHADOW_FORM"]
-                )
+                candidates = [template, f"{template}_FORM"] if template else [base.upper()]
                 pool.append(Encounter(template.lower() if template else base, candidates))
             slots.append(pool)
         characters.append(Character(name, f"RAID_LEVEL_{level}", slots))

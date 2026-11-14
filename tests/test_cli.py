@@ -49,9 +49,12 @@ def fake(monkeypatch):
 def test_lineups_and_shields():
     characters = lineups.load_lineups(FakeClient("cache"))
     assert [c.tier for c in characters] == [f"RAID_LEVEL_{n}" for n in range(1, 6)]
-    assert [lineups.default_shields(c.tier) for c in characters] == ["SHIELD_0"] * 3 + [
-        "SHIELD_2"
-    ] * 2
+    assert [lineups.default_shield_strategy(slot) for slot in (1, 2, 3, None)] == [
+        "SHIELD_1",
+        "SHIELD_1",
+        "SHIELD_0",
+        "SHIELD_1",
+    ]
     assert [c.name for c in characters] == [
         "Fire grunt (female)",
         "Mixed grunt (male)",
@@ -59,18 +62,18 @@ def test_lineups_and_shields():
         "Cliff",
         "Giovanni",
     ]
-    assert characters[0].slots[0][0].candidates == ["MR_MIME_SHADOW_FORM"]
+    assert characters[0].slots[0][0].candidates == ["MR_MIME"]
     assert characters[0].slots[1][0].candidates == [
-        "WEEZING_GALARIAN_SHADOW_FORM",
-        "WEEZING_GALARIAN_FORM_SHADOW_FORM",
+        "WEEZING_GALARIAN",
+        "WEEZING_GALARIAN_FORM",
     ]
 
 
 def test_fallback_and_unresolved(capsys):
-    FakeClient.missing = {"WEEZING_GALARIAN_SHADOW_FORM"}
+    FakeClient.missing = {"/WEEZING_GALARIAN/"}
     assert cli.main(["counters", "--character", "fire", "--slot", "2"]) == 0
     assert len(FakeClient.instances[1].urls) == 2
-    assert "WEEZING_GALARIAN_FORM_SHADOW_FORM" in capsys.readouterr().out
+    assert "WEEZING_GALARIAN_FORM" in capsys.readouterr().out
     FakeClient.missing = {"WEEZING_GALARIAN"}
     assert cli.main(["counters", "--character", "fire", "--slot", "2"]) == 0
     assert "Unresolved defender" in capsys.readouterr().err
@@ -117,7 +120,7 @@ def test_blocked(capsys):
 def test_requests_default_view_whatever_the_sort():
     assert cli.main(["counters", "--character", "fire", "--slot", "1", "--sort", "time"]) == 0
     counter_urls = [u for u in FakeClient.instances[1].urls if "/rocket/" in u]
-    assert counter_urls and all("sort=OVERALL" in u for u in counter_urls)
+    assert counter_urls and all("sort=POWER" in u for u in counter_urls)
 
 
 def test_unknown_dex_is_unresolved_not_fatal(monkeypatch, capsys):
@@ -131,3 +134,42 @@ def test_unknown_dex_is_unresolved_not_fatal(monkeypatch, capsys):
     monkeypatch.setattr(FakeClient, "get_json", get_json)
     assert cli.main(["counters", "--character", "fire", "--slot", "1"]) == 0
     assert "Unresolved defender" in capsys.readouterr().err
+
+
+def test_slot_settings_and_deduplication(monkeypatch):
+    encounter = lineups.Encounter("test", ["TEST"])
+    monkeypatch.setattr(
+        cli,
+        "load_lineups",
+        lambda source: [
+            lineups.Character("test", "RAID_LEVEL_1", [[encounter], [encounter], [encounter]])
+        ],
+    )
+    assert cli.main(["counters", "--character", "test"]) == 0
+    urls = FakeClient.instances[1].urls
+    assert len(urls) == 2
+    assert "shieldStrategy=SHIELD_1" in urls[0]
+    assert "shieldStrategy=SHIELD_0" in urls[1]
+    assert all("defenderShieldStrategy=SHIELD_2" in url for url in urls)
+
+
+def test_explicit_shield_options():
+    assert (
+        cli.main(
+            [
+                "counters",
+                "--defender",
+                "TEST",
+                "--tier",
+                "RAID_LEVEL_1",
+                "--shield-strategy",
+                "SHIELD_2",
+                "--defender-shield-strategy",
+                "SHIELD_1",
+            ]
+        )
+        == 0
+    )
+    url = FakeClient.instances[1].urls[0]
+    assert "shieldStrategy=SHIELD_2" in url
+    assert "defenderShieldStrategy=SHIELD_1" in url

@@ -37,9 +37,9 @@ def build_rocket_url(
     tier,
     attacker_level,
     *,
-    sort="OVERALL",
-    attacker_shields="SHIELD_2",
-    defender_shields="SHIELD_0",
+    sort="POWER",
+    shield_strategy="SHIELD_1",
+    defender_shield_strategy="SHIELD_2",
 ) -> str:
     """Build a Rocket counters URL, rejecting unsupported request options."""
     if tier not in {*(f"RAID_LEVEL_{n}" for n in range(1, 6)), "RAID_LEVEL_UNSET"}:
@@ -48,18 +48,28 @@ def build_rocket_url(
         raise ValueError("invalid attacker level")
     if sort not in {"OVERALL", "POWER", "WIN", "TIME"}:
         raise ValueError("invalid sort")
-    if attacker_shields not in {"SHIELD_0", "SHIELD_1", "SHIELD_2"}:
-        raise ValueError("invalid attacker shields")
-    if defender_shields not in {"SHIELD_0", "SHIELD_2"}:
-        raise ValueError("invalid defender shields")
+    if shield_strategy not in {"SHIELD_0", "SHIELD_1", "SHIELD_2"}:
+        raise ValueError("invalid shield strategy")
+    if defender_shield_strategy not in {"SHIELD_0", "SHIELD_1", "SHIELD_2"}:
+        raise ValueError("invalid defender shield strategy")
     query = urlencode(
         {
             "sort": sort,
-            "shieldStrategy": attacker_shields,
-            "defenderShieldStrategy": defender_shields,
+            "view": "GROUPED",
+            "shieldStrategy": shield_strategy,
+            "defenderShieldStrategy": defender_shield_strategy,
             "meta": "DUAL_MOVE",
+            "aggregation": "AVERAGE",
+            "attackerTypes": "POKEMON_TYPE_ALL",
+            "dodgeStrategy": "DODGE_REACTION_TIME",
+            "includeLegendary": "true",
+            "includeMegas": "true",
+            "includeShadow": "true",
+            "numParty": "1",
+            "weatherCondition": "NO_WEATHER",
         }
     )
+    defender_id = defender_id.removesuffix("_SHADOW_FORM")
     return (
         f"{BASE_URL}/rocket/defenders/{quote(defender_id, safe='')}/levels/{tier}"
         f"/attackers/levels/{attacker_level}?{query}"
