@@ -165,6 +165,11 @@ def _era(battle_date: date | str | None, data: dict) -> tuple[dict, str | None]:
     if type(battle_date) is not date:
         raise ValueError("battle_date must be a calendar date, ISO date or None")
     stamp = battle_date.isoformat()
+    start = data["rocket_battles_start"]
+    if stamp < start["date"]:
+        raise ValueError(
+            f"battle_date {stamp} is before Team GO Rocket battles began ({start['date']})"
+        )
     return next(
         e
         for e in data["eras"]
@@ -502,6 +507,10 @@ def simulate_rocket(
             data["timer"]["era_note"],
             "Timeout HP fraction is the sum of each team member's current HP / maximum HP.",
         ]
+    # Dates past the newest source run the newest era's rules, flagged as such.
+    forward = stamp is not None and stamp > data["latest_source_date"]
+    if forward:
+        interpretations.append(data["forward_note"])
     rows = (
         *BASE_LEDGER_ROWS,
         *(r for r in ("k", "l", "m", "n") if any(e.row == r for e in evidence)),
@@ -527,6 +536,6 @@ def simulate_rocket(
         rules,
         rows,
         tuple(evidence),
-        ("unverified",) if rocket_charge_used else (),
+        ("unverified",) * rocket_charge_used + ("extrapolated",) * forward,
         tuple(interpretations),
     )

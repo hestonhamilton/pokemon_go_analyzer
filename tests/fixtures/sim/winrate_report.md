@@ -70,7 +70,7 @@ It **ignores carried-over shields and HP between slots**. Every 1v1 starts at fu
 and fresh shields. The battle date, rank, stats and rules match the full team mode.
 `--slot 1|2|3` restricts this grid; it cannot restrict a full battle.
 
-Rows report character, Rocket slot, species and moveset, player member and species, winner,
+Rows report character, Rocket slot, species and moveset, player slot and species, winner,
 ending reason, elapsed turns and both remaining HP fractions. Each row has one lineup and battle.
 Each `(player member, slot)` aggregate reports its option count, battles, wins, losses, draws,
 win rate and draw rate, uniformly over that slot's options. Duplicate player species remain separate
@@ -86,8 +86,9 @@ assumptions retain the [Rocket report](rocket_report.md)'s grades and limitation
 
 `rules_grade` is `unverified` if any battle has the `unverified` flag. Otherwise it is `estimate`.
 Every supplied Rocket charged move exercises ledger l, even if it never fires. Full pools therefore
-remain unverified. The headline always starts with `estimate` and states both grades, for example
-`estimate; unverified (l); stats parity-only`.
+remain unverified. The headline always starts with `estimate` and states the weaker grades once each,
+for example `estimate; unverified (l); stats parity-only`. A battle date after the newest rules source
+(29 Sep 2026) adds `extrapolated forward`, and an incomplete pool adds `pool incomplete`.
 
 `stats_grade` uses `calculate_matchup`, then `grade_row` with this run's `run_acceptance` result,
 for every player build and Rocket species/moveset pair represented by the result. It takes the
@@ -160,11 +161,18 @@ recommendations. No outcome statistic is inferred from an unfinished benchmark.
 | Water grunt (male), three Metagross | 75 / 75 | 0.053 | Serial direct battles |
 | Mixed grunt (female), three Metagross | 131,346 / 323,456 | 121.000 | Serial direct battles; unfinished at this duration |
 | Water grunt (male), one Metagross | 75 / 75 | 0.055 | CLI battle and aggregation iterator, serial |
-| Mixed grunt (female), three Metagross | 323,456 / 323,456 | 164.921 | CLI battle and aggregation iterator; serial for 120 seconds, then four stdlib worker processes |
+| Mixed grunt (female), three Metagross | 323,456 / 323,456 | 179.963 | CLI battle and aggregation iterator; serial for 120 seconds, then three forked worker processes plus the parent (four in all) |
 
 The measured serial run exceeded two minutes for one character. The CLI therefore continues with
-stdlib multiprocessing only after that character actually exceeds 120 seconds. It uses up to four
-workers, bounded by CPU count, and ordered `imap` with 32-item chunks. These are execution choices,
+stdlib multiprocessing only after that character actually exceeds 120 seconds. It uses at most four
+processes in all, counting the parent: up to three workers (one fewer than the CPUs this process may
+use, from `os.sched_getaffinity` where available, so affinity and cpusets apply) plus the
+parent, which collects and aggregates results. It uses the `fork` start method where available, because
+`spawn` and `forkserver` also start a helper process. Results use ordered `imap` with 32-item chunks.
+A process listing during that run showed the parent and its three workers only. Launching through
+`uv run` adds the idle `uv` launcher around them. Workers ignore Ctrl-C, so an interrupt stops the
+pool from the parent without worker tracebacks. A selection of more than 500,000 lineups across its
+matched characters prints an up-front warning with the count. These are execution choices,
 not probability weights or caps on battles. The serial prefix and all remaining lineups are retained.
 Ordered results preserve floating-point accumulation order as well as outcome counts. Offline tests
 compare serial and multiprocessing aggregate records exactly. Every full result reports its execution
@@ -172,6 +180,10 @@ mode, worker count and elapsed iterator time. Iterator timings exclude source lo
 checks, calculator grading and rendering. Other characters' runtimes were not measured.
 
 ## Remaining judgement calls and gaps
+
+- Battle dates before 22 July 2019, when Team GO Rocket grunt battles first appeared, are rejected.
+  Dates after the newest rules source (9db, 29 Sep 2026) run the newest era's rules and carry the
+  `extrapolated` flag and a note; later rule changes are unknown.
 
 - The required calendar date selects the existing rules era only. Cached moves and the explicitly
   selected stat table are used even for older dates. No historical move values are inferred.

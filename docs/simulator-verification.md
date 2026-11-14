@@ -179,6 +179,7 @@ parity coverage, fixture traces and assumptions. The calculator and CLI are unch
 
 Fixed-order teams of three are an estimate. Dated pauses use ledger k.
 The battle date picks the era. Boundaries are about 10 Dec 2025 and 12 Mar 2026, both approximate.
+Dates before 22 Jul 2019, when Rocket battles began, are rejected. Dates after 29 Sep 2026 are flagged as extrapolated.
 The default is the March 2026 era. Every result carries its era's grades.
 A charged attack from either side starts the pause. That is the owner's observation, agreeing with cwizz1; not measured.
 Either side's faint and replacement starts it too. That is the owner's reading; not measured.

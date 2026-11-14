@@ -100,8 +100,9 @@ def test_formats_and_metadata(cache, capsys, fmt):
         assert row["pool_complete"] and row["slot_option_counts"] == [6, 21, 15]
         assert row["wins"] + row["losses"] + row["draws"] == row["battles"]
         assert row["rules_grade"] == "unverified" and row["stats_grade"] == "parity-only"
-        assert row["grade"] == "estimate; unverified (l); stats parity-only"
-        assert "l" in row["ledger_rows"] and row["flags"] == ["unverified"]
+        # 2026-11-14 is after the newest rules source (29 Sep 2026).
+        assert row["grade"] == "estimate; unverified (l); extrapolated forward; stats parity-only"
+        assert "l" in row["ledger_rows"] and row["flags"] == ["extrapolated", "unverified"]
         assert all(set(e) == {"row", "grade", "option", "source"} for e in row["evidence"])
         assert row["rules"] == data["rules"]
         assert "weakest" in data["grade_note"]
@@ -112,7 +113,7 @@ def test_formats_and_metadata(cache, capsys, fmt):
         start = next(i for i, s in enumerate(lines) if s.startswith("battle_date,era,rules,"))
         (row,) = list(csv.DictReader(io.StringIO("\n".join(lines[start:]))))
         assert int(row["battles"]) == 1890
-        assert json.loads(row["flags"]) == ["unverified"]
+        assert json.loads(row["flags"]) == ["extrapolated", "unverified"]
         assert "no appearance-rate source" in captured.err
         assert calc_cli.CREDITS in captured.err
     else:
@@ -343,19 +344,121 @@ def test_multiprocessing_identical_to_serial(monkeypatch):
 
     fast = Move("fast", "normal", 2, 1)
     charge = Move("charge", "normal", 10, 1, energy=40)
-    member = Combatant(100, 100, 100, ("normal",), fast, (charge,))
-    team = (member,) * 3
-    pools = tuple(tuple(winrate.Option(str(i), member) for i in range(2)) for _ in range(3))
-    serial = winrate.estimate(team, pools, rank="grunt", battle_date="2026-11-14")
+    team = tuple(Combatant(100, 100, hp, ("normal",), fast, (charge,)) for hp in (40, 90, 160))
+    # Distinct Rocket options per slot, so outcomes differ by lineup: a dropped,
+    # duplicated or reordered lineup changes the compared sequence.
+    pools = tuple(
+        tuple(
+            winrate.Option(f"s{slot}-{hp}", Combatant(100, 100, hp, ("normal",), fast, (charge,)))
+            for hp in (30, 120, 260)
+        )
+        for slot in range(3)
+    )
+    serial = list(winrate.trials(team, pools, rank="grunt", battle_date="2026-11-14"))
+    assert len({s["winner"] for _, s in serial}) > 1  # Outcomes really vary.
     execution = {}
     monkeypatch.setattr(sim_cli, "PARALLEL_AFTER", -1)
-    monkeypatch.setattr(sim_cli.os, "cpu_count", lambda: 2)
-    parallel = winrate.aggregate(
-        team,
+    monkeypatch.setattr(sim_cli, "_cpus", lambda: 2)
+    parallel = list(
         sim_cli._timed_trials(
             team, pools, rank="grunt", battle_date="2026-11-14", execution=execution
-        ),
+        )
     )
-    assert serial == parallel
+
+    def names(trials):
+        return [([o.species for o in lineup], summary) for lineup, summary in trials]
+
+    assert names(serial) == names(parallel)
+    assert winrate.aggregate(team, serial) == winrate.aggregate(team, parallel)
     assert execution["mode"] == "serial then stdlib multiprocessing"
-    assert execution["workers"] == 2
+    # Two CPUs: one worker plus the parent.
+    assert execution["workers"] == 1 and execution["processes"] == 2
+
+
+def test_cpus_respect_affinity(monkeypatch):
+    if not hasattr(sim_cli.os, "sched_getaffinity"):
+        pytest.skip("no CPU affinity on this platform")
+    monkeypatch.setattr(sim_cli.os, "sched_getaffinity", lambda pid: {0, 1})
+    monkeypatch.setattr(sim_cli.os, "cpu_count", lambda: 64)
+    assert sim_cli._cpus() == 2 and sim_cli._workers() == 1
+
+
+@pytest.mark.parametrize("cpus,workers", [(None, 0), (1, 0), (2, 1), (4, 3), (64, 3)])
+def test_worker_count_counts_the_parent(monkeypatch, cpus, workers):
+    # Never more than four processes in all, the parent included.
+    monkeypatch.setattr(sim_cli, "_cpus", lambda: cpus)
+    assert sim_cli._workers() == workers
+    assert sim_cli._workers() + 1 <= sim_cli.MAX_PROCESSES
+
+
+def test_one_cpu_stays_serial(monkeypatch):
+    from pogo_analyzer.sim.battle import Combatant
+    from pogo_analyzer.sim.calculator import Move
+
+    member = Combatant(100, 100, 100, ("normal",), Move("fast", "normal", 2, 1), ())
+    pools = tuple(tuple(winrate.Option(str(i), member) for i in range(2)) for _ in range(3))
+    execution = {}
+    monkeypatch.setattr(sim_cli, "PARALLEL_AFTER", -1)
+    monkeypatch.setattr(sim_cli, "_cpus", lambda: 1)
+    list(
+        sim_cli._timed_trials(
+            (member,), pools, rank="grunt", battle_date="2026-11-14", execution=execution
+        )
+    )
+    assert execution["mode"] == "serial" and execution["workers"] == 1
+
+
+def test_pool_context_avoids_helper_process():
+    import multiprocessing
+
+    expected = "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
+    assert sim_cli._pool_context().get_start_method() == expected
+
+
+def _with_date(cache, stamp, fmt="json"):
+    argv = args(cache, fmt)
+    argv[argv.index("--battle-date") + 1] = stamp
+    return argv
+
+
+def test_battle_date_before_rocket_battles_is_rejected(cache, capsys):
+    # Team GO Rocket grunt battles first appeared on 2019-07-22.
+    with pytest.raises(SystemExit):
+        cli.main(_with_date(cache, "2019-07-21"))
+    assert "before Team GO Rocket battles began" in capsys.readouterr().err
+
+
+def test_dates_within_sources_are_not_extrapolated(cache, capsys):
+    assert cli.main(_with_date(cache, "2026-09-29")) == 0
+    row = json.loads(capsys.readouterr().out)["results"][0]
+    assert row["flags"] == ["unverified"]
+    assert row["grade"] == "estimate; unverified (l); stats parity-only"
+
+
+def test_large_selection_warns(cache, capsys, monkeypatch):
+    monkeypatch.setattr(sim_cli, "LARGE_SELECTION", 1)
+    assert cli.main(args(cache)) == 0
+    assert "lineups across" in capsys.readouterr().err
+
+
+def test_grid_table_shows_player_slot(cache, capsys):
+    assert cli.main(args(cache, "table") + ["--per-slot", "--slot", "1"]) == 0
+    text = capsys.readouterr().out
+    headers = [line for line in text.splitlines() if line.split("|")[0].strip() == "character"]
+    assert len(headers) == 2 and all("player_slot" in line for line in headers)
+
+
+def test_headline_never_repeats_estimate():
+    row = {"rules_grade": "estimate", "flags": [], "pool_complete": True}
+    assert sim_cli._grade(row, "model")["grade"] == "estimate; stats model"
+
+
+def test_workers_ignore_interrupt():
+    import signal
+
+    previous = signal.getsignal(signal.SIGINT)
+    try:
+        sim_cli._ignore_interrupt()
+        assert signal.getsignal(signal.SIGINT) is signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGINT, previous)

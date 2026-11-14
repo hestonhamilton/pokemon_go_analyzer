@@ -190,6 +190,8 @@ uv run pogo-analyzer sim --character Cliff --battle-date 2026-11-14 --trainer-le
 Team input, character matching, rank from tier, source caching, `--rcpm-table`, `--fixtures-dir`,
 `--cache-dir`, and `--format table|json|csv` follow `calc`. `--battle-date YYYY-MM-DD` is required.
 It selects the rules era; moves come from the cached source, not a historical move table.
+Dates before 22 July 2019 (when Rocket battles began) are rejected. Dates after the newest rules
+source (29 Sep 2026) are flagged `extrapolated forward`.
 `--exclude-elite-legacy` removes PvPoke elite and legacy moves from Rocket pools and reports the filter.
 Unresolved species remain visible. Incomplete results explicitly cover resolved options only.
 An empty slot prevents a full battle result.
@@ -204,5 +206,6 @@ A Rocket faint is credited to the player member active on that turn, including a
 HP between slots**. Each matchup starts with fresh shields and full HP. `--slot 1|2|3` filters only
 this grid. Every result carries its era, rules, ledger flags, evidence and grades. A failed acceptance
 gate prints UNVALIDATED. Large characters continue with stdlib multiprocessing only after exceeding
-120 seconds; result order is preserved. See the [win rate report](tests/fixtures/sim/winrate_report.md)
+120 seconds; result order is preserved. It uses at most four processes in all: three workers plus the
+parent, which collects and aggregates results (fewer workers on machines with fewer than four CPUs). See the [win rate report](tests/fixtures/sim/winrate_report.md)
 for metric definitions, grade dependencies, pool sizes, runtimes and model choices.

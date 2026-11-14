@@ -49,8 +49,8 @@
         "charged": "single source (9db), method unstated",
         "faint": "single source (9db), method unstated",
         "manual_switch": "single source (9db), method unstated",
-        "fast_slip_in": "measured-reproduced (ledger j)",
-        "simultaneous_charged": "measured-once (ledger j)"
+        "fast_slip_in": "single source (9db); ledger j's measured-reproduced is from GBL after the Feb 2026 rebuild, borrowed for this era",
+        "simultaneous_charged": "single source (9db); ledger j's measured-once is from GBL after the Feb 2026 rebuild, borrowed for this era"
       }
     },
     {
@@ -117,5 +117,15 @@
   "faint_grade": "owner reading; not measured",
   "composition_note": "A charged-move pause starts after PvPoke's post-charge turn without input, so the two add: a charge resolving on t blocks Rocket inputs t+1 (core) and t+2..t+N+1 (pause). cwizz1: \"7 turns means you throw after 6 turns of fast moves\"; Jason2890: \"6 turns is the maximum number of turns you can take between charge moves to ensure the rocket (or team leader) does not use any fast moves\".",
   "composition_grade": "practitioner-reproduced (2 accounts), not measured",
-  "extension_note": "The charged trigger and the summed composition rest on Mar 2026 era accounts (cwizz1, Aug 2026, and the owner's play). Earlier eras apply them by extension, and their grades say so."
+  "extension_note": "The charged trigger and the summed composition rest on Mar 2026 era accounts (cwizz1, Aug 2026, and the owner's play). Earlier eras apply them by extension, and their grades say so.",
+  "rocket_battles_start": {
+    "date": "2019-07-22",
+    "sources": [
+      "https://daily.pokecommunity.com/2019/07/22/team-rocket-with-shadow-pokemon-launched-unannounced-in-pokemon-go",
+      "https://comicbook.com/gaming/2019/07/22/pokemon-go-team-rocket/"
+    ],
+    "note": "Team GO Rocket grunt battles first appeared on 22 July 2019, reported the same day. Some sources date the main event later (25 and 28 July 2019); the earliest date is used so no real battle date is rejected. Earlier dates are rejected."
+  },
+  "latest_source_date": "2026-09-29",
+  "forward_note": "The battle date is after the newest rules source (9db, 29 Sep 2026). The newest era's rules are extrapolated forward; any later change is unknown."
 }

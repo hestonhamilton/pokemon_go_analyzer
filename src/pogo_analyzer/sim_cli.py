@@ -2,9 +2,11 @@
 
 import csv
 import json
+import math
 import multiprocessing
 import os
 import re
+import signal
 import sys
 import time
 from dataclasses import asdict
@@ -70,6 +72,35 @@ SWEEP_NOTE = (
     "double knockout. Lead sweep requires all three Rocket faints credited to player slot 1."
 )
 PARALLEL_AFTER = 120.0
+# At most four processes in all, counting this parent, which collects and
+# aggregates the results in order: three workers plus the parent.
+MAX_PROCESSES = 4
+
+
+LARGE_SELECTION = 500_000
+
+
+def _cpus():
+    # CPUs this process may use (affinity, cgroup cpusets), where the OS reports it.
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count()
+
+
+def _workers():
+    return min(MAX_PROCESSES - 1, (_cpus() or 1) - 1)
+
+
+def _ignore_interrupt():
+    # Workers ignore Ctrl-C; the parent stops the pool, so no worker tracebacks print.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _pool_context():
+    # fork starts only the workers. spawn and forkserver also start a POSIX
+    # helper process, so they are used only where fork is unavailable.
+    methods = multiprocessing.get_all_start_methods()
+    return multiprocessing.get_context("fork" if "fork" in methods else "spawn")
 
 
 def _iso_date(value):
@@ -176,8 +207,12 @@ def _stats_grade(attacker, option, defender, args, rank, validation):
 
 def _grade(row, stats):
     row["stats_grade"] = stats
-    rules = row["rules_grade"]
-    row["grade"] = f"estimate; {rules}{' (l)' if rules == 'unverified' else ''}; stats {stats}"
+    parts = ["estimate"]
+    if row["rules_grade"] == "unverified":
+        parts.append("unverified (l)")
+    if "extrapolated" in row["flags"]:
+        parts.append("extrapolated forward")
+    row["grade"] = "; ".join([*parts, f"stats {stats}"])
     if not row["pool_complete"]:
         # Resolved options only: the headline must not read as full-pool coverage.
         row["grade"] += "; pool incomplete"
@@ -197,17 +232,22 @@ def _timed_trials(team, pools, *, rank, battle_date, execution):
     run = partial(_trial, team=team, rank=rank, battle_date=battle_date, rules=DEFAULT_ROCKET_RULES)
     start = time.perf_counter()
     execution.update(mode="serial", workers=1)
+    workers = _workers()
     for lineup in pending:
         yield run(lineup)
-        if time.perf_counter() - start > PARALLEL_AFTER:
-            workers = min(4, os.cpu_count() or 1)
-            execution.update(mode="serial then stdlib multiprocessing", workers=workers)
+        if workers >= 1 and time.perf_counter() - start > PARALLEL_AFTER:
+            execution.update(
+                mode="serial then stdlib multiprocessing",
+                workers=workers,
+                processes=workers + 1,
+            )
             print(
                 "estimate: character exceeded 120 seconds; continuing full enumeration with "
-                f"stdlib multiprocessing ({workers} workers), in serial result order.",
+                f"stdlib multiprocessing ({workers} workers plus this process, "
+                f"{workers + 1} in all), in serial result order.",
                 file=sys.stderr,
             )
-            with multiprocessing.get_context("spawn").Pool(workers) as pool:
+            with _pool_context().Pool(workers, initializer=_ignore_interrupt) as pool:
                 yield from pool.imap(run, pending, chunksize=32)
             break
     execution["runtime_seconds"] = time.perf_counter() - start
@@ -227,9 +267,17 @@ def build_output(args):
     team = tuple(player_combatant(*a) for a in attackers)
     validation = run_acceptance(args.fixtures_dir)
     rows, aggregates, unresolved, unavailable = [], [], [], []
-    for character in selected:
+    planned = [(c, _pools(c, species, moves, args)) for c in selected]
+    if not args.per_slot:
+        total = sum(math.prod(len(p) for p in pools) for _, (pools, _, _) in planned)
+        if total > LARGE_SELECTION:
+            print(
+                f"estimate: this selection enumerates {total:,} lineups across "
+                f"{len(planned)} characters; a narrower --character runs faster.",
+                file=sys.stderr,
+            )
+    for character, (pools, missing, records) in planned:
         rank = calc.character_rank(character)
-        pools, missing, records = _pools(character, species, moves, args)
         unresolved.extend(missing)
         context = {
             "character": character.name,
@@ -373,6 +421,7 @@ def render(data, fmt):
                     "species",
                     "rocket_fast_move",
                     "rocket_charged_move",
+                    "player_slot",
                     "attacker",
                     "winner",
                     "ended_by",
@@ -382,7 +431,16 @@ def render(data, fmt):
                     "grade",
                 )
             elif name == "aggregates":
-                fields = ("character", "attacker", "slot", "battles", "win_rate", "draws", "grade")
+                fields = (
+                    "character",
+                    "player_slot",
+                    "attacker",
+                    "slot",
+                    "battles",
+                    "win_rate",
+                    "draws",
+                    "grade",
+                )
             else:
                 fields = (
                     "character",

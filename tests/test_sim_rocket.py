@@ -616,3 +616,19 @@ def test_knockout_on_timeout_turn_is_knockout():
     result = run(player=mon(1440), rocket=mon(1440), turns=1500)
     assert result.turns_elapsed == 1440
     assert result.ended_by == "knockout" and result.winner is None
+
+
+def test_dates_before_rocket_battles_and_forward_extrapolation():
+    # Team GO Rocket grunt battles first appeared on 2019-07-22.
+    with pytest.raises(ValueError, match="before Team GO Rocket battles began"):
+        simulate_rocket([mon()], [mon()], battle_date="2019-07-21", max_turns=1)
+    first = simulate_rocket([mon()], [mon()], battle_date="2019-07-22", max_turns=1)
+    assert first.era == "before-dec-2025" and "extrapolated" not in first.flags
+    # The newest rules source is dated 2026-09-29; later dates are flagged.
+    last = simulate_rocket([mon()], [mon()], battle_date="2026-09-29", max_turns=1)
+    later = simulate_rocket([mon()], [mon()], battle_date="2026-09-30", max_turns=1)
+    assert "extrapolated" not in last.flags
+    assert "extrapolated" in later.flags
+    assert any("extrapolated forward" in s for s in later.interpretations)
+    static = simulate_rocket([mon()], [mon()], battle_date=None, max_turns=1)
+    assert "extrapolated" not in static.flags
