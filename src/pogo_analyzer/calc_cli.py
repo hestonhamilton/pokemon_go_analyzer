@@ -34,7 +34,10 @@ SORTS = (
     "rocket_cp",
     "attacker_hp",
 )
-CREDITS = "Lineups: WatWowMap event-info (MIT). Species, types and moves: PvPoke (MIT)."
+CREDITS = (
+    "Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, "
+    "type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke)."
+)
 CP_ONLY = "Rocket stats from Oct 2025 on are backed by CP readings only."
 LIMITS = (
     "Conditional fast-only arithmetic. Turns to KO and turns survived ignore charged attacks, "

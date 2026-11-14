@@ -6,7 +6,7 @@ first time: it fetches three pinned PvPoke files (MIT) into
 
     uv run python tools/parity/pvpoke_damage_parity.py
 
-It compares raw (pre-floor) damage and final damage exactly for 1,296 seeded
+It compares raw (pre-floor) damage and final damage exactly for seeded
 cases across every attack/defence stage, shadow flag and Mega level, and the
 type effectiveness of all 6,156 move/dual-type combinations.
 """
@@ -116,6 +116,45 @@ def build_cases():
                         cases.append(
                             dict(args=args, options=options, raw=result.raw, damage=result.damage)
                         )
+    # Mega off: every flag combination where the Mega bonus must not apply.
+    for attacker_mega, is_mega_move in ((False, False), (True, False), (False, True)):
+        for mega_level in range(1, 5):
+            for _ in range(8):
+                options = dict(
+                    attacker_shadow=rng.random() < 0.5,
+                    defender_shadow=rng.random() < 0.5,
+                    attack_stage=rng.randint(-4, 4),
+                    defence_stage=rng.randint(-4, 4),
+                    attacker_mega=attacker_mega,
+                    is_mega_move=is_mega_move,
+                    mega_level=mega_level,
+                )
+                args = [
+                    rng.randint(0, 200),
+                    rng.uniform(10, 600),
+                    rng.uniform(10, 600),
+                    rng.choice(types),
+                    rng.sample(types, 2),
+                    rng.sample(types, 2),
+                ]
+                result = calculate_damage(*args, **options)
+                cases.append(dict(args=args, options=options, raw=result.raw, damage=result.damage))
+    # Extreme stats: tiny and huge attack/defence ratios, power 0 and 1000.
+    for power in (0, 1, 1000):
+        for attack in (0.01, 1, 5000, 1e6):
+            for defence in (0.01, 1, 5000, 1e6):
+                options = dict(
+                    attacker_shadow=True,
+                    defender_shadow=True,
+                    attack_stage=4,
+                    defence_stage=-4,
+                    attacker_mega=False,
+                    is_mega_move=False,
+                    mega_level=1,
+                )
+                args = [power, attack, defence, "water", ["water", "none"], ["fire", "rock"]]
+                result = calculate_damage(*args, **options)
+                cases.append(dict(args=args, options=options, raw=result.raw, damage=result.damage))
     type_cases = [[m, [t1, t2]] for m in types for t1 in types for t2 in [*types, "none"]]
     return cases, type_cases
 

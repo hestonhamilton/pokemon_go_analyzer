@@ -13,6 +13,7 @@ is performed here. Form changes and percentMaxHP moves are outside this API.
 
 import json
 import math
+import numbers
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -42,11 +43,29 @@ def _type(name: str) -> str:
     return name
 
 
+def _move_type(name: str) -> str:
+    # "none" is PvPoke's empty second slot for a Pokemon, never a move's type.
+    # Accepting it would also give a typeless move STAB from that empty slot.
+    name = _type(name)
+    if name == "none":
+        raise ValueError("a move must have a real type, not none")
+    return name
+
+
+def _type_list(types: Sequence[str], role: str) -> tuple[str, ...]:
+    if isinstance(types, str):
+        raise ValueError(f"{role} types must be a list of type names, not one string")
+    names = tuple(_type(t) for t in types)
+    if not 1 <= len(names) <= 2 or all(n == "none" for n in names):
+        raise ValueError(f"{role} needs one or two real types")
+    return names
+
+
 def effectiveness(move_type: str, defender_types: Sequence[str]) -> float:
     """DamageCalculator.js lines 140–158; multiply once per defensive type."""
-    move_type = _type(move_type)
+    move_type = _move_type(move_type)
     value = 1.0
-    for name in defender_types:
+    for name in _type_list(defender_types, "defender"):
         name = _type(name)
         if name == "none":
             continue
@@ -81,8 +100,8 @@ def calculate_damage(
     attacker_types: Sequence[str],
     defender_types: Sequence[str],
     *,
-    attacker_shadow: bool = False,
-    defender_shadow: bool = False,
+    attacker_shadow: bool,
+    defender_shadow: bool,
     attack_stage: int = 0,
     defence_stage: int = 0,
     charged: bool = False,
@@ -97,6 +116,8 @@ def calculate_damage(
     STAB: Pokemon.js lines 701–707. Shield override: Battle.js 1194–1200.
     Mega flag AND move metadata gate the bonus (DamageCalculator.js 40–41).
     The caller supplies a shield decision; this function defines no shield policy.
+    Both shadow flags are required, with no default: Rocket Pokemon are shadow
+    (ledger g), and a caller that forgot the flag would be about 20% off.
     """
     if not math.isfinite(power) or power < 0:
         raise ValueError("power must be finite and nonnegative")
@@ -106,8 +127,8 @@ def calculate_damage(
         raise ValueError("only charged attacks can be shielded")
     if isinstance(mega_level, bool) or not isinstance(mega_level, int) or not 1 <= mega_level <= 4:
         raise ValueError("mega level must be 1–4")
-    move_type = _type(move_type)
-    stab = STAB if move_type in tuple(_type(t) for t in attacker_types) else 1
+    move_type = _move_type(move_type)
+    stab = STAB if move_type in _type_list(attacker_types, "attacker") else 1
     attack_multiplier = stage_multiplier(attack_stage)
     defence_multiplier = stage_multiplier(defence_stage)
     if attacker_shadow:
@@ -134,6 +155,9 @@ def calculate_damage(
 
 def hits_to_ko(damage: int, hp: int) -> int:
     """ceil(hp / damage), using exact integer arithmetic."""
-    if any(isinstance(x, bool) or not isinstance(x, int) or x <= 0 for x in (damage, hp)):
+    # numbers.Integral also admits numpy integers; bool is still refused.
+    if any(
+        isinstance(x, bool) or not isinstance(x, numbers.Integral) or x <= 0 for x in (damage, hp)
+    ):
         raise ValueError("damage and HP must be positive integers")
-    return (hp + damage - 1) // damage
+    return int((hp + damage - 1) // damage)

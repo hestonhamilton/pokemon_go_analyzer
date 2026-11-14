@@ -89,6 +89,8 @@ def calculate_matchup(
         attacker["ivs"],
         attacker["level"],
         form=attacker.get("form", "normal"),
+        # PvPoke species records carry dex; Shedinja (292) then gets its 10 HP.
+        dex=attacker.get("dex"),
     )
     rs = rocket_stats(defender["baseStats"], trainer_level, rank, table)
     out = dict(attacker_shadow=ps.form == "shadow", defender_shadow=True)

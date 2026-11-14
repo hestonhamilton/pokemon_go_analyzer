@@ -28,7 +28,9 @@ PREDICTOR = BattlePredictor(SPECIES, MOVES)
 def test_hand_checked_fast_and_energy():
     move = Move("TEST", "water", 10, 2, energy_gain=7)
     # Neutral: floor(10 * 100/100 * .5 * 1.2999999523162842) + 1 = 7.
-    result = move_damage(move, 100, 100, ["normal"], ["normal"])
+    result = move_damage(
+        move, 100, 100, ["normal"], ["normal"], attacker_shadow=False, defender_shadow=False
+    )
     assert result.damage == 7
     # ceil(22/7) = 4 hits; 4*2 = 8 turns; 7/2 = 3.5 nominal DPT.
     assert fast_metrics(result.damage, 22, 2) == {
@@ -306,3 +308,35 @@ def test_f1_targets_through_calculate_matchup(table):
     assert kirlia["fast_hits_to_ko"] == F1_TARGETS["F1-kirlia-hits"]["observed"]["value"]
     survived = F1_TARGETS["F1-snubbull-survives-7"]["observed"]["value"]
     assert tackle["fast_damage"] * survived < tackle["rocket_hp"]
+
+
+def test_shedinja_attacker_gets_ten_hp():
+    # PvPoke Pokemon.js L384-388: dex 292 has 10 HP whatever its level and IVs.
+    # Without the rule, (1 + 15) * CPM(50) = 13.44 -> 13.
+    shedinja = {
+        "speciesId": "shedinja",
+        "dex": 292,
+        "baseStats": {"atk": 153, "def": 73, "hp": 1},
+        "types": ["bug", "ghost"],
+        "level": 50,
+        "ivs": {"atk": 15, "def": 15, "hp": 15},
+    }
+    move = Move("SHADOW_CLAW", "ghost", 6, 2, energy_gain=8)
+    snubbull = dict(SPECIES["snubbull"], speciesId="snubbull")
+    row = calculate_matchup(
+        shedinja, snubbull, move, [], move, [], trainer_level=50, rank="grunt", table="venonic-2023"
+    )
+    assert row["attacker_hp"] == 10
+    without_dex = {k: v for k, v in shedinja.items() if k != "dex"}
+    row = calculate_matchup(
+        without_dex,
+        snubbull,
+        move,
+        [],
+        move,
+        [],
+        trainer_level=50,
+        rank="grunt",
+        table="venonic-2023",
+    )
+    assert row["attacker_hp"] == 13

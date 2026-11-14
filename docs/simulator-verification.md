@@ -134,7 +134,7 @@ against four recorded; at IV 15 it gives four, so a misreported IV is one plausi
 three strict xfails. F3's calculated eight-hit claim reproduces as a weak check. Its recorded remaining-HP
 claim needs the turn loop and is skipped. Weak F1, F7 and F8 checks match. F9 matches only conditionally on its
 missing trainer level and IV. The Mega flag does not boost Confusion in pinned PvPoke. Ledger q stays open.
-The port matches pinned JavaScript exactly in 1,296 raw-damage cases and 6,156 type combinations.
+The port matches pinned JavaScript exactly in 1,440 raw-damage cases (Mega-off and extreme stats included) and 6,156 type combinations.
 See the [damage report](../tests/fixtures/sim/damage_report.md) for variant results, IV ranges, boundary distances,
 source lines and interpretation calls. The simulator remains unvalidated.
 
