@@ -1,0 +1,46 @@
+{
+  "ledger_row": "k",
+  "source": "https://9db.jp/pokemongo/data/24341",
+  "source_date": "2026-09-29",
+  "table_update_label": "2026年3月12日(木) 更新",
+  "boundary_note": "The columns name months, not changeover days. December 1 and September 1 are approximate selection boundaries, not measured dates.",
+  "column_row": "2025/12以前 | 2025/12時点 | 2026/9時点",
+  "trigger_note": "The charged row reads \"enemy freeze time (immediately after a charged move activates)\". It does not say whose charged move. Counting only the player's charged attacks is this project's reading, kept as the default; any_charged is the other reading.",
+  "rows": {
+    "charged": "敵の硬直時間 (ゲージ技発動直後) | 2.5秒 | 4秒 | 3.5秒",
+    "faint": "敵の硬直時間 (瀕死による交代直後) | 3.5秒 | 6秒 | 3.5秒",
+    "manual_switch": "敵の硬直時間 (手動交代直後) | 3.5秒 | 6秒 | 4.5秒"
+  },
+  "grades": {
+    "charged": "measured-reproduced",
+    "faint": "measured-reproduced",
+    "manual_switch": "conflicting"
+  },
+  "eras": [
+    {"id": "before-dec-2025", "from": null, "until": "2025-12-01", "column": "2025/12以前", "charged": 5, "faint": 7, "manual_switch": 7},
+    {"id": "dec-2025", "from": "2025-12-01", "until": "2026-09-01", "column": "2025/12時点", "charged": 8, "faint": 12, "manual_switch": 12},
+    {"id": "sep-2026", "from": "2026-09-01", "until": null, "column": "2026/9時点", "charged": 7, "faint": 7, "manual_switch": 9}
+  ],
+  "default_era": "sep-2026",
+  "cwizz1": {
+    "source": "https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/",
+    "source_date": "2026-08",
+    "quote": "7 turns after any charged move or switch",
+    "quote_basis": "Excerpt preserved in docs/rocket-pokemon.md section 4; live thread could not be retrieved.",
+    "own_switch_note": "The same research notes describe your own switch as effectively 6 turns. Stored as 6; no voluntary switches are simulated.",
+    "charged": 7,
+    "faint": 7,
+    "manual_switch": 6
+  },
+  "timer": {
+    "ledger_row": "n",
+    "source": "https://www.reddit.com/r/TheSilphRoad/comments/1q13cga/",
+    "source_date": "2026-01-01",
+    "grade": "measured-once",
+    "quote": "It's set to around 12mins",
+    "charged_quote": "7s are added per charge move used",
+    "base_turns": 1440,
+    "per_charged_turns": 14,
+    "interpretation": "Use these approximate measurements as exact model parameters. Each resolved charged attack, on either side, including shielded attacks, extends the turn deadline. No animation turns are added."
+  }
+}

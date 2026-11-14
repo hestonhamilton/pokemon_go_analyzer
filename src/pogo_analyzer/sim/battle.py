@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from .calculator import Move
-from .damage import calculate_damage
+from .damage import DamageResult, calculate_damage
 
 TURN_SECONDS = 0.5  # Battle.js 38, 405: deltaTime = 500 ms.
 ENERGY_CAP = 100  # Battle.js 1337–1340.
@@ -167,6 +167,28 @@ class _Action:
     priority: int
 
 
+class _BattleHooks:
+    """Internal extension boundary. The 1v1 API runs without these hooks.
+
+    Replacements happen after the completed turn. Like Battle.js 553–610,
+    a replacement clears queued actions and resets both active cooldowns.
+    """
+
+    finished = False
+
+    def allow_input(self, actor: int, turn: int) -> bool:
+        return True
+
+    def damage(self, actor: int, move: Move, result: DamageResult, shielded: bool) -> int:
+        return result.damage
+
+    def charged(self, actor: int, turn: int) -> None:
+        pass
+
+    def finish_turn(self, row: Turn) -> tuple[Combatant | None, Combatant | None]:
+        return None, None
+
+
 def simulate(
     player: Combatant,
     rocket: Combatant,
@@ -177,6 +199,34 @@ def simulate(
     rocket_shield_policy: ShieldPolicy | None = None,
     rules: Rules = PVPOKE_RULES,
     max_turns: int = 10000,
+) -> Result:
+    """Run the pinned 1v1 core to first faint or an observation limit.
+
+    Shield callbacks have no inventory. See _simulate for the shared turn loop.
+    """
+    return _simulate(
+        player,
+        rocket,
+        player_policy=player_policy,
+        rocket_policy=rocket_policy,
+        player_shield_policy=player_shield_policy,
+        rocket_shield_policy=rocket_shield_policy,
+        rules=rules,
+        max_turns=max_turns,
+    )
+
+
+def _simulate(
+    player: Combatant,
+    rocket: Combatant,
+    *,
+    player_policy: Policy | None = None,
+    rocket_policy: Policy | None = None,
+    player_shield_policy: ShieldPolicy | None = None,
+    rocket_shield_policy: ShieldPolicy | None = None,
+    rules: Rules = PVPOKE_RULES,
+    max_turns: int = 10000,
+    hooks: _BattleHooks | None = None,
 ) -> Result:
     """Run to first faint, completing that turn (625–629), or an explicit limit.
 
@@ -212,7 +262,12 @@ def simulate(
             # 332–383, 732: simultaneous decisions before any damage/energy changes.
             # 341–343: the turn after a charged sequence accepts no attack inputs.
             pending_charge = any(a.actor == i and a.move.energy for a in queue)
-            if cooldown[i] or previous_charged or pending_charge:
+            if (
+                cooldown[i]
+                or previous_charged
+                or pending_charge
+                or (hooks is not None and not hooks.allow_input(i, turn))
+            ):
                 continue
             choice = policies[i].choose_charged(views[i], views[1 - i], turn)
             if choice is not None and (
@@ -261,7 +316,7 @@ def simulate(
                 # 473–481, 262–265: unequal-attack CMP cancels a fainted reply;
                 # equal attacks permit both, even when the first charged move KOs.
                 valid = energy[i] >= move.energy and not (
-                    player.attack != rocket.attack
+                    combatants[0].attack != combatants[1].attack
                     and hp[i] <= 0
                     and faint_source[i] == "charged"
                     and not rules.ledger_j_both_charged_fire
@@ -278,21 +333,24 @@ def simulate(
                 move,
                 turn,
             )
-            damage = calculate_damage(
+            calculation = calculate_damage(
                 move.power,
                 p.attack,
                 opponent.defence,
                 move.type,
                 p.types,
                 opponent.types,
-                attacker_shadow=True if i == 1 else player.shadow,
-                defender_shadow=True if other == 1 else player.shadow,
+                attacker_shadow=True if i == 1 else combatants[0].shadow,
+                defender_shadow=True if other == 1 else combatants[0].shadow,
                 charged=charged,
                 shielded=shielded,
-            ).damage
+            )
+            damage = hooks.damage(i, move, calculation, shielded) if hooks else calculation.damage
             if charged:
                 energy[i] -= move.energy  # 1058: cost paid only on resolution.
                 charged_used = True
+                if hooks:
+                    hooks.charged(i, turn)
             else:
                 energy[i] = min(ENERGY_CAP, energy[i] + move.energy_gain)  # 1329–1340.
             hp[other] = max(0, hp[other] - damage)  # 1365.
@@ -309,9 +367,24 @@ def simulate(
         )
         previous_charged = any_charged  # 498: includes cancelled charged actions.
         # Complete all eligible actions before ending on a faint: 528–543, 629.
-        if min(hp) <= 0:
+        if hooks:
+            replacements = hooks.finish_turn(timeline[-1])
+            if hooks.finished:
+                break
+            if any(p is not None for p in replacements):
+                # Battle.js emulator 573–577, 608–610: no move crosses a faint.
+                queue = []
+                cooldown = [0, 0]
+                for i, replacement in enumerate(replacements):
+                    if replacement is not None:
+                        combatants = tuple(
+                            replacement if n == i else p for n, p in enumerate(combatants)
+                        )
+                        hp[i], energy[i] = replacement.hp, replacement.energy
+                        faint_source[i] = ""
+        elif min(hp) <= 0:
             break
-    incomplete = min(hp) > 0
+    incomplete = not hooks.finished if hooks else min(hp) > 0
     winner = None if incomplete or max(hp) == 0 else ("player" if hp[0] > 0 else "rocket")
     rows = BASE_LEDGER_ROWS
     if used_charged[1]:

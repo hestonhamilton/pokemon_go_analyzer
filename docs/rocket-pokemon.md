@@ -177,7 +177,7 @@ shield. Leaders and Giovanni shield your first two charged attacks.
 
   | Pause after… | Before Dec 2025 | Dec 2025 | Sep 2026 |
   |---|---|---|---|
-  | your charged attack | 5 turns | 8 | 7 |
+  | a charged attack (the table doesn't say whose; we read it as yours) | 5 turns | 8 | 7 |
   | a faint and replacement | 7 | 12 | 7 |
   | your manual switch | 7 | 12 | 9 |
 

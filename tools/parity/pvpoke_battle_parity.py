@@ -35,6 +35,7 @@ CHECKSUMS = {
     "src/js/battle/timeline/TimelineEvent.js": (
         "a7793ddbc398769cfb6d8a0f539aa96f597eac3127f5cb594cf94eab7bf70f37"
     ),
+    "src/js/pokemon/Player.js": "6b2873ebf6dce8b1beae9f213f02b6cd8878a6cbb9b928b29e89653cb0c42199",
     "src/js/pokemon/Pokemon.js": "a3646035edfe30e8136e8121ed3981aec2bcf094dca582354234b79eca34321e",
     "src/data/gamemaster.json": "dff1f13b501c853ec57139cd23c6979b21f671672baa9a9b3085dc1e5377bd52",
     "LICENSE": "3c8500ea8ad3bc42dbaccaf2e0ebfb2950b7db69b3ed56b80d5805dd02078924",
@@ -133,6 +134,95 @@ const output = input.map(c => {
 });
 console.log(JSON.stringify(output));
 """
+
+
+# Native emulator, not a sequence of restarted 1v1s. Replace browser timers with
+# a deterministic clock; all phase transitions, switches and shield consumption
+# execute the pinned sources. Only attack/switch/shield decisions are injected.
+TEAM_ORACLE = (
+    ORACLE.split("const output = input.map(c => {")[0]
+    .replace(
+        "'getStab','applyStatBuffs','reset'",
+        "'getStab','applyStatBuffs','reset','fullReset','resetBattleStats'",
+    )
+    .replace(
+        "const ctx = {gm,GameMaster:{getInstance:() => gm}, console};",
+        r"""
+let now = 0, serial = 0, jobs = new Map();
+function schedule(fn, delay, repeat) {
+ const id = ++serial; jobs.set(id,{fn,at:now+delay,repeat}); return id;
+}
+function tick() {
+ const pair = [...jobs].sort((a,b) => a[1].at-b[1].at || a[0]-b[0])[0];
+ if (!pair) throw new Error('emulator has no pending callback');
+ const [id,j] = pair; now=j.at;
+ if (j.repeat) j.at+=j.repeat; else jobs.delete(id);
+ j.fn();
+}
+const ctx = {gm,GameMaster:{getInstance:() => gm},console:{log:() => {}},
+ setTimeout:(fn,ms) => schedule(fn,ms,0),clearTimeout:id => jobs.delete(id),
+ setInterval:(fn,ms) => schedule(fn,ms,ms),clearInterval:id => jobs.delete(id)};
+""",
+    )
+    .replace(
+        "read('src/js/battle/DamageCalculator.js'),",
+        "read('src/js/pokemon/Player.js'),read('src/js/battle/DamageCalculator.js'),",
+    )
+    .replace("self.startingShields = 0", "self.startingShields = 2")
+    .replace("this.B = Battle;", "this.PL = Player; this.B = Battle;")
+    + r"""
+const output = input.map(c => {
+ jobs.clear(); now=0;
+ const battle = new ctx.B();
+ const teams = c.teams.map((team,i) => team.map(p => new ctx.P(p,i)));
+ const players = teams.map((team,i) => {
+  const player = new ctx.PL(i,false,battle);
+  player.setPriority(0); player.setTeam(team);
+  player.ai = {
+   evaluateMatchup:() => {},hasStrategy:() => false,
+   decideSwitch:() => team.findIndex(p => p.hp>0),
+   decideShield:() => c.shields[i],
+   decideAction:(turn,p,o) => {
+    if(c.policy[i] === 'fast_only') return null;
+    const m = p.chargedMoves.findIndex(m => p.energy >= m.energy);
+    return m<0 ? null : new ctx.TA('charged',i,turn,m,
+                    {priority:0,shielded:false,buffs:false,charge:1});
+   }
+  };
+  return player;
+ });
+ battle.setPlayers(players);
+ const activations = [[],[]], charges=[[],[]];
+ const set = battle.setNewPokemon;
+ battle.setNewPokemon = (p,i,initialize) => {
+  set(p,i,initialize);
+  activations[i].push({slot:teams[i].indexOf(p)+1,shields:players[i].getShields()});
+ };
+ teams.forEach((team,i) => battle.setNewPokemon(team[0],i,false));
+ const use = battle.useMove;
+ battle.useMove = (p,o,m,...args) => {
+  const hp=o.hp, shields=players[o.index].getShields();
+  const out=use(p,o,m,...args);
+  if(m.category==='charged') charges[p.index].push({
+   shielded:players[o.index].getShields()<shields,damage:hp-o.hp});
+  return out;
+ };
+ let finished=false;
+ battle.emulate(data => {
+  if(data.phase==='suspend_charged') battle.setChargeAmount(1);
+  if(data.phase==='suspend_switch') battle.forceSwitch();
+  if(data.phase==='game_over') finished=true;
+ });
+ let steps=0;
+ while(!finished && steps++ < 100000) tick();
+ if(!finished) throw new Error('emulator callback limit: '+c.name);
+ // This projection checks components, not emulator wall time or turn parity.
+ return {activations,charges:charges.map(cs=>cs.slice(0,3)),
+         shields:players.map(p=>p.getShields())};
+});
+console.log(JSON.stringify(output));
+"""
+)
 
 
 def fetch_sources():
@@ -262,6 +352,112 @@ def python_result(case):
     )
 
 
+def team_cases():
+    """Three native 3v3s exercise each side's replacements and shared shields."""
+    from pogo_analyzer.sim.rocket import RocketRules, simulate_rocket
+
+    cases, expected = [], []
+    fast = Move("F", "normal", 0, 1, energy_gain=20)
+    charged = (Move("C", "normal", 20, 1, energy=20),)
+    for name, player_hp, rocket_hp, policies in (
+        ("player-sweep", 1000, 30, ("charged_when_ready", "fast_only")),
+        ("rocket-sweep", 30, 1000, ("fast_only", "charged_when_ready")),
+        ("both-replace", 120, 120, ("charged_when_ready", "charged_when_ready")),
+    ):
+        teams = tuple(
+            tuple(Combatant(100, 100, hp, ("normal",), fast, charged) for _ in range(3))
+            for hp in (player_hp, rocket_hp)
+        )
+        rules = RocketRules(
+            pauses=False,
+            timer=False,
+            rocket_charged="never" if policies[1] == "fast_only" else "when_ready",
+        )
+        result = simulate_rocket(
+            *teams,
+            battle_date=None,
+            rank="leader",
+            rules=rules,
+            player_policy=FastOnly() if policies[0] == "fast_only" else ChargedWhenReady(),
+        )
+        activations = [[dict(slot=1, shields=2)], [dict(slot=1, shields=2)]]
+        charges = [[], []]
+        previous_shields = (2, 2)
+        previous_hp = tuple(team[0].hp for team in teams)
+        for row in result.timeline:
+            for side in range(2):
+                if any(a.startswith("charged:hit:") for a in row.core.actions[side]):
+                    charges[side].append(
+                        dict(
+                            shielded=row.shields[1 - side] < previous_shields[1 - side],
+                            damage=min(
+                                row.core.damage[side],
+                                # Only charged damage is delivered by its actor on this turn.
+                                previous_hp[1 - side],
+                            ),
+                        )
+                    )
+                if row.replacements[side] is not None:
+                    activations[side].append(
+                        dict(slot=row.replacements[side], shields=row.shields[side])
+                    )
+            previous_shields = row.shields
+            previous_hp = tuple(
+                teams[i][row.replacements[i] - 1].hp if row.replacements[i] else row.core.hp[i]
+                for i in range(2)
+            )
+        expected.append(
+            dict(
+                activations=activations,
+                charges=[cs[:3] for cs in charges],
+                shields=list(result.shields),
+            )
+        )
+        cases.append(
+            dict(
+                name=name,
+                teams=[[asdict(p) for p in team] for team in teams],
+                policy=policies,
+                shields=[True, True],
+            )
+        )
+    return cases, expected
+
+
+def run_oracle(source, cases):
+    with tempfile.TemporaryDirectory(prefix="pvpoke-battle-") as temporary:
+        root = Path(temporary)
+        oracle, payload = root / "oracle.js", root / "input.json"
+        oracle.write_text(source)
+        payload.write_text(json.dumps(cases))
+        run = subprocess.run(
+            ["node", str(oracle), str(SOURCE), str(payload)],
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if run.returncode:
+            raise SystemExit(run.stderr)
+        return json.loads(run.stdout)
+
+
+def team_parity():
+    cases, expected = team_cases()
+    actual = run_oracle(TEAM_ORACLE, cases)
+    mismatches = [
+        (case["name"], want, got)
+        for case, want, got in zip(cases, expected, actual, strict=True)
+        if want != got
+    ]
+    print(
+        f"Battle.js 3v3 component parity: {len(cases)} cases; {len(mismatches)} mismatches "
+        "(activation order, per-side shields, first three charged hit/shield outcomes)"
+    )
+    for mismatch in mismatches:
+        print(json.dumps(mismatch))
+    return mismatches
+
+
 def main():
     fetch_sources()
     cases = build_cases()
@@ -303,7 +499,8 @@ def main():
     )
     for mismatch in mismatches:
         print(json.dumps(mismatch))
-    if mismatches:
+    team_mismatches = team_parity()
+    if mismatches or team_mismatches:
         raise SystemExit(1)
 
 

@@ -175,6 +175,22 @@ F1's calculated 1 HP after seven hits reproduces as a weak check.
 See the [turn report](../tests/fixtures/sim/battle_report.md) for source lines,
 parity coverage, fixture traces and assumptions. The calculator and CLI are unchanged.
 
+### Rocket rules
+
+Fixed-order teams of three are an estimate. Dated pauses use ledger k.
+The default is the September 2026 table. Date boundaries are approximate.
+Named options retain the alternate pause reading and charged trigger.
+A pause blocks new Rocket inputs. Letting an in-flight fast move land is an interpretation.
+It overlaps PvPoke's post-charge input turn by max, never sum.
+Rocket charged timing and damage remain unverified (l).
+Shields belong to each side (m). The player's default shields the first two incoming charges.
+The timer uses 1440 turns plus 14 per resolved charge on either side (n, measured-once).
+Timeout compares survivors, then member HP fractions. This last reading is an interpretation.
+Results report the era, policies, evidence and ending reason. No Rocket-only target is added.
+The original 514-case turn parity is unchanged. Three native PvPoke team cases also check
+replacement order and shared shields. They do not establish full team turn parity.
+See the [Rocket report](../tests/fixtures/sim/rocket_report.md) for sources and judgement calls.
+
 ## What can honestly be claimed
 
 **"Pretty dang sure" is supported for:**
