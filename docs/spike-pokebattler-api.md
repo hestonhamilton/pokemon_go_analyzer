@@ -1,6 +1,6 @@
 # Spike: Rocket counters from Pokebattler's public API
 
-Run on 2026-11-13. The owner picked the documented-API option over a headless browser. This page records what
+Run on 2026-11-13. The documented API was chosen over a headless browser. This page records what
 works, what breaks, and what it means for the tool.
 
 ## What was built
@@ -66,8 +66,7 @@ works, what breaks, and what it means for the tool.
 ## What this means
 
 The plumbing is sound and polite. The part that matters, though (which counter wins, and by how much), now
-depends on a model we can't inspect and whose grunt numbers look wrong. That supports the offline simulator
-bead (`pgo-2xn`). Pokebattler then becomes a cross-check rather than the source of truth: compare the relative
+depends on a model we can't inspect and whose grunt numbers look wrong. That supports building an offline simulator. Pokebattler then becomes a cross-check rather than the source of truth: compare the relative
 order of its `power` against our simulated battle rating for the same defender.
 
 Options if the scraper path continues:
@@ -77,3 +76,11 @@ Options if the scraper path continues:
   looks credible.
 - **Ask Pokebattler:** they invite contact on the developer page, about the Rocket NPC model and the meaning
   of the shield parameters.
+
+## Follow-up research
+
+[rocket-npc-stats.md](rocket-npc-stats.md) explains several of the surprises above:
+
+- `level` 100 / 105 / 115 is the 2021 study's rank × 100 (grunt, leader, Giovanni), not a Pokémon level.
+- The `stats` block follows the 2021 formula, while `/rocket` still publishes the 2019 tier block.
+- The implausible grunt damage matches neither model, and its cause isn't settled.
