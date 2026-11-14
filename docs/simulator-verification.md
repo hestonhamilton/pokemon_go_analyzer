@@ -179,10 +179,12 @@ parity coverage, fixture traces and assumptions. The calculator and CLI are unch
 
 Fixed-order teams of three are an estimate. Dated pauses use ledger k.
 The battle date picks the era. Boundaries are about 10 Dec 2025 and 12 Mar 2026, both approximate.
+Dates before 22 Jul 2019, when Rocket battles began, are rejected. Dates after 29 Sep 2026 are flagged as extrapolated.
 The default is the March 2026 era. Every result carries its era's grades.
 A charged attack from either side starts the pause. That is the owner's observation, agreeing with cwizz1; not measured.
 Either side's faint and replacement starts it too. That is the owner's reading; not measured.
 The pause starts after PvPoke's post-charge turn, so the two add. Two players' accounts support this.
+Both readings come from the March 2026 era. Older eras use them by extension, and their grades say so.
 Named options keep the narrower triggers and the alternate cwizz1 reading.
 A pause blocks new Rocket inputs. The era's 9db rows decide fast-move slip-in and simultaneous charges.
 Rocket charged timing and damage remain unverified (l).
@@ -194,6 +196,20 @@ Results report the era, policies, evidence and ending reason. No Rocket-only tar
 The original 514-case turn parity is unchanged. Three native PvPoke team cases also check
 replacement order and shared shields. They do not establish full team turn parity.
 See the [Rocket report](../tests/fixtures/sim/rocket_report.md) for sources and judgement calls.
+
+### Win rate
+
+Win rates and slots swept are estimates. Every complete lineup and moveset has equal weight.
+No appearance-rate source exists. The move pool and player policies are models.
+The CLI requires a battle date. It uses the default Rocket rules and fixed team order.
+A faint belongs to the player member active on that turn, including a double knockout.
+Rows sort by win rate, then HP left, then turns. Draws count as not-wins.
+Timeout wins, losses and draws are separate from knockouts.
+The 1v1 grid ignores carried-over shields and HP between slots. Each battle starts fresh.
+Every result carries the union of its ledger flags and evidence. Charged Rocket moves keep l unverified.
+The stats grade is the weakest calculator stat or damage cell used, under this run's gate.
+A failing gate prints UNVALIDATED. No acceptance target is added.
+See the [win rate report](../tests/fixtures/sim/winrate_report.md) for definitions and model choices.
 
 ## What can honestly be claimed
 

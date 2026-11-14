@@ -22,6 +22,8 @@ from pogo_analyzer.pokebattler import (
     UnexpectedStatus,
 )
 from pogo_analyzer.rocket_counters import parse_rocket_response, rank
+from pogo_analyzer.sim_cli import add_parser as add_sim_parser
+from pogo_analyzer.sim_cli import main_sim
 
 CREDITS = (
     "Counter simulations: Pokebattler (pokebattler.com). "
@@ -54,6 +56,7 @@ def parser():
     root = argparse.ArgumentParser(prog="pogo-analyzer")
     commands = root.add_subparsers(dest="command", required=True)
     add_parser(commands)
+    add_sim_parser(commands)
     lineup = commands.add_parser("lineups")
     lineup.add_argument("--cache-dir", type=Path, default=Path(".cache/pokebattler"))
     for command in ("counters", "tally"):
@@ -126,9 +129,9 @@ def stopped(exc, requests):
 def main(argv=None):
     arg_parser = parser()
     args = arg_parser.parse_args(argv)
-    if args.command == "calc":
+    if args.command in ("calc", "sim"):
         try:
-            return main_calc(args, arg_parser)
+            return (main_calc if args.command == "calc" else main_sim)(args, arg_parser)
         except STOP_ERRORS as exc:
             return stopped(exc, 0)
     if args.command != "lineups":

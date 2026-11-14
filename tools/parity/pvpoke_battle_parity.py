@@ -371,6 +371,8 @@ def team_cases():
         rules = RocketRules(
             pauses=False,
             timer=False,
+            # Native PvPoke comparison: no 9db era rows.
+            era_turn_rules=False,
             rocket_charged="never" if policies[1] == "fast_only" else "when_ready",
         )
         result = simulate_rocket(
