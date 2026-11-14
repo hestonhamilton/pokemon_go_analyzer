@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -11,6 +12,8 @@ from pogo_analyzer.lineups import default_shield_strategy, load_lineups, resolve
 from pogo_analyzer.pokebattler import (
     BadResponse,
     BudgetExceeded,
+    CacheError,
+    CacheMiss,
     NetworkError,
     NotFound,
     PoliteClient,
@@ -22,6 +25,15 @@ from pogo_analyzer.rocket_counters import parse_rocket_response, rank
 CREDITS = (
     "Counter simulations: Pokebattler (pokebattler.com). "
     "Lineups: WatWowMap event-info. Species data: PvPoke."
+)
+SHORT_CREDIT = "Pokebattler; WatWowMap event-info; PvPoke"
+STOP_ERRORS = (
+    BudgetExceeded,
+    RateLimitedOrBlocked,
+    NetworkError,
+    UnexpectedStatus,
+    BadResponse,
+    CacheError,
 )
 FIELDS = (
     "defender",
@@ -70,12 +82,20 @@ def parser():
         )
         sub.add_argument("--top", type=int, default=10 if command == "counters" else 5)
         sub.add_argument("--format", choices=("table", "json", "csv"), default="table")
+        sub.add_argument(
+            "--credits-column",
+            action="store_true",
+            help="Add a source credit to every CSV or table row.",
+        )
         sub.add_argument("--cache-dir", type=Path, default=Path(".cache/pokebattler"))
         sub.add_argument("--max-requests", type=int, default=80)
     return root
 
 
-def output(rows, fields, fmt):
+def output(rows, fields, fmt, credits_column=False):
+    if credits_column and fmt in ("csv", "table"):
+        fields = (*fields, "source")
+        rows = [dict(row, source=SHORT_CREDIT) for row in rows]
     if fmt == "json":
         print(json.dumps({"results": rows, "credits": CREDITS}, indent=2))
     elif fmt == "csv":
@@ -94,8 +114,11 @@ def stopped(exc, requests):
     if isinstance(exc, RateLimitedOrBlocked):
         print(f"stopped: {exc} after {requests} requests; try again later", file=sys.stderr)
         return 3
-    print(f"stopped: {exc} after {requests} requests", file=sys.stderr)
-    return 4
+    if isinstance(exc, BudgetExceeded):
+        print(f"stopped: {exc} after {requests} requests", file=sys.stderr)
+        return 4
+    print(f"stopped: {exc}", file=sys.stderr)
+    return 6 if isinstance(exc, CacheError) else 5
 
 
 def main(argv=None):
@@ -119,9 +142,20 @@ def main(argv=None):
         if args.defender:
             selections = [([args.defender], args.tier, None)]
         else:
+            available = load_lineups(source)
+            words = set(re.findall(r"\w+", args.character.casefold()))
             characters = [
-                c for c in load_lineups(source) if args.character.lower() in c.name.lower()
+                c
+                for c in available
+                if words and words <= set(re.findall(r"\w+", c.name.casefold()))
             ]
+            if not characters:
+                print(
+                    "No matching character. Available characters: "
+                    + ", ".join(c.name for c in available),
+                    file=sys.stderr,
+                )
+                return 2
             selections = [
                 (e.candidates, c.tier, i)
                 for c in characters
@@ -140,22 +174,35 @@ def main(argv=None):
         stop = None
         remaining = []
         sort_key = "effective_combat_time_ms" if args.sort == "time" else args.sort
-        for position, (candidates, tier, shield_strategy) in enumerate(pending):
+
+        def fetch(candidates, tier, shield_strategy):
+            return resolve_defender(
+                client,
+                candidates,
+                tier,
+                args.attacker_level,
+                # Use the site sort and rank results locally.
+                sort="POWER",
+                shield_strategy=shield_strategy,
+                defender_shield_strategy=args.defender_shield_strategy,
+            )
+
+        for candidates, tier, shield_strategy in pending:
             try:
-                resolved = resolve_defender(
-                    client,
-                    candidates,
-                    tier,
-                    args.attacker_level,
-                    # Use the site sort and rank results locally.
-                    sort="POWER",
-                    shield_strategy=shield_strategy,
-                    defender_shield_strategy=args.defender_shield_strategy,
-                )
-            except (BudgetExceeded, RateLimitedOrBlocked) as exc:
-                stop = exc
-                remaining = pending[position:]
-                break
+                resolved = fetch(candidates, tier, shield_strategy)
+            except CacheMiss:
+                remaining.append((candidates, tier, shield_strategy))
+                continue
+            except STOP_ERRORS as exc:
+                if stop is None:
+                    stop = exc
+                client.cache_only = True
+                # The failing candidate may have a cached alternative ID.
+                try:
+                    resolved = fetch(candidates, tier, shield_strategy)
+                except (CacheMiss, CacheError):
+                    remaining.append((candidates, tier, shield_strategy))
+                    continue
             if resolved is None:
                 print(f"Unresolved defender: {', '.join(candidates)} ({tier})", file=sys.stderr)
                 continue
@@ -198,18 +245,16 @@ def main(argv=None):
             ]
         else:
             fields = FIELDS
-        output(rows, fields, args.format)
+        output(rows, fields, args.format, args.credits_column)
         if stop is not None:
             code = stopped(stop, client.network_requests + source.network_requests)
             for candidates, tier, _ in remaining:
                 print(f"Not fetched: {', '.join(candidates)} ({tier})", file=sys.stderr)
             return code
         return 0
-    except RateLimitedOrBlocked as exc:
+    except STOP_ERRORS as exc:
         return stopped(exc, client.network_requests + source.network_requests)
-    except BudgetExceeded as exc:
-        return stopped(exc, client.network_requests + source.network_requests)
-    except (NetworkError, UnexpectedStatus, BadResponse, NotFound) as exc:
+    except NotFound as exc:
         print(f"stopped: {exc}", file=sys.stderr)
         return 5
 

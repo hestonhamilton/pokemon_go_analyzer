@@ -2,8 +2,9 @@
 
 import sys
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
-from pogo_analyzer.pokebattler import NotFound, build_rocket_url
+from pogo_analyzer.pokebattler import BadResponse, CacheMiss, NotFound, build_rocket_url
 
 EVENT_INFO_URL = "https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json"
 PVPOKE_GM_URL = "https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json"
@@ -28,16 +29,25 @@ def default_shield_strategy(slot):
 
 def load_lineups(client):
     entries = client.get_json(EVENT_INFO_URL)
-    pokemon = client.get_json(PVPOKE_GM_URL)["pokemon"]
+    game_master = client.get_json(PVPOKE_GM_URL)
+    if not isinstance(entries, dict):
+        raise BadResponse(urlsplit(EVENT_INFO_URL).netloc)
+    if not isinstance(game_master, dict) or not isinstance(game_master.get("pokemon"), list):
+        raise BadResponse(urlsplit(PVPOKE_GM_URL).netloc)
     species = {}
-    for item in pokemon:
-        name = item["speciesId"]
-        dex = item["dex"]
+    for item in game_master["pokemon"]:
+        if not isinstance(item, dict):
+            continue
+        name, dex = item.get("speciesId"), item.get("dex")
+        if not isinstance(name, str) or dex is None:
+            continue
         if "_shadow" not in name and "_mega" not in name:
             if dex not in species or len(name) < len(species[dex]):
                 species[dex] = name
     characters = []
     for entry in entries.values():
+        if not isinstance(entry, dict):
+            continue
         if not entry["active"]:
             continue
         kind, typ = entry["grunt"], entry["type"]
@@ -81,10 +91,16 @@ def load_lineups(client):
 
 def resolve_defender(client, candidates, tier, attacker_level, **options):
     """Return the first candidate and response that exists, or None."""
+    cache_miss = False
     for candidate in candidates:
         try:
             response = client.get_json(build_rocket_url(candidate, tier, attacker_level, **options))
         except NotFound:
             continue
+        except CacheMiss:
+            cache_miss = True
+            continue
         return candidate, response
+    if cache_miss:
+        raise CacheMiss(", ".join(candidates))
     return None

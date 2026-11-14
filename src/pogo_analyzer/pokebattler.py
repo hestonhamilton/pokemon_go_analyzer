@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 from contextlib import contextmanager
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
@@ -35,6 +36,18 @@ class NetworkError(Exception):
     def __init__(self, host, reason):
         self.host = host
         super().__init__(f"{host}: network error ({reason})")
+
+
+class CacheError(Exception):
+    """A local cache operation failed."""
+
+    def __init__(self, path, reason):
+        self.path = Path(path)
+        super().__init__(f"cache error at {path}: {reason}")
+
+
+class CacheMiss(Exception):
+    """Cache-only mode cannot serve a fresh response for this URL."""
 
 
 class BadResponse(Exception):
@@ -74,7 +87,28 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+@contextmanager
+def _cache_io(path):
+    try:
+        yield
+    except OSError as exc:
+        raise CacheError(path, str(exc)) from exc
+
+
+def _read_json(path):
+    with _cache_io(path):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            return None
+
+
 def _atomic_json(path, value):
+    with _cache_io(path):
+        _replace_json(path, value)
+
+
+def _replace_json(path, value):
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -156,35 +190,64 @@ class PoliteClient:
         self.opener = opener if opener is not None else build_opener(NoRedirect()).open
         self.max_requests = max_requests
         self.network_requests = 0
+        self.cache_only = False
         self._last_request = None
 
     def get_json(self, url) -> dict:
-        try:
-            return self._get_json(url)
-        except (URLError, OSError) as exc:
-            raise NetworkError(urlsplit(url).netloc, str(exc)) from exc
-
-    def _get_json(self, url):
         cache_path = self.cache_dir / (hashlib.sha256(url.encode()).hexdigest() + ".json")
+        entry = self._read_cache(cache_path, url)
+        if entry is not None:
+            return self._cached_body(entry, url)
+        if self.cache_only:
+            raise CacheMiss(url)
+        with self._pace_lock():
+            # A process ahead of us may have filled this entry while we waited.
+            entry = self._read_cache(cache_path, url)
+            if entry is not None:
+                return self._cached_body(entry, url)
+            if self.max_requests is not None and self.network_requests >= self.max_requests:
+                raise BudgetExceeded("network request budget exhausted")
+            with self._paced():
+                status, body = self._request(url)
+            # Publish before releasing the lock so waiters can use this response.
+            if status in (200, 404):
+                self._write_cache(cache_path, url, status, body)
+            if status == 404:
+                raise NotFound(url)
+            host = urlsplit(url).netloc
+            if status in (403, 429) or 500 <= status <= 599:
+                raise RateLimitedOrBlocked(status, host)
+            if status != 200:
+                raise UnexpectedStatus(status, host)
+            return body
+
+    def _read_cache(self, path, url):
+        entry = _read_json(path)
         try:
-            entry = json.loads(cache_path.read_text(encoding="utf-8"))
             if (
                 entry["url"] == url
                 and entry["status"] in (200, 404)
                 and 0 <= self.wall_clock() - entry["fetched_at"] < self.ttl_seconds
             ):
-                if entry["status"] == 404:
-                    raise NotFound(url)
-                return entry["body"]
-        except (OSError, ValueError, KeyError, TypeError):
+                # Check the body here too: a partial entry is a cache miss.
+                entry["body"]
+                return entry
+        except (ValueError, KeyError, TypeError):
             pass
-        if self.max_requests is not None and self.network_requests >= self.max_requests:
-            raise BudgetExceeded("network request budget exhausted")
+        return None
+
+    @staticmethod
+    def _cached_body(entry, url):
+        if entry["status"] == 404:
+            raise NotFound(url)
+        return entry["body"]
+
+    def _request(self, url):
         request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
         host = urlsplit(url).netloc
-        with self._paced():
-            self._last_request = self.clock()
-            self.network_requests += 1
+        self._last_request = self.clock()
+        self.network_requests += 1
+        try:
             try:
                 with self.opener(request, timeout=60) as response:
                     status = response.status
@@ -195,44 +258,51 @@ class PoliteClient:
                 exc.close()
             except (ValueError, UnicodeError) as exc:
                 raise BadResponse(host) from exc
-        if status == 404:
-            self._write_cache(cache_path, url, status, None)
-            raise NotFound(url)
-        if status in (403, 429) or 500 <= status <= 599:
-            raise RateLimitedOrBlocked(status, host)
-        if status != 200:
-            raise UnexpectedStatus(status, host)
-        self._write_cache(cache_path, url, status, body)
-        return body
+        except (URLError, OSError, HTTPException) as exc:
+            raise NetworkError(host, str(exc)) from exc
+        return status, body
+
+    @contextmanager
+    def _pace_lock(self):
+        with _cache_io(self.cache_dir):
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        path = self.cache_dir / ".pace.lock"
+        with _cache_io(path):
+            lock = path.open("a")
+        try:
+            with _cache_io(path):
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                with _cache_io(path):
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+        finally:
+            with _cache_io(path):
+                lock.close()
 
     @contextmanager
     def _paced(self):
-        if self.min_interval <= 0:
-            yield
-            return
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        with (self.cache_dir / ".pace.lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        if self.min_interval > 0:
+            path = self.cache_dir / ".pace.json"
+            delay = 0
             try:
-                path = self.cache_dir / ".pace.json"
-                delay = 0
-                try:
-                    last = json.loads(path.read_text(encoding="utf-8"))["last_request_start"]
-                    if isinstance(last, (int, float)) and math.isfinite(last):
-                        delay = self.min_interval - (self.wall_clock() - last)
-                except (OSError, ValueError, KeyError, TypeError):
-                    pass
-                if self._last_request is not None:
-                    delay = max(delay, self.min_interval - (self.clock() - self._last_request))
-                if delay > 0:
-                    self.sleep(delay)
-                _atomic_json(path, {"last_request_start": self.wall_clock()})
-                yield
-            finally:
-                fcntl.flock(lock, fcntl.LOCK_UN)
+                last = _read_json(path)["last_request_start"]
+                if isinstance(last, (int, float)) and math.isfinite(last):
+                    delay = self.min_interval - (self.wall_clock() - last)
+            except (ValueError, KeyError, TypeError):
+                pass
+            if self._last_request is not None:
+                delay = max(delay, self.min_interval - (self.clock() - self._last_request))
+            delay = min(delay, self.min_interval)
+            if delay > 0:
+                self.sleep(delay)
+            _atomic_json(path, {"last_request_start": self.wall_clock()})
+        yield
 
     def _write_cache(self, path, url, status, body):
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        with _cache_io(self.cache_dir):
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
         _atomic_json(
             path,
             {
