@@ -1,0 +1,293 @@
+{
+  "attackers": [
+    {
+      "pokemonId": "TEST_SHADOW_FORM",
+      "cp": 4321,
+      "boss": "RAID_LEVEL_1",
+      "byMove": [
+        {
+          "move1": "FIRE_FAST",
+          "move2": "FLAME",
+          "total": {},
+          "defenders": [
+            {
+              "pokemonId": "ALPHA",
+              "cp": 1000,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 20,
+                    "power": 30,
+                    "tdo": 50,
+                    "effectiveCombatTime": 9000,
+                    "win": false
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 21,
+                    "power": 31,
+                    "tdo": 51,
+                    "effectiveCombatTime": 9100,
+                    "win": true
+                  }
+                }
+              ]
+            },
+            {
+              "pokemonId": "BETA",
+              "cp": 1001,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 22,
+                    "power": 27,
+                    "tdo": 55,
+                    "effectiveCombatTime": 8000,
+                    "winRatio": 0.25
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 23,
+                    "power": 28,
+                    "tdo": 56,
+                    "effectiveCombatTime": 8100,
+                    "winRatio": 0.35
+                  }
+                }
+              ]
+            },
+            {
+              "pokemonId": "GAMMA",
+              "cp": 1002,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 24,
+                    "power": 24,
+                    "tdo": 60,
+                    "effectiveCombatTime": 7000,
+                    "winRatio": 0.5
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 25,
+                    "power": 25,
+                    "tdo": 61,
+                    "effectiveCombatTime": 7100,
+                    "winRatio": 0.6
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "move1": "FIRE_FAST",
+          "move2": "PUNCH",
+          "total": {},
+          "defenders": [
+            {
+              "pokemonId": "ALPHA",
+              "cp": 1000,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 30,
+                    "power": 30,
+                    "tdo": 50,
+                    "effectiveCombatTime": 9000,
+                    "win": false
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 31,
+                    "power": 31,
+                    "tdo": 51,
+                    "effectiveCombatTime": 9100,
+                    "win": true
+                  }
+                }
+              ]
+            },
+            {
+              "pokemonId": "BETA",
+              "cp": 1001,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 32,
+                    "power": 27,
+                    "tdo": 55,
+                    "effectiveCombatTime": 8000,
+                    "winRatio": 0.25
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 33,
+                    "power": 28,
+                    "tdo": 56,
+                    "effectiveCombatTime": 8100,
+                    "winRatio": 0.35
+                  }
+                }
+              ]
+            },
+            {
+              "pokemonId": "GAMMA",
+              "cp": 1002,
+              "total": {},
+              "byMove": [
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_0",
+                  "result": {
+                    "overallRating": 34,
+                    "power": 24,
+                    "tdo": 60,
+                    "effectiveCombatTime": 7000,
+                    "winRatio": 0.5
+                  }
+                },
+                {
+                  "move1": "FAST",
+                  "move2": "CHARGED_1",
+                  "result": {
+                    "overallRating": 35,
+                    "power": 25,
+                    "tdo": 61,
+                    "effectiveCombatTime": 7100,
+                    "winRatio": 0.6
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "randomMove": {
+        "move1": "RANDOM",
+        "move2": "RANDOM",
+        "total": {},
+        "defenders": [
+          {
+            "pokemonId": "ALPHA",
+            "cp": 1000,
+            "total": {},
+            "byMove": [
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_0",
+                "result": {
+                  "overallRating": 10,
+                  "power": 30,
+                  "tdo": 50,
+                  "effectiveCombatTime": 9000,
+                  "win": false
+                }
+              },
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_1",
+                "result": {
+                  "overallRating": 11,
+                  "power": 31,
+                  "tdo": 51,
+                  "effectiveCombatTime": 9100,
+                  "win": true
+                }
+              }
+            ]
+          },
+          {
+            "pokemonId": "BETA",
+            "cp": 1001,
+            "total": {},
+            "byMove": [
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_0",
+                "result": {
+                  "overallRating": 12,
+                  "power": 27,
+                  "tdo": 55,
+                  "effectiveCombatTime": 8000,
+                  "winRatio": 0.25
+                }
+              },
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_1",
+                "result": {
+                  "overallRating": 13,
+                  "power": 28,
+                  "tdo": 56,
+                  "effectiveCombatTime": 8100,
+                  "winRatio": 0.35
+                }
+              }
+            ]
+          },
+          {
+            "pokemonId": "GAMMA",
+            "cp": 1002,
+            "total": {},
+            "byMove": [
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_0",
+                "result": {
+                  "overallRating": 14,
+                  "power": 24,
+                  "tdo": 60,
+                  "effectiveCombatTime": 7000,
+                  "winRatio": 0.5
+                }
+              },
+              {
+                "move1": "FAST",
+                "move2": "CHARGED_1",
+                "result": {
+                  "overallRating": 15,
+                  "power": 25,
+                  "tdo": 61,
+                  "effectiveCombatTime": 7100,
+                  "winRatio": 0.6
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
