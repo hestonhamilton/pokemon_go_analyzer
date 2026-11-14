@@ -153,7 +153,12 @@ def battle_params():
         for table in tables:
             marks = []
             if row["id"] == "F3-metagross-remaining":
-                marks.append(pytest.mark.skip(reason="remaining HP needs a turn loop"))
+                marks.append(
+                    pytest.mark.skip(
+                        reason=f"OPEN DISCREPANCY (remaining HP needs a turn loop): "
+                        f"{row['status_reason']}"
+                    )
+                )
             elif row["status"] == "weak":
                 marks.append(pytest.mark.xfail(strict=False, reason=row["status_reason"]))
             elif row["status"] == "open_discrepancy":

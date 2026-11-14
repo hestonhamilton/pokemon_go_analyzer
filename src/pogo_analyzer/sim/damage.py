@@ -1,4 +1,7 @@
-"""Offline ordinary move damage, ported from PvPoke (MIT).
+"""Offline ordinary move damage, ported from PvPoke.
+
+PvPoke is MIT licensed, copyright (c) 2019 pvpoke. The full notice ships as
+data/PVPoke-LICENSE next to the ported type chart (data/types.json).
 
 All references are pinned to 426e5e9f39d3a027849698fb2f5edd9df6056cbf:
 https://github.com/pvpoke/pvpoke/tree/426e5e9f39d3a027849698fb2f5edd9df6056cbf

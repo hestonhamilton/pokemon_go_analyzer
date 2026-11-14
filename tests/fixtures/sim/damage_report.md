@@ -263,10 +263,11 @@ pre-commit run --all-files
 uv run python tools/parity/pvpoke_damage_parity.py   # needs Node.js
 ```
 
-`uv run pytest -q`: **1,341 passed, 4 skipped, 41 xfailed, 41 xpassed**. The strict
-xfails are the stats checks' 38 marked cases plus the 3 Ducklett variants. Every
-XPASS is a non-strict weak check (weak battle records, F7 alternatives, and weak CP
-readings that happen to match). The four skips are F3 remaining HP under three
+`uv run pytest -q`: **1,348 passed, 4 skipped, 41 xfailed, 35 xpassed**. The 41
+xfails are 35 strict (the stats checks' 32 reviewed cases and the 3 Ducklett open
+discrepancy variants) and 6 non-strict weak CP readings. Every XPASS is a non-strict
+weak check: 27 weak battle records and F7 alternatives, and 8 weak CP readings that
+match. The four skips are F3 remaining HP under three
 tables and F2 under the TL50-only table.
 
 [constants]: https://github.com/pvpoke/pvpoke/blob/426e5e9f39d3a027849698fb2f5edd9df6056cbf/src/js/battle/DamageCalculator.js#L1-L10
