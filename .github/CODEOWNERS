@@ -1,0 +1,3 @@
+# The acceptance pin decides what "Validated" means. A pin change is defended only by
+# review, so every change to it needs the owner's approval.
+/src/pogo_analyzer/sim/data/acceptance_pin.json @hestonhamilton

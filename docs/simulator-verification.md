@@ -155,7 +155,9 @@ Current Rocket stats, other levels, the TL50-only table, and every leader and Gi
 by CP readings at most. Charged damage is a PvPoke parity result, without a battle target. If the gate
 fails, nothing is fixture-exact. The lineup's species, timing and energy counts in a real battle are
 models. They ignore charged attacks, pauses, shields and switching. The gate is pinned to the
-reviewed 44 target IDs and a hash of their inputs. It needs the source checkout's fixtures.
+reviewed 44 target IDs, the open-discrepancy IDs and a hash of the targets' inputs. A pin change is
+defended only by review. The shared Rocket scaling inputs need every quantity checked at a level, so
+they are fixture-exact at TL50 only. The gate needs the source checkout's fixtures.
 
 The Rocket move pool copies the PvPoke species lists, including elite and legacy flags.
 Event-info lists species, not moves. The pool is a model. Neither source settles extra shadow

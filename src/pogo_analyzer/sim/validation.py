@@ -1,4 +1,4 @@
-"""Runtime battle acceptance gate. No cached prediction; the target count is pinned."""
+"""Runtime battle acceptance gate, pinned to the reviewed target set. No cached prediction."""
 
 import hashlib
 import json
@@ -17,17 +17,22 @@ OLD_TABLES = (*GATE_TABLES, *SUPPLEMENTARY_TABLES)
 # The fixtures live in the source tree (tests/fixtures/sim), not in the wheel.
 # Validation therefore needs a source checkout or an explicit --fixtures-dir.
 DEFAULT_FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "sim"
-# The reviewed acceptance corpus: the exact target IDs and a SHA-256 of their
-# inputs and observations (plus the species and dated moves they use). A
-# trimmed, padded, swapped or edited target set fails the gate. Regenerate with
-# tools/fixtures/acceptance_pin.py only together with the fixture review.
+# The reviewed acceptance corpus has exactly this many targets. This is a code
+# constant on purpose: regenerating the pin file cannot change it.
+EXPECTED_TARGETS = 44
+# The pin: the exact target IDs, the open-discrepancy IDs, and a SHA-256 of what
+# decides each target. It catches accidental or unreviewed drift in the fixtures.
+# It does NOT stop a deliberate change made together with a regenerated pin
+# (tools/fixtures/acceptance_pin.py): that is defended only by reviewing the pin
+# diff, which CODEOWNERS routes to the owner.
 PIN = json.loads(files(__package__).joinpath("data", "acceptance_pin.json").read_text())
-EXPECTED_TARGETS = len(PIN["target_ids"])
 FIXTURE_FILES = ("battles.json", "species_moves.json", "move_history.json")
-# Fields that decide a target's outcome; prose (evidence, notes, reasons) is excluded.
+# Fields that decide or identify a target; free prose (evidence, notes, reasons)
+# is not pinned.
 PINNED_FIELDS = (
     "id",
     "fixture",
+    "source",
     "basis",
     "status",
     "battle_date",
@@ -37,21 +42,10 @@ PINNED_FIELDS = (
     "rocket",
     "observed",
 )
-
-
-def _plural(count, word, plural=None):
-    return f"{count} {word}" if count == 1 else f"{count} {plural or word + 's'}"
-
-
-def _target_moves(row):
-    """Move IDs whose dated snapshot a target's prediction used."""
-    kind = row["observed"]["kind"]
-    if kind in ("player_hp", "rocket_hp"):
-        return []
-    if kind == "damage_per_hit_taken":
-        return [row["observed"]["move"]]
-    return [row["observed"].get("move", row["player"]["fast_move"])]
-
+# The species fields the predictor reads. PvPoke move lists are not pinned, so
+# a routine species refresh does not force a meaningless re-pin.
+SPECIES_FIELDS = ("baseStats", "types")
+MOVE_FIELDS = ("type", "power", "energy_gain", "energy", "turns")
 
 # Which Rocket quantities a target's prediction depends on. Coverage is kept per
 # quantity, so the HP-only F2 target at TL41 covers Rocket HP there, nothing else.
@@ -67,6 +61,33 @@ KIND_QUANTITIES = {
 }
 
 
+def _plural(count, word, plural=None):
+    return f"{count} {word}" if count == 1 else f"{count} {plural or word + 's'}"
+
+
+def acceptance_targets(battles):
+    """The acceptance targets: recorded or measured records expected to pass."""
+    return [
+        r
+        for r in battles
+        if r["basis"] in ("recorded", "measured") and r["status"] == "expected_pass"
+    ]
+
+
+def open_discrepancies(battles):
+    return [r for r in battles if r["status"] == "open_discrepancy"]
+
+
+def _target_moves(row):
+    """Move IDs whose dated snapshot a target's prediction used."""
+    kind = row["observed"]["kind"]
+    if kind in ("player_hp", "rocket_hp"):
+        return []
+    if kind == "damage_per_hit_taken":
+        return [row["observed"]["move"]]
+    return [row["observed"].get("move", row["player"]["fast_move"])]
+
+
 def _empty_coverage():
     return {"levels": {q: [] for q in QUANTITIES}, "moves": []}
 
@@ -80,7 +101,7 @@ def acceptance_digest(targets, species, history):
         "targets": sorted(
             ({k: r[k] for k in PINNED_FIELDS} for r in targets), key=lambda r: r["id"]
         ),
-        "species": {name: species[name] for name in used_species},
+        "species": {name: {k: species[name][k] for k in SPECIES_FIELDS} for name in used_species},
         "moves": [
             [m, date, [s for s in history[m] if s["as_of"] == date]] for m, date in used_moves
         ],
@@ -89,7 +110,65 @@ def acceptance_digest(targets, species, history):
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-def run_acceptance(fixtures_dir):
+def load_fixtures(fixtures_dir):
+    """(battles, species, history). File names only in errors, never a local path."""
+    path = Path(fixtures_dir)
+    missing = [name for name in FIXTURE_FILES if not (path / name).is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"fixtures not found (missing {', '.join(missing)}); "
+            "validation needs a source checkout or --fixtures-dir"
+        )
+    loaded = {}
+    for name in FIXTURE_FILES:
+        try:
+            loaded[name] = json.loads((path / name).read_text())
+        except OSError as exc:
+            raise OSError(f"cannot read {name}: {type(exc).__name__}") from None
+        except ValueError as exc:
+            raise ValueError(f"{name} is not valid JSON: {exc}") from None
+    battles = loaded["battles.json"]
+    return battles, loaded["species_moves.json"]["species"], loaded["move_history.json"]
+
+
+def _id_diff(expected, found):
+    detail = []
+    if expected - found:
+        detail.append("missing " + ", ".join(sorted(expected - found)))
+    if found - expected:
+        detail.append("unexpected " + ", ".join(sorted(found - expected)))
+    return "; ".join(detail)
+
+
+def pin_errors(battles, species, history, pin=None):
+    """Every way the fixtures differ from the pin; empty means they match."""
+    pin = PIN if pin is None else pin
+    errors = []
+    targets = acceptance_targets(battles)
+    ids = {r["id"] for r in targets}
+    expected = set(pin["target_ids"])
+    if len(expected) != EXPECTED_TARGETS:
+        errors.append(f"the pin lists {len(expected)} targets, not {EXPECTED_TARGETS}")
+    if len(targets) != EXPECTED_TARGETS or ids != expected:
+        message = (
+            f"expected the {EXPECTED_TARGETS} reviewed acceptance targets, found {len(targets)}"
+        )
+        if ids != expected:
+            message += f" ({_id_diff(expected, ids)})"
+        errors.append(message)
+    elif acceptance_digest(targets, species, history) != pin["sha256"]:
+        errors.append("acceptance target inputs differ from the reviewed set (SHA-256 mismatch)")
+    found = {r["id"] for r in open_discrepancies(battles)}
+    reviewed = set(pin["discrepancy_ids"])
+    if found != reviewed:
+        errors.append(
+            f"open discrepancies differ from the reviewed set ({_id_diff(reviewed, found)})"
+        )
+    return errors
+
+
+def run_acceptance(fixtures_dir, *, check_pin=True):
+    """Recompute every target. check_pin=False is for the pin tool only."""
     result = {
         "passed": [],
         "failed": [],
@@ -101,43 +180,13 @@ def run_acceptance(fixtures_dir):
     }
     levels, moves = {q: set() for q in QUANTITIES}, {}
     try:
-        path = Path(fixtures_dir)
-        missing = [name for name in FIXTURE_FILES if not (path / name).is_file()]
-        if missing:
-            # File names only, never the local path.
-            raise FileNotFoundError(
-                f"fixtures not found (missing {', '.join(missing)}); "
-                "validation needs a source checkout or --fixtures-dir"
-            )
-        battles = json.loads((path / "battles.json").read_text())
-        targets = [
-            r
-            for r in battles
-            if r["basis"] in ("recorded", "measured") and r["status"] == "expected_pass"
-        ]
+        battles, species, history = load_fixtures(fixtures_dir)
+        targets = acceptance_targets(battles)
         result["target_count"] = len(targets)
-        result["open_discrepancies"] = [
-            dict(r) for r in battles if r["status"] == "open_discrepancy"
-        ]
-        species = json.loads((path / "species_moves.json").read_text())["species"]
-        history = json.loads((path / "move_history.json").read_text())
+        result["open_discrepancies"] = [dict(r) for r in open_discrepancies(battles)]
+        if check_pin:
+            result["errors"] += pin_errors(battles, species, history)
         predictor = BattlePredictor(species, history)
-        ids = {r["id"] for r in targets}
-        expected = set(PIN["target_ids"])
-        if len(targets) != EXPECTED_TARGETS or ids != expected:
-            detail = []
-            if expected - ids:
-                detail.append("missing " + ", ".join(sorted(expected - ids)))
-            if ids - expected:
-                detail.append("unexpected " + ", ".join(sorted(ids - expected)))
-            result["errors"].append(
-                f"expected the {EXPECTED_TARGETS} reviewed acceptance targets, found "
-                f"{len(targets)}" + (f" ({'; '.join(detail)})" if detail else "")
-            )
-        elif acceptance_digest(targets, species, history) != PIN["sha256"]:
-            result["errors"].append(
-                "acceptance target inputs differ from the reviewed set (SHA-256 mismatch)"
-            )
         for row in targets:
             for table in OLD_TABLES:
                 entry = {"id": row["id"], "table": table}
@@ -154,10 +203,7 @@ def run_acceptance(fixtures_dir):
                             moves[(move_id, row["battle_date"])] = {
                                 "move": move_id,
                                 "as_of": row["battle_date"],
-                                **{
-                                    k: snap[k]
-                                    for k in ("type", "power", "energy_gain", "energy", "turns")
-                                },
+                                **{k: snap[k] for k in MOVE_FIELDS},
                             }
                 except ValueError as exc:
                     # A missing published level is a reported coverage gap, never
@@ -173,13 +219,18 @@ def run_acceptance(fixtures_dir):
             if "source checkout" in str(exc)
             else "fixtures not found; validation needs a source checkout or --fixtures-dir"
         )
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except OSError as exc:
+        # load_fixtures rewrites read errors to the file name and error type only.
+        result["errors"].append(
+            f"fixtures invalid: {exc.args[0] if exc.args else type(exc).__name__}"
+        )
+    except (ValueError, KeyError, TypeError) as exc:
         result["errors"].append(f"fixtures invalid: {type(exc).__name__}: {exc}")
     blocking = [r for r in result["unavailable"] if r["table"] in GATE_TABLES]
     result["validated"] = not (result["failed"] or result["errors"] or blocking)
     if result["validated"]:
-        # What the passing targets actually reproduced. Grades use this, so a
-        # failed gate leaves nothing fixture-exact.
+        # What the passing targets actually reproduced. Grades use this together
+        # with "validated", so a failed gate leaves nothing fixture-exact.
         result["coverage"] = {
             "levels": {q: sorted([t, tl] for t, tl in levels[q]) for q in QUANTITIES},
             "moves": sorted(moves.values(), key=lambda m: (m["move"], m["as_of"])),

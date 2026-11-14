@@ -46,5 +46,9 @@
     "F5-razor-leaf-wailmer",
     "F5-razor-leaf-wailord"
   ],
-  "sha256": "8cd7ef2790b83b46b52e182f93960d7ccaf135a891b11e66c7aba649ac6b63b1"
+  "discrepancy_ids": [
+    "F3-metagross-remaining",
+    "F4-ducklett-shadow-tyranitar"
+  ],
+  "sha256": "f7797a3c286fd175223324140072223355a5d4a0ab381c9256fe18b18afb3c76"
 }
