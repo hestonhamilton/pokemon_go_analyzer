@@ -73,3 +73,7 @@
 
 sync:
     remote: "git+ssh://git@github.com/hestonhamilton/pokemon_go_analyzer.git"
+dolt:
+    auto-commit: "on"
+export:
+    auto: false
