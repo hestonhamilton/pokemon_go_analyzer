@@ -1,0 +1,255 @@
+{
+  "venonic-2023": [
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|steelix|giovanni|11357",
+      "observed": 11357,
+      "predicted": {
+        "giovanni": 11356
+      },
+      "reason": "UNEXPLAINED – needs review"
+    }
+  ],
+  "fugerappi-2023": [
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|onix|grunt|3907",
+      "observed": 3907,
+      "predicted": {
+        "grunt": 3906
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|gyarados|grunt|12096",
+      "observed": 12096,
+      "predicted": {
+        "grunt": 12095
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|amoonguss|leader|8416",
+      "observed": 8416,
+      "predicted": {
+        "leader": 8415
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|dragonite|leader|14913",
+      "observed": 14913,
+      "predicted": {
+        "leader": 14912
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|steelix|giovanni|11357",
+      "observed": 11357,
+      "predicted": {
+        "giovanni": 11356
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|50|rhyperior|giovanni|17589",
+      "observed": 17589,
+      "predicted": {
+        "giovanni": 17588
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|47|rhyperior|giovanni|17190",
+      "observed": 17190,
+      "predicted": {
+        "giovanni": 17189
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/comment/ixnhw95/|47|mewtwo|giovanni|19277",
+      "observed": 19277,
+      "predicted": {
+        "giovanni": 19276
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/|50|crobat|leader|10387",
+      "observed": 10387,
+      "predicted": {
+        "leader": 10386
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|bulbasaur|grunt|3955",
+      "observed": 3955,
+      "predicted": {
+        "grunt": 3954
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|electabuzz|grunt|8313",
+      "observed": 8313,
+      "predicted": {
+        "grunt": 8312
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|onix|grunt|3907",
+      "observed": 3907,
+      "predicted": {
+        "grunt": 3906
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|numel|grunt|3776",
+      "observed": 3776,
+      "predicted": {
+        "grunt": 3775
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|quilava|grunt|5884",
+      "observed": 5884,
+      "predicted": {
+        "grunt": 5883
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdtvj8k/|50|camerupt|grunt|7826",
+      "observed": 7826,
+      "predicted": {
+        "grunt": 7825
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/|50|grimer|grunt|4913",
+      "observed": 4913,
+      "predicted": {
+        "grunt": 4912
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/|50|nidorina|grunt|4678",
+      "observed": 4678,
+      "predicted": {
+        "grunt": 4677
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/|50|muk|grunt|9810",
+      "observed": 9810,
+      "predicted": {
+        "grunt": 9809
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdyxpuy/|50|sceptile|leader|10838",
+      "observed": 10838,
+      "predicted": {
+        "leader": 10837
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/|50|gloom|grunt|6009",
+      "observed": 6009,
+      "predicted": {
+        "grunt": 6008
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/|50|wailmer|grunt|5231",
+      "observed": 5231,
+      "predicted": {
+        "grunt": 5230
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je2arwi/|50|makuhita|grunt|2914",
+      "observed": 2914,
+      "predicted": {
+        "grunt": 2913
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/je96907/|50|kingdra|giovanni|12445",
+      "observed": 12445,
+      "predicted": {
+        "giovanni": 12444
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/|50|abomasnow|grunt|8420",
+      "observed": 8420,
+      "predicted": {
+        "grunt": 8419
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/|50|spoink|grunt|4763",
+      "observed": 4763,
+      "predicted": {
+        "grunt": 4762
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jeds07y/|50|dusclops|grunt|5673",
+      "observed": 5673,
+      "predicted": {
+        "grunt": 5672
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jenexya/|50|machamp|grunt|10917",
+      "observed": 10917,
+      "predicted": {
+        "grunt": 10916
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jew5hel/|50|kingdra|leader|10375",
+      "observed": 10375,
+      "predicted": {
+        "leader": 10374
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jhmkggw/|50|hypno|grunt|7448",
+      "observed": 7448,
+      "predicted": {
+        "grunt": 7447
+      },
+      "reason": "UNEXPLAINED – needs review"
+    },
+    {
+      "row_key": "https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jleqa7n/|50|dragonite|leader|14913",
+      "observed": 14913,
+      "predicted": {
+        "leader": 14912
+      },
+      "reason": "UNEXPLAINED – needs review"
+    }
+  ],
+  "flyfunner-old-50-2025": []
+}

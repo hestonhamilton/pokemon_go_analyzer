@@ -27,7 +27,7 @@ Below *measured-reproduced* is flagged ⚑.
 |---|---|---|---|---|---|
 | a | Damage = floor(0.5 × power × atk/def × STAB × effectiveness × 1.3 × …) + 1, float32 constants | [PvPoke DamageCalculator.js](https://github.com/pvpoke/pvpoke/blob/master/src/js/battle/DamageCalculator.js) (MIT); Bulbapedia *Damage* | measured-reproduced (Rocket) + data-mined constants | GamePress 2019; Venonic and AurumKodEXo 2023; our reproduction of fixtures F1, F4 and F5 | A hit off by 1 that isn't on a knife edge. F8's Zen Headbutt (raw 21.99) would test float precision once a recorded count exists. |
 | b | Player CP multiplier (CPM) per level | Game master `PLAYER_LEVEL_SETTINGS`; half levels by square-root interpolation | data-mined | PvPoke's CPM table | A player CP mismatch (rare one-ULP float cases are reported in [1ub6a1h](https://www.reddit.com/r/TheSilphRoad/comments/1ub6a1h/)) |
-| c | Rocket CP multiplier (rCPM) by trainer level: the old table (to Oct 2025) and the Dec 2025 table (trainer levels 8–80, 3-decimal float32) | Venonic [122pfk8](https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/); Flyfunner [1puc05x](https://www.reddit.com/r/TheSilphRoad/comments/1puc05x/); not in the game master | measured-reproduced (from CP) | fugerappi [184iqov](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/); Flyfunner [12ib623](https://www.reddit.com/r/TheSilphRoad/comments/12ib623/); eli5questions [1o7syt9](https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/); 23/23 published trainer-level-50 CPs and 13/13 trainer-level-70 CPs reproduce | A CP outside floor(…) for every float in the stated range |
+| c | Rocket CP multiplier (rCPM) by trainer level: the old table (to Oct 2025) and the Dec 2025 table (trainer levels 8–80, 3-decimal float32) | Venonic [122pfk8](https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/); Flyfunner [1puc05x](https://www.reddit.com/r/TheSilphRoad/comments/1puc05x/); not in the game master | measured-reproduced (from CP) | fugerappi [184iqov](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/); Flyfunner [12ib623](https://www.reddit.com/r/TheSilphRoad/comments/12ib623/); eli5questions [1o7syt9](https://www.reddit.com/r/TheSilphRoad/comments/1o7syt9/); 23/23 published trainer-level-50 CPs and 13/13 trainer-level-70 CPs reproduce. The rCPM values were themselves measured from CP readings, some of them in our corpus (Venonic credits AurumKodEXo and Pendergirl4). So these matches confirm the formula's shape across about 150 species with one value per level; they do not confirm each rCPM value independently | A CP outside floor(…) for every float in the stated range |
 | d | Rank: 1.0 grunt, 1.05 leader, 1.15 Giovanni | [2021 study](https://www2.pokebattler.com/articles/2021/06/21/cracking-the-rocket-cp-formula-2021-edition/) | measured-reproduced (from CP) | Leader and Giovanni CPs (AurumKodEXo, Pendergirl4). F8's Snorlax 285 HP is a published calculation, not a reading | A leader or Giovanni CP mismatch; a Giovanni hit count that doesn't fit ⚑ (none exist) |
 | e | Rocket stats: HP floor(0.6 × (base + 15)), attack IV floor(2/3 × base + 25), defence IV 15; HP floored in battle | Venonic [122pfk8](https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/) | measured-reproduced (before Oct 2025); CP only since ⚑ | 2021 packet capture (attack-IV rule, defence 15); NFL restatement ([1ub6a1h](https://www.reddit.com/r/TheSilphRoad/comments/1ub6a1h/)); fixtures F1, F2, F4, F5 | A post-2025 Yawn count that differs |
 | f | 1.3× Trainer Battle bonus on both sides | Game master `COMBAT_SETTINGS` | data-mined + measured-reproduced | It resolved a 2023 damage mismatch; F1's recorded damage taken (4 / 11 / 8) and hit counts match | Rocket damage 1.3× lower than predicted |
@@ -92,6 +92,35 @@ weak cross-check, never as an acceptance target. Each fixture record carries thi
    output says "unvalidated".
 3. **Grades in the output:** any number that depends on an ⚑ item carries its grade. For example, a win rate
    against a leader depends on (l) when the Rocket side fires its charged attacks, so it is labelled "assumed".
+
+### Stats results
+
+Offline stats are implemented. No constants were fitted. Mismatches keep strict xfail tests; the acceptance
+gate is still open. Counts are over all 171 CP readings. Expected fail and Unexplained partition mismatches of
+target readings. Weak readings (the disputed and unstated-rank five) are reported, never gating. Unavailable
+levels are separate.
+
+| Table variant | Match | Mismatch | Expected fail | Unexplained | Weak (reported) | Unavailable |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| venonic-2023 | 149 | 1 | 0 | 1 | 5 | 16 |
+| fugerappi-2023 | 123 | 30 | 0 | 30 | 5 | 13 |
+| flyfunner-old-50-2025 (retrospective TL50 only) | 147 | 0 | 0 | 0 | 4 | 20 |
+| flyfunner-lower-2023 | 0 | 0 | 0 | 0 | 0 | 171 |
+| dec-2025 (October TL70 readings) | 13 | 0 | 0 | 0 | 0 | 0 |
+| October TL40 hypothesis: fugerappi-2023 | 13 | 0 | 0 | 0 | 0 | 0 |
+| October TL40 hypothesis: flyfunner-lower-2023 | 12 | 1 | 1 | 0 | 0 | 0 |
+
+F1 HP is 163 under both old variants. F2 exact HP is 100.33158 with Venonic and 100.33 with fugerappi;
+both floor to 100 and fit the measured bracket. No old table lists TL70. The separate TL40 hypothesis
+comes from the October source; no regime or fixture is relabelled. Gallade matches dec-2025. Unknown-rank
+Staraptor and Murkrow 6145 each match leader uniquely (weak: a consistency check only). The lower-level table has 16 entries, including a TL34 estimate below
+its stated minimum. TL32 and TL48 in fugerappi retain the author's lost-data flags.
+
+The December source explicitly describes three-decimal values cast to float32. Its retrospective old TL50
+value (1.31502044) differs from both 2023 publications and fixes Steelix's one-CP mismatch, leaving no unexplained
+reading under it. Player CPMs have 49 literal game-master differences above 1e-9 (none after float32 conversion)
+and no half-level interpolation differences above 1e-9. See the [stats report](../tests/fixtures/sim/stats_report.md)
+for every unresolved row, precision decision, cross-check difference, and reproduction command.
 
 ## What can honestly be claimed
 
