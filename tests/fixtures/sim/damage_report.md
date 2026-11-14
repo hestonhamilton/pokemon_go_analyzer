@@ -242,7 +242,10 @@ uses under Node, not a second handwritten damage formula. With seed 426, all
 **1,296** combinations of nine attack stages, nine defence stages, two attacker
 shadow flags, two defender shadow flags and four Mega levels match **raw binary64
 values and final damage exactly**. Random powers, stats and types vary across these
-cases. All **6,156** move/dual-type combinations (18 × 18 × 19, including a `none`
+cases. A further **96** Mega-off cases (each flag combination where the bonus must not
+apply, at all four levels) and **48** extreme-stat cases (power 0, 1 and 1000;
+attack and defence from 0.01 to 10⁶, at the stage extremes) also match exactly:
+**1,440** in all. All **6,156** move/dual-type combinations (18 × 18 × 19, including a `none`
 second slot) also match exactly. Node and the fetched sources are not test or
 runtime dependencies.
 

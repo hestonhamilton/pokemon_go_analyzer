@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from pogo_analyzer.sim.calculator import BattlePredictor, matches
 from pogo_analyzer.sim.damage import (
     BONUS,
     DOUBLE_RESISTED,
@@ -23,7 +24,7 @@ from pogo_analyzer.sim.damage import (
     hits_to_ko,
     stage_multiplier,
 )
-from pogo_analyzer.sim.stats import player_cpm, player_stats, rcpm, rocket_stats
+from pogo_analyzer.sim.stats import rcpm
 
 FIXTURES = Path(__file__).parent / "fixtures" / "sim"
 
@@ -41,107 +42,12 @@ OLD_TABLES = ("venonic-2023", "fugerappi-2023", "flyfunner-old-50-2025")
 UNEXPLAINED: set[tuple[str, str]] = set()
 
 
-def dated_move(move_id, date):
-    """Sparse snapshots require an exact date. Never carry forward or use today."""
-    matches = [m for m in MOVES[move_id] if m["as_of"] == date]
-    if len(matches) != 1:
-        raise ValueError(f"no unique exact-date move snapshot: {move_id} on {date}")
-    return matches[0]
-
-
-def rocket(row, table, trainer_level=None):
-    r = row["rocket"]
-    return rocket_stats(
-        SPECIES[r["species"]]["baseStats"],
-        row["trainer_level"] if trainer_level is None else trainer_level,
-        r["rank"],
-        table,
-    )
-
-
-def dealt(row, table, *, attack_iv=None, trainer_level=None, level=None, mega_rule=False):
-    p, r = row["player"], row["rocket"]
-    move_id = row["observed"].get("move", p["fast_move"])
-    move = dated_move(move_id, row["battle_date"])
-    iv = p["ivs"]["atk"] if attack_iv is None else attack_iv
-    if iv is None:
-        raise ValueError("attack IV missing: sweep explicitly")
-    # Only the attack total is needed. Null defence/HP IVs remain unknown.
-    attack = (SPECIES[p["species"]]["baseStats"]["atk"] + iv) * player_cpm(
-        p["level"] if level is None else level
-    )
-    return calculate_damage(
-        move["power"],
-        attack,
-        rocket(row, table, trainer_level).defence,
-        move["type"],
-        SPECIES[p["species"]]["types"],
-        SPECIES[r["species"]]["types"],
-        attacker_shadow=p["form"] == "shadow",
-        defender_shadow=True,  # Ledger g: Rocket Pokemon are shadow since late 2022.
-        attack_stage=p["stat_stage"]["atk"],
-        charged=move["energy"] > 0,
-        shielded=row["observed"].get("shielded", False),
-        attacker_mega=p["form"] == "mega" and mega_rule,
-        # Pinned gamemaster.json 47141–47152: Confusion has no isMegaMove.
-        # None of the fixture moves have this metadata. Do not invent it.
-        is_mega_move=False,
-        mega_level=p.get("mega_level", 3),
-    )
-
-
-def iv_counts(row, table, trainer_level=None):
-    hp = rocket(row, table, trainer_level).hp
-    return {
-        iv: hits_to_ko(dealt(row, table, attack_iv=iv, trainer_level=trainer_level).damage, hp)
-        for iv in range(16)
-    }
-
-
-def predict(row, table):
-    obs, p, r = row["observed"], row["player"], row["rocket"]
-    kind = obs["kind"]
-    rs = rocket(row, table)
-    if kind == "rocket_hp":
-        return rs.hp
-    if kind == "player_hp":
-        return player_stats(SPECIES[p["species"]]["baseStats"], p["ivs"], p["level"]).hp
-    if kind == "damage_per_hit_taken":
-        move = dated_move(obs["move"], row["battle_date"])
-        defence = (SPECIES[p["species"]]["baseStats"]["def"] + p["ivs"]["def"]) * player_cpm(
-            p["level"]
-        )
-        return calculate_damage(
-            move["power"],
-            rs.attack,
-            defence,
-            move["type"],
-            SPECIES[r["species"]]["types"],
-            SPECIES[p["species"]]["types"],
-            attacker_shadow=True,
-            defender_shadow=p["form"] == "shadow",
-            defence_stage=p["stat_stage"]["def"],
-        ).damage
-    if row["fixture"] == "F5":
-        return iv_counts(row, table)
-    damage = dealt(row, table).damage
-    if kind == "damage_per_hit_dealt":
-        return damage
-    if kind == "hits_to_ko":
-        return hits_to_ko(damage, rs.hp)
-    if kind == "survives_hits":
-        return damage * obs["value"] < rs.hp
-    if kind == "remaining_hp_after" and obs["subject"] == "rocket":
-        return rs.hp - damage * obs["hits"]
-    raise ValueError(f"requires the turn loop: {row['id']}")
-
-
-def matches(row, prediction):
-    if row["fixture"] == "F5":
-        return all(prediction[iv] == row["observed"]["value"] for iv in (13, 14, 15))
-    if row["observed"]["kind"] == "survives_hits":
-        return prediction is True
-    return prediction == row["observed"]["value"]
+_predictor = BattlePredictor(SPECIES, MOVES)
+dated_move = _predictor.dated_move
+rocket = _predictor.rocket
+dealt = _predictor.dealt
+iv_counts = _predictor.iv_counts
+predict = _predictor.predict
 
 
 def battle_params():
@@ -198,29 +104,42 @@ def test_stages(stage, expected):
     assert stage_multiplier(stage) == expected
 
 
+# Shadow flags are required keywords; these hand cases are both non-shadow.
+PLAIN = {"attacker_shadow": False, "defender_shadow": False}
+
+
 def test_hand_arithmetic():
     # Neutral: floor(10 * 1 * (100/100) * 1 * 1 * 1 * .5 * BONUS)+1 = 7.
     args = (10, 100, 100, "water", ("normal",), ("normal",))
-    assert calculate_damage(*args).damage == 7
+    assert calculate_damage(*args, **PLAIN).damage == 7
     # STAB gives raw ~7.8 -> 8; super-effective alone raw ~10.4 -> 11.
-    assert calculate_damage(10, 100, 100, "water", ("water",), ("normal",)).damage == 8
-    assert calculate_damage(10, 100, 100, "water", ("normal",), ("fire",)).damage == 11
+    assert calculate_damage(10, 100, 100, "water", ("water",), ("normal",), **PLAIN).damage == 8
+    assert calculate_damage(10, 100, 100, "water", ("normal",), ("fire",), **PLAIN).damage == 11
     # Both shadow: raw ~6.5 * (1.2/.83333331) = 9.360000..., -> 10.
     assert calculate_damage(*args, attacker_shadow=True, defender_shadow=True).damage == 10
     # +4 attack and -4 defence: raw ~6.5 * (2/.5) = 25.999999... -> 26.
-    assert calculate_damage(*args, attack_stage=4, defence_stage=-4).damage == 26
+    assert calculate_damage(*args, **PLAIN, attack_stage=4, defence_stage=-4).damage == 26
     # Full charge has the same formula. A shield then overrides it to 1.
-    assert calculate_damage(*args, charged=True).damage == 7
-    shielded = calculate_damage(*args, charged=True, shielded=True)
-    assert shielded.damage == 1 and shielded.raw == calculate_damage(*args).raw
+    assert calculate_damage(*args, **PLAIN, charged=True).damage == 7
+    shielded = calculate_damage(*args, **PLAIN, charged=True, shielded=True)
+    assert shielded.damage == 1 and shielded.raw == calculate_damage(*args, **PLAIN).raw
     # Power zero (e.g. Yawn) still does floor(0)+1.
-    assert calculate_damage(0, *args[1:]).damage == 1
+    assert calculate_damage(0, *args[1:], **PLAIN).damage == 1
+
+
+def test_shadow_flags_are_required():
+    # A caller that forgets the Rocket shadow modifiers must fail, not be ~20% off.
+    args = (10, 100, 100, "water", ("normal",), ("normal",))
+    with pytest.raises(TypeError):
+        calculate_damage(*args)
+    with pytest.raises(TypeError):
+        calculate_damage(*args, attacker_shadow=True)
 
 
 def test_float_literal_floor_boundary():
     # Human-friendly 20*.5*1.3 = 13 -> 14 damage. Pinned BONUS makes raw
     # 12.999999523162842 -> 13 damage. No fitted stats or float32 intermediates.
-    result = calculate_damage(20, 100, 100, "water", ("normal",), ("normal",))
+    result = calculate_damage(20, 100, 100, "water", ("normal",), ("normal",), **PLAIN)
     assert result.raw == 12.999999523162842
     assert result.damage == 13
     assert math.floor(20 * 0.5 * 1.3) + 1 == 14
@@ -233,16 +152,32 @@ def test_type_chart():
     assert effectiveness("ELECTRIC", ("water", "flying")) == SUPER_EFFECTIVE**2
     # Immunity and weakness multiply, using the literal SE constant, not 1/1.6.
     assert effectiveness("ground", ("flying", "fire")) == DOUBLE_RESISTED * SUPER_EFFECTIVE
-    assert effectiveness("water", ("none",)) == 1
+    # Guards: a move is never typeless; a defender needs one or two real types;
+    # a bare string is not a type list (it would be read letter by letter).
+    for move_type, defenders in [
+        ("none", ("water",)),
+        ("water", ("none",)),
+        ("water", ()),
+        ("water", ("fire", "rock", "water")),
+        ("water", "fire"),
+    ]:
+        with pytest.raises(ValueError):
+            effectiveness(move_type, defenders)
+    with pytest.raises(ValueError, match="real type"):
+        calculate_damage(10, 100, 100, "none", ("none",), ("water",), **PLAIN)
+    with pytest.raises(ValueError, match="not one string"):
+        calculate_damage(10, 100, 100, "water", "water", ("fire",), **PLAIN)
 
 
 @pytest.mark.parametrize("level", range(1, 5))
 def test_mega_metadata_gate(level):
     args = (20, 100, 100, "water", ("water",), ("fire",))
-    normal = calculate_damage(*args)
-    assert calculate_damage(*args, attacker_mega=True, mega_level=level) == normal
-    assert calculate_damage(*args, is_mega_move=True, mega_level=level) == normal
-    result = calculate_damage(*args, attacker_mega=True, is_mega_move=True, mega_level=level)
+    normal = calculate_damage(*args, **PLAIN)
+    assert calculate_damage(*args, **PLAIN, attacker_mega=True, mega_level=level) == normal
+    assert calculate_damage(*args, **PLAIN, is_mega_move=True, mega_level=level) == normal
+    result = calculate_damage(
+        *args, **PLAIN, attacker_mega=True, is_mega_move=True, mega_level=level
+    )
     # Preserve where megaMultiplier sits in damage(), including level 1 = 1.
     expected = 20 * STAB * (100 / 100) * SUPER_EFFECTIVE * 1 * MEGA_BONUS[level - 1] * 0.5 * BONUS
     assert result.raw == expected
@@ -253,6 +188,36 @@ def test_mega_metadata_gate(level):
 )
 def test_hit_counts(damage, hp, expected):
     assert hits_to_ko(damage, hp) == expected
+
+
+def test_hit_counts_accept_any_integral():
+    # numpy integers are not int subclasses but register as numbers.Integral.
+    # This stdlib stand-in behaves the same way, so no numpy dependency is needed.
+    import numbers
+
+    class Int:
+        def __init__(self, value):
+            self.value = value
+
+        def __le__(self, other):
+            return self.value <= other
+
+        def __add__(self, other):
+            return Int(self.value + getattr(other, "value", other))
+
+        def __sub__(self, other):
+            return Int(self.value - getattr(other, "value", other))
+
+        def __floordiv__(self, other):
+            return Int(self.value // getattr(other, "value", other))
+
+        def __int__(self):
+            return self.value
+
+    numbers.Integral.register(Int)
+    assert not isinstance(Int(1), int)
+    result = hits_to_ko(Int(19), Int(134))
+    assert type(result) is int and result == 8
 
 
 @pytest.mark.parametrize("stage", [-5, 5, 0.5, True])
@@ -268,7 +233,7 @@ def test_invalid_inputs():
     args = (10, 100, 100, "water", ("normal",), ("normal",))
     for options in ({"shielded": True}, {"mega_level": 5}, {"mega_level": True}):
         with pytest.raises(ValueError):
-            calculate_damage(*args, **options)
+            calculate_damage(*args, **PLAIN, **options)
     for power, atk, defence in [
         (-1, 100, 100),
         (1, 0, 100),
@@ -277,7 +242,7 @@ def test_invalid_inputs():
         (1, math.inf, 100),
     ]:
         with pytest.raises(ValueError):
-            calculate_damage(power, atk, defence, *args[3:])
+            calculate_damage(power, atk, defence, *args[3:], **PLAIN)
     with pytest.raises(ValueError, match="unknown type"):
         effectiveness("typo", ("water",))
     with pytest.raises(ValueError, match="exact-date"):
@@ -302,6 +267,13 @@ def test_f9_report_only(record_property):
         },
     )
     # No comparison asserts an inferred outcome with unstated inputs.
+
+
+def test_f7_mega_flag_is_inert():
+    # Pinned PvPoke gates the Mega bonus on the move's isMegaMove metadata, and
+    # no fixture move has it, so F7's mega_rule alternatives cannot differ.
+    for row in (r for r in BATTLES if r["fixture"] == "F7"):
+        assert dealt(row, "dec-2025", mega_rule=True) == dealt(row, "dec-2025", mega_rule=False)
 
 
 @pytest.mark.parametrize("row", [r for r in BATTLES if r["fixture"] == "F7"], ids=lambda r: r["id"])

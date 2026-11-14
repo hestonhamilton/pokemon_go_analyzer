@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fixture-exact",
+    "meaning": "Reproduced on this run by recorded or measured pre-Oct-2025 grunt targets: the gate passed, the Rocket table and trainer level are ones the targets used, and every move's stats equal a dated snapshot the targets used.",
+    "evidence": ["F1", "F2", "F4", "F5", "docs/simulator-verification.md#damage-results"]
+  },
+  {
+    "id": "cp-only",
+    "meaning": "Rocket table, trainer level or rank backed by CP readings only. Oct 2025 on has no discriminating battle target, and no recorded leader or Giovanni hit count exists yet.",
+    "evidence": ["docs/simulator-verification.md#stats-results", "docs/simulator-verification.md#not-supported-yet"]
+  },
+  {
+    "id": "parity-only",
+    "meaning": "Matches pinned PvPoke code or metadata; no passing battle target checks this quantity with these move stats (or the gate did not pass on this run).",
+    "evidence": ["tools/parity", "docs/simulator-verification.md#damage-results", "docs/simulator-verification.md ledger l"]
+  },
+  {
+    "id": "model",
+    "meaning": "Depends on battle behaviour, a Rocket moveset pool or a lineup species list that no fixture or source pins down.",
+    "evidence": ["docs/simulator-verification.md ledger j, k, l, m", "docs/simulator-verification.md#calculator"]
+  }
+]

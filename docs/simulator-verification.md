@@ -134,9 +134,31 @@ against four recorded; at IV 15 it gives four, so a misreported IV is one plausi
 three strict xfails. F3's calculated eight-hit claim reproduces as a weak check. Its recorded remaining-HP
 claim needs the turn loop and is skipped. Weak F1, F7 and F8 checks match. F9 matches only conditionally on its
 missing trainer level and IV. The Mega flag does not boost Confusion in pinned PvPoke. Ledger q stays open.
-The port matches pinned JavaScript exactly in 1,296 raw-damage cases and 6,156 type combinations.
+The port matches pinned JavaScript exactly in 1,440 raw-damage cases (Mega-off and extreme stats included) and 6,156 type combinations.
 See the [damage report](../tests/fixtures/sim/damage_report.md) for variant results, IV ranges, boundary distances,
 source lines and interpretation calls. The simulator remains unvalidated.
+
+### Calculator
+
+The lineup calculator uses the stats and damage formulas above. It adds no battle mechanics.
+It recomputes acceptance targets with dated moves on every run. Venonic and fugerappi each pass 44.
+Both publish every trainer level the targets use, so they gate. The TL50-only table passes the 43 it
+covers. It has no TL41 for F2, which is reported as not covered. Any failure, or a gap in a gate table,
+labels the output UNVALIDATED. Both open discrepancies are reported with their reasons.
+
+Cells carry fixture-exact, cp-only, parity-only or model grades, in that order of strength.
+A grade never claims more than its weakest input. fixture-exact needs this run's gate to pass, a grunt,
+a gate table at a trainer level the targets used (TL41 or TL50), and move stats equal to the dated
+snapshots the targets used. Today's move values often differ, so most current damage is parity-only.
+Current Rocket stats, other levels, the TL50-only table, and every leader and Giovanni cell are backed
+by CP readings at most. Charged damage is a PvPoke parity result, without a battle target. If the gate
+fails, nothing is fixture-exact. The lineup's species, timing and energy counts in a real battle are
+models. They ignore charged attacks, pauses, shields and switching. The gate requires exactly 44
+targets and needs the source checkout's fixtures.
+
+The Rocket move pool copies the PvPoke species lists, including elite and legacy flags.
+Event-info lists species, not moves. The pool is a model. Neither source settles extra shadow
+Frustration, so none is added. Source fetch times accompany every output.
 
 ## What can honestly be claimed
 
