@@ -72,4 +72,4 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 sync:
-    remote: "git+https://github.com/hestonhamilton/pokemon_go_analyzer.git"
+    remote: "git+ssh://git@github.com/hestonhamilton/pokemon_go_analyzer.git"
