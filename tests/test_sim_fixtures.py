@@ -30,6 +30,12 @@ KINDS = {
 # readings; calculated: the author's model output; inferred: our reading of the text.
 BASES = {"recorded", "measured", "calculated", "inferred"}
 ACCEPTANCE_BASES = {"recorded", "measured"}
+# open_discrepancy: a recorded value our model currently misses. It is reported on
+# every run and never downgraded to an expected failure.
+BATTLE_STATUSES = {"expected_pass", "open_discrepancy", "weak"}
+# Every acceptance battle predates the level-80 update; the current regime is
+# backed by CP readings only.
+LEVEL_80_UPDATE = date(2025, 10, 15)
 TYPES = {
     "normal",
     "fire",
@@ -105,14 +111,18 @@ def test_corpus_is_complete_and_ids_are_unique():
     }
     assert Counter(battle["status"] for battle in BATTLES) == {
         "expected_pass": 44,
-        "expected_fail": 3,
-        "weak": 11,
+        "open_discrepancy": 2,
+        "weak": 12,
     }
     assert Counter(battle["basis"] for battle in BATTLES) == {
-        "recorded": 48,
+        "recorded": 47,
         "measured": 1,
-        "calculated": 8,
+        "calculated": 9,
         "inferred": 1,
+    }
+    assert Counter(reading["status"] for reading in CP_READINGS) == {
+        "expected_pass": 166,
+        "weak": 5,
     }
     assert len(CP_READINGS) == 171
     # Do not accidentally deduplicate the paired readings or their one-CP anomaly.
@@ -145,12 +155,14 @@ def test_battle_schema_and_references(battle):
     assert battle["regime"] in BATTLE_REGIMES
     if battle["trainer_level"] is not None:
         assert_integer(battle["trainer_level"], 1, 80)
-    assert battle["status"] in {"expected_pass", "expected_fail", "weak"}
+    assert battle["status"] in BATTLE_STATUSES
     assert battle["basis"] in BASES
     if battle["basis"] not in ACCEPTANCE_BASES:
         # A published calculation or our own inference is never an acceptance target.
         assert battle["status"] == "weak"
-    if battle["status"] in {"expected_fail", "weak"}:
+    if battle["status"] == "expected_pass":
+        assert date.fromisoformat(battle["battle_date"]) < LEVEL_80_UPDATE
+    if battle["status"] in {"open_discrepancy", "weak"}:
         assert isinstance(battle["status_reason"], str) and battle["status_reason"].strip()
     else:
         assert battle["status_reason"] is None or isinstance(battle["status_reason"], str)
@@ -242,8 +254,15 @@ def test_cp_reading_schema(reading):
     assert_integer(reading["trainer_level"], 1, 80)
     assert reading["species"] in SPECIES_MOVES["species"]
     assert reading["rank"] in RANKS or reading["rank"] is None
+    assert reading["basis"] in ACCEPTANCE_BASES
+    assert reading["status"] in {"expected_pass", "weak"}
+    if reading["status"] == "weak":
+        assert isinstance(reading["status_reason"], str) and reading["status_reason"].strip()
+    else:
+        assert reading["status_reason"] is None
     if reading["rank"] is None:
-        assert reading["evidence_note"]
+        # An unstated rank can't be a target: fitting it would be circular.
+        assert reading["status"] == "weak"
     assert_integer(reading["cp"], 1)
     assert reading["regime"] in CP_REGIMES
     assert_source_and_evidence(reading)

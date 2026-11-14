@@ -1,13 +1,15 @@
-# Offline Rocket acceptance fixtures (slice S0)
+# Offline Rocket acceptance fixtures
 
 These are community measurements and published claims, cited and quoted per record.
-They are acceptance targets for a future simulator, not proof of a formula. This
-slice contains no simulator, damage calculation, stat calculation, or network test.
-`expected_pass` describes the intended future acceptance result; it does not mean
-that S0 ran or validated a battle model. Published calculations and inferred
-counts are distinguished from direct observations by each record's `basis`: only
-`recorded` and `measured` records may be `expected_pass`. A published calculation
-reproducing under our model is circular, so it is never an acceptance target.
+They are the targets the simulator is held to; they are not proof of a formula.
+The data and its tests contain no simulator code and make no network calls.
+`expected_pass` is the result the simulator must reproduce; it does not mean a
+model has been validated. Published calculations and inferred counts are separated
+from direct observations by each record's `basis`: only `recorded` and `measured`
+records may be `expected_pass`. A published calculation reproducing under our model
+is circular, so it is never an acceptance target. The reverse also holds: a model
+disagreement never downgrades a recorded value. Such a record stays visible as an
+`open_discrepancy`.
 
 ## Files and schemas
 
@@ -31,7 +33,7 @@ A list of 58 records, one per retained numeric target:
   "regime": "rcpm-old",
   "trainer_level": 50,
   "rocket": {
-    "species": "snubbull", "rank": "grunt", "slot": 2,
+    "species": "snubbull", "rank": "grunt", "slot": null,
     "fast_move": "BITE", "charged_move": null
   },
   "player": {
@@ -89,9 +91,15 @@ under the original column headers, described in the source inventory below.
   output (F1's Bullet Punch 19 and Snubbull 134 HP, all of F8). `inferred` is our
   reading of the text (F9). Counts: 48 recorded, 1 measured, 8 calculated, 1
   inferred. `calculated` and `inferred` records must be `weak`; tests enforce it.
-- `status`: `expected_pass`, `expected_fail`, or `weak`. `status_reason` is always
-  present and must be a nonempty explanation for `expected_fail` and `weak`;
-  otherwise it may be `null`. F5 also explains its attack-IV equivalence here.
+- `status`: `expected_pass`, `open_discrepancy`, or `weak`. `expected_pass` records
+  must predate the level-80 update (15 Oct 2025; tests enforce it), because no
+  recorded battle since then discriminates the new rCPM table. `open_discrepancy`
+  is a recorded value that our own calculation currently misses: F4's Shadow
+  Tyranitar/Ducklett cell and F3's 1 HP survival. Every run reports these. `weak`
+  is for records that can't be targets: calculated or inferred values, incomplete
+  inputs, or no power to discriminate. `status_reason` is always present, and is a
+  nonempty explanation for `open_discrepancy` and `weak` (otherwise `null`). F5's
+  reason records the attack-IV range its acceptance run must cover.
 - Optional `evidence_note`: provenance, inference, or an input limitation that
   must accompany the quoted text. It is not itself a quote.
 
@@ -100,8 +108,13 @@ under the original column headers, described in the source inventory below.
 A list of 171 published readings. Required keys: `trainer_level` (integer),
 `species` (PvPoke ID), `rank` (`grunt`, `leader`, `giovanni`, or `null` when
 ambiguous), `cp` (positive integer), `regime`, `source` (URL), and `evidence` (exact
-quote). Optional `evidence_note` explains contextual level/rank assignments and
+quote), `basis` (always `recorded`: a CP read off the screen), `status`
+(`expected_pass` or `weak`) and `status_reason` (required for `weak`, otherwise
+`null`). Optional `evidence_note` explains contextual level/rank assignments and
 ambiguities. Repeated readings from separate publications are intentionally kept.
+Five readings are `weak`: the conflicting Cacnea pair, the Cyndaquil 3579 cell its
+author disowns, and the two readings with an unstated rank (a rank recovered by
+fitting would be circular).
 
 CP regimes additionally allow **`rcpm-oct-2025`**: the 13 level-70 measurements
 published on 16 October 2025 predate December. Calling them `rcpm-dec-2025` would
@@ -161,26 +174,22 @@ monotypes. Move entries contain only their types. No Rocket stats are generated.
 
 ## Sources, dates, and transcription decisions
 
-All sources were fetched on **2026-11-13**. The local verification plan was read
-with `git show task/pogo-sim-plan:docs/simulator-verification.md` (commit
-`9d32bddb58749eae5351d885fb6a772d1234b179`); the requested remote ref
-`origin/task/pogo-sim-plan` was absent. No git refs or index entries were changed.
+All sources were fetched on **2026-11-13**. The fixture list follows
+[`docs/simulator-verification.md`](../../../docs/simulator-verification.md).
 
 | Fixture | Records | Battle/reference date | Evidence and limitations |
 | --- | ---: | --- | --- |
 | F1 | 9 | 2022-12-03 | [13puajs](https://www.reddit.com/r/TheSilphRoad/comments/13puajs/), Venonic's [correction](https://www.reddit.com/r/TheSilphRoad/comments/13puajs/comment/jlcrysv/), and original [z3qck5](https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/) discussion establish the inputs. The [video](https://www.youtube.com/watch?v=we_gnAzR1UI) title is `Screen Recording 20221203 223715 Pokmon GO`; its upload date is 2023-05-23, not the battle date. **Recorded** (in the author's post, read off the video): Metagross 163 HP, incoming Tackle 4 / Bite 11 / Charge Beam 8, Snubbull still standing after 7 Bullet Punches ("I nearly killed it with 7"), and Kirlia knocked out in 6. The passage is struck through by its author, because their model lacked the 1.3x bonus; the readings were not retracted. **Calculated** (`weak`): Bullet Punch 19, Snubbull 134 HP, and 1 HP left after 7 hits are Venonic's prediction of what the corrected model gives, not readings. An earlier draft also carried Kirlia 18 damage / 102 HP: no source states either, and they matched our own model output, so they were removed. |
 | F2 | 1 | 2023-03-26 | Venonic's [Cyndaquil measurement](https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/comment/jdt4hvd/), Min HP / Max HP table: 100 to 100.99999. Level 41 comes from the surrounding discussion; the publication date is a proxy for the unstated actual battle date. Attacker and moves unknown. |
-| F3 | 2 | 2023-11-27 | AurumKodEXo's [comment](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/comment/kb0shio/) explicitly supplies level 46.5 and **15/9/12 IVs**, eight Bullet Punches and 1 HP remaining at trainer level 50. Both records keep the requested fixture-level `expected_fail` label; the stated model discrepancy is the HP claim. Date is the comment date, not the 26 November parent-post date. No model was run in S0. |
-| F4 | 32 | 2023-01-21 | [cwizz1's measured table](https://www.reddit.com/r/TheSilphRoad/comments/10hihvd/) has **eight**, not seven, eligible rows: Ducklett, Starly, Natu, Staravia, Golbat, Weedle, Skorupi, Shuckle, across four attackers. Thus **32 cells, not about 28**: 31 `expected_pass`, plus Shadow Tyranitar/Ducklett `expected_fail`, reason `knife edge: raw damage 32.90 at attack IV 14`. Entire row quotes retain the original cells and Golbat's `9*`. Its numeric target is 9; the asterisk denotes a breakpoint caveat, not a fractional hit. Specific slot numbers are not stated per row, so `slot` remains null within the source's stated slot-1/2 group. Third-slot **Crobat, Dragonite and Gyarados** (12 cells) are excluded because the author says they implicitly include a charged move. Publication date is used for the historical snapshot. |
-| F5 | 6 | 2023-02-01 | Only the measured Roserade column of [cwizz1's table](https://www.reddit.com/r/TheSilphRoad/comments/10qgrga/): Totodile 6, Wailmer 8, Croconaw 9, **Wailord (RL) 12**, Hippopatas 8, Diglett-A 4. `Hippopatas` is transcribed verbatim in evidence and normalized to `hippopotas` for the ID. Wailord's RL-only third-slot row is included; Feraligatr/Hippowdon RL cells are blank and cannot supply counts. Decimal/charged-move rows and estimated/calculated Kartana columns are excluded. Attack IV is null with `expected_pass` and reason `attack IV 13-15 give the same count`, as requested; that equivalence is not calculated in S0. Publication date is a proxy; these are the previous rotation's battles. |
+| F3 | 2 | 2023-11-27 | AurumKodEXo's [comment](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/comment/kb0shio/) supplies level 46.5 and **15/9/12 IVs** at trainer level 50, against the grunt's lead Bite Snubbull. The recorded fact is survival with **1 HP**: an `open_discrepancy`, because our hand calculation gives 2 HP and the outcome depends on turn order. The "8 Bullet Punches" sits in the author's explanation of "what should happen", so it is `calculated` and `weak`. Date is the comment date, not the 26 November parent-post date. |
+| F4 | 32 | 2023-01-21 | [cwizz1's measured table](https://www.reddit.com/r/TheSilphRoad/comments/10hihvd/) has **eight**, not seven, eligible rows: Ducklett, Starly, Natu, Staravia, Golbat, Weedle, Skorupi, Shuckle, across four attackers. Thus **32 cells, not about 28**: 31 `expected_pass`, plus Shadow Tyranitar/Ducklett as an `open_discrepancy`: recorded 4, while our own calculation gives raw damage 32.90 at attack IV 14, about 0.1 short of the next damage point (5 hits). It is the one F4 cell that separates candidate models. Entire row quotes retain the original cells and Golbat's `9*`. Its numeric target is 9; the asterisk denotes a breakpoint caveat, not a fractional hit. Specific slot numbers are not stated per row, so `slot` remains null within the source's stated slot-1/2 group. Third-slot **Crobat, Dragonite and Gyarados** (12 cells) are excluded because the author says they implicitly include a charged move. Publication date is used for the historical snapshot. |
+| F5 | 6 | 2023-02-01 | Only the measured Roserade column of [cwizz1's table](https://www.reddit.com/r/TheSilphRoad/comments/10qgrga/): Totodile 6, Wailmer 8, Croconaw 9, **Wailord (RL) 12**, Hippopatas 8, Diglett-A 4. `Hippopatas` is transcribed verbatim in evidence and normalized to `hippopotas` for the ID. Wailord's RL-only third-slot row is included; Feraligatr/Hippowdon RL cells are blank and cannot supply counts. Decimal/charged-move rows and estimated/calculated Kartana columns are excluded. Attack IV is not stated, so it is null. Acceptance requires the observed count at every attack IV from 13 to 15; that range is our assumption for a level-50 build, not a source statement. Publication date is a proxy; these are the previous rotation's battles. |
 | F7 | 2 | 2026-07-14 | [RestorerForer's selftext](https://www.reddit.com/r/TheSilphRoad/comments/1uwoshu/) states all preserved mega inputs, trainer level 76, Mega attack IV 15, Shadow attack IV 14, and three versus four Confusions. Both are `weak`: no rCPM discrimination, defence/HP IVs not stated. Mega effective level 52 is an author claim. |
 | F8 | 5 | 2026-05-30 | [cwizz1's damage-calcs comment](https://www.reddit.com/r/TheSilphRoad/comments/1trpag8/comment/oopajg7/) explicitly says **trainer level 80**, level 50 Lucario with attack IV 15, Snorlax 285 HP, Force Palm 17/21/25, shielded Power-Up Punch 1. These are the author's published **calculations** ("These calcs are done at trainer level 80"), so all five are `basis: calculated`, `weak`. The post links recordings of the strategy; counting Force Palms to the Snorlax knockout in those recordings, at a stated trainer level, would give a recorded target. Defence/HP IVs are not stated for this attacking Lucario; the separate minimal 0/15/13 example is not substituted. |
 | F9 | 1 | 2026-03-12 | [cwizz1's comment](https://www.reddit.com/r/TheSilphRoad/comments/1rs03m9/comment/oa3snbr/) says three Magikarp take nine seconds, three seconds each, and identifies Razor Leaf as a two-turn/one-second move. **Three hits per Magikarp is inferred from this timing**, not literally quoted as three hits. One record represents the repeated per-opponent count, with unknown slot, trainer level and IVs; `weak`. |
 
-F6's uncounted Mud-Slap/Counter videos and F10's historical 2019 Yawn numbers are
-outside the requested battle-record content. No values were invented for them.
-The ledger a–q provides context; this slice does not implement or verify formulas,
-timing, shields, mega effects, or the expected-failure explanations.
+F6's uncounted Mud-Slap/Counter videos and F10's historical 2019 Yawn numbers have
+no battle records. No values were invented for them.
 
 CP inventory (no fit-based filtering):
 
@@ -203,9 +212,10 @@ CP inventory (no fit-based filtering):
   and the same CP is explicitly assigned to Sierra in the paired source. These
   contextual assignments are disclosed per record. Wailord/Murkrow use the
   author's level-41 measurement campaign as context. Cyndaquil's two comments
-  print **3247 versus 3579** under `Real CP`; **both are retained**, including the
-  apparent typo. Cacnea **4436** in z3qck5 versus **4435** in Pendergirl4's list
-  is also retained. Duplicate, contradictory, and potentially misranked source
+  print **3247 versus 3579** under `Real CP`; **both are retained**. The author says
+  the 3579 table "couldn't be the actual stats because the CP was wrong", and 3579 fits
+  leader rank, so that cell has `rank: null` and is `weak`. Cacnea **4436** in z3qck5 versus **4435** in Pendergirl4's list
+  is also retained; both are `weak`. Duplicate, contradictory, and potentially misranked source
   claims are evidence to investigate, not values to repair here.
 
 ## Collection and reproduction
@@ -226,9 +236,20 @@ The ten IDs are `13puajs`, `z3qck5`, `122pfk8`, `184iqov`, `10hihvd`, `10qgrga`,
 entries are reused. Exact table rows were copied, known excluded rows omitted,
 and species labels normalized to the referenced PvPoke IDs. No blocked simulator
 services were called. The cache is ignored by the existing `.cache/` rule and is
-not needed to run tests. It also holds the collection/transcription scripts and
-YouTube metadata used for the F1 date; these are local collection aids, not test
-dependencies.
+not needed to run tests.
+
+To reproduce the archive and re-check every quote:
+
+```sh
+uv run python tools/fixtures/fetch_reddit.py
+uv run python tools/fixtures/fetch_pvpoke.py
+uv run python tools/fixtures/verify_quotes.py   # every evidence quote, verbatim
+```
+
+The JSON files were transcribed from the archived threads and then edited by hand
+(basis, status and notes), so no generator reproduces them byte for byte. The
+verifier is the reproducible check: it confirms that each record's quote appears in
+the thread it cites.
 
 PvPoke history was selected once for each distinct reference date using:
 
@@ -261,14 +282,15 @@ small; complete game masters remain in the ignored cache.
 **Historical-power requirement:** F1, F4 and F5 are only intended to reproduce
 with their contemporary powers. PvPoke confirms **Bullet Punch 6** in December
 2022, **Smack Down 12** in January 2023, and **Razor Leaf 10** in February 2023.
-The pinned current values are respectively **7, 11, 9**. There was no disagreement
-with the brief on those values. No battle outcomes were recomputed to fit them.
+The pinned current values are respectively **7, 11, 9**. GO Hub's August 2024 PvP
+change post independently lists Smack Down 12 → 11 and Razor Leaf 10 → 9. No battle outcomes were recomputed to fit them.
 
 ## Offline checks
 
 `tests/test_sim_fixtures.py` checks required fields, numeric ranges, enum values,
 unique battle IDs, the fixture inventory, the basis counts, that no `calculated` or
-`inferred` record is an acceptance target, exact-date move-history coverage,
+`inferred` record is an acceptance target, that every target predates the level-80
+update, that unstated-rank and disputed CP readings are `weak`, exact-date move-history coverage,
 consistent SHAs, and every species/move reference across all files. It also checks
 that the small extract has exactly the referenced species/moves and that CP pairs
 and the published Gallade anomaly were retained. No network or ignored cache is
@@ -279,10 +301,6 @@ These are data/schema tests, not simulator acceptance executions.
 uv run pytest -q
 pre-commit run --all-files
 ```
-
-`pre-commit --all-files` selects tracked files. To check these initially untracked
-new files without staging or changing git state, also run the file hooks using
-`pre-commit run --files tests/test_sim_fixtures.py tests/fixtures/sim/README.md tests/fixtures/sim/battles.json tests/fixtures/sim/cp_readings.json tests/fixtures/sim/move_history.json tests/fixtures/sim/species_moves.json`.
 
 ## PvPoke attribution
 

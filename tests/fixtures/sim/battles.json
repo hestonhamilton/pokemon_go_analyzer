@@ -4,14 +4,14 @@
     "fixture": "F1",
     "source": "https://www.reddit.com/r/TheSilphRoad/comments/13puajs/",
     "evidence": "My Metagross had 7/163 HP by the end of it.",
-    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted.",
+    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted. The post does not say which Snubbull (Tackle or Bite) was in which slot, so slot is null.",
     "battle_date": "2022-12-03",
     "regime": "rcpm-old",
     "trainer_level": 50,
     "rocket": {
       "species": "snubbull",
       "rank": "grunt",
-      "slot": 1,
+      "slot": null,
       "fast_move": null,
       "charged_move": null
     },
@@ -45,14 +45,14 @@
     "fixture": "F1",
     "source": "https://www.reddit.com/r/TheSilphRoad/comments/13puajs/",
     "evidence": "damage values of 4(\\*15), 11(\\*8) and 8(\\*1) from respective moves",
-    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted.",
+    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted. The post does not say which Snubbull (Tackle or Bite) was in which slot, so slot is null.",
     "battle_date": "2022-12-03",
     "regime": "rcpm-old",
     "trainer_level": 50,
     "rocket": {
       "species": "snubbull",
       "rank": "grunt",
-      "slot": 1,
+      "slot": null,
       "fast_move": "TACKLE",
       "charged_move": null
     },
@@ -87,14 +87,14 @@
     "fixture": "F1",
     "source": "https://www.reddit.com/r/TheSilphRoad/comments/13puajs/",
     "evidence": "damage values of 4(\\*15), 11(\\*8) and 8(\\*1) from respective moves",
-    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted.",
+    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted. The post does not say which Snubbull (Tackle or Bite) was in which slot, so slot is null.",
     "battle_date": "2022-12-03",
     "regime": "rcpm-old",
     "trainer_level": 50,
     "rocket": {
       "species": "snubbull",
       "rank": "grunt",
-      "slot": 2,
+      "slot": null,
       "fast_move": "BITE",
       "charged_move": null
     },
@@ -129,7 +129,7 @@
     "fixture": "F1",
     "source": "https://www.reddit.com/r/TheSilphRoad/comments/13puajs/",
     "evidence": "damage values of 4(\\*15), 11(\\*8) and 8(\\*1) from respective moves",
-    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted.",
+    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted. Slot 3 is our inference from the December 2022 Fairy grunt lineup (Snubbull or Ralts; Snubbull, Granbull or Kirlia; Granbull or Kirlia) with two Snubbulls first, not a source statement.",
     "battle_date": "2022-12-03",
     "regime": "rcpm-old",
     "trainer_level": 50,
@@ -369,7 +369,7 @@
     "basis": "recorded",
     "status": "expected_pass",
     "status_reason": null,
-    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted."
+    "evidence_note": "The 13puajs passage is struck through by its author because their model omitted the 1.3x bonus; the in-game readings in it were not retracted. Slot 3 is our inference from the December 2022 Fairy grunt lineup (Snubbull or Ralts; Snubbull, Granbull or Kirlia; Granbull or Kirlia) with two Snubbulls first, not a source statement."
   },
   {
     "id": "F2-cyndaquil-hp",
@@ -448,10 +448,10 @@
       "value": 8,
       "hits": null
     },
-    "basis": "recorded",
-    "status": "expected_fail",
-    "status_reason": "model gives 2 HP; text claim, move powers and pre-damage not stated",
-    "evidence_note": "The requested fixture-level expected_fail label is retained for both records; the reported model discrepancy concerns remaining HP, not the eight-hit claim."
+    "basis": "calculated",
+    "status": "weak",
+    "status_reason": "The author's expectation, not a count read off the battle: the eight hits appear in the clause \"what should happen is both getting taken out at same time, since it takes 8 Bullet Punches\".",
+    "evidence_note": "Same battle as F3-metagross-remaining."
   },
   {
     "id": "F3-metagross-remaining",
@@ -491,9 +491,9 @@
       "subject": "player"
     },
     "basis": "recorded",
-    "status": "expected_fail",
-    "status_reason": "model gives 2 HP; text claim, move powers and pre-damage not stated",
-    "evidence_note": "The requested fixture-level expected_fail label is retained for both records; the reported model discrepancy concerns remaining HP, not the eight-hit claim."
+    "status": "open_discrepancy",
+    "status_reason": "Recorded survival with 1 HP as the lead (no damage taken before). Our own hand calculation gives 2 HP, and remaining HP depends on turn order, which needs a turn-by-turn simulation. A model disagreement never downgrades a recorded value: every run reports this record as an open discrepancy.",
+    "evidence_note": "Shadow Metagross L46.5 15/9/12, trainer level 50, against the grunt's lead Bite Snubbull, as stated in the comment."
   },
   {
     "id": "F4-ducklett-normal-tyranitar",
@@ -655,8 +655,8 @@
       "hits": null
     },
     "basis": "recorded",
-    "status": "expected_fail",
-    "status_reason": "knife edge: raw damage 32.90 at attack IV 14",
+    "status": "open_discrepancy",
+    "status_reason": "Recorded 4 hits. Our own calculation (not the source) gives raw damage 32.90 at the stated attack IV 14, about 0.1 short of the next damage point, so our model predicts 5. It is the one F4 cell that separates candidate models. A model disagreement never downgrades a recorded value: every run reports this record as an open discrepancy.",
     "evidence_note": "The post identifies these rows as slot-1/2 fast-move-only cases but does not assign an individual slot number; slot is unknown."
   },
   {
@@ -1845,7 +1845,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F5-razor-leaf-wailmer",
@@ -1885,7 +1885,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F5-razor-leaf-croconaw",
@@ -1925,7 +1925,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F5-razor-leaf-wailord",
@@ -1965,7 +1965,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F5-razor-leaf-hippopotas",
@@ -2005,7 +2005,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F5-razor-leaf-diglett-alolan",
@@ -2045,7 +2045,7 @@
     },
     "basis": "recorded",
     "status": "expected_pass",
-    "status_reason": "attack IV 13-15 give the same count"
+    "status_reason": "Attack IV is not stated. Acceptance requires the observed count at every attack IV from 13 to 15. That range is our assumption for a level-50 build, not a source statement."
   },
   {
     "id": "F7-mega-mewtwo-y-nidorina",

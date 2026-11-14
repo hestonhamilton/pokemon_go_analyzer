@@ -37,7 +37,7 @@ Below *measured-reproduced* is flagged ⚑.
 | j | Turn rules since the 2026 rebuild: a fast move can land after a charged attack starts; simultaneous charged attacks both fire; charged attacks start next turn | [9db.jp](https://9db.jp/pokemongo/data/24341); cwizz1 Jan 2026; [official rebuild post](https://pokemongo.com/news/pvp-updates2026) (GO Battle League) | fast move landing: measured-reproduced; simultaneous charged: measured-once ⚑; next-turn start: assumed ⚑ | Bulbapedia still describes the old cancel rule (outdated) | A recorded charged attack on the turn a Rocket fast move lands |
 | k | Rocket pauses: after a charged attack, a faint, your switch | [9db.jp](https://9db.jp/pokemongo/data/24341) table; cwizz1 [1vyspr1](https://www.reddit.com/r/TheSilphArena/comments/1vyspr1/) | after a charged attack, 7 turns: measured-reproduced; after a faint, 7: measured-reproduced; after your switch: conflicting (9 or 7) ⚑ | Changed in Dec 2025 (12 turns) and again by Sep 2026 | A frame count of a manual switch |
 | l | When the Rocket side fires charged attacks, and their damage | none | assumed ⚑. A 2019 measurement put Rocket charged damage at about 0.5625× the formula: measured-once and outdated ⚑ | Practitioners assume "as soon as it has the energy" | A Rocket Pokémon holding energy past the cost; unshielded charged damage that isn't 1× (or 0.5625×) |
-| m | Shields: grunts none; leaders and Giovanni the first two charged attacks | Bulbapedia *Team GO Rocket*; GO Hub | measured-reproduced (community; not official) | Community reports; F8's shielded Power-Up Punch 1 is a calculation | A grunt shielding; a third leader shield |
+| m | Shields: grunts none; leaders and Giovanni the first two charged attacks | Bulbapedia *Team GO Rocket*; GO Hub | observed in play (consistent community reports; not measured or official) ⚑ | Community reports; F8's shielded Power-Up Punch 1 is a calculation | A grunt shielding; a third leader shield |
 | n | Timer about 12 min, about 7 s added per charged attack; timeout decided by Pokémon left, then HP% | freezyefc [1q13cga](https://www.reddit.com/r/TheSilphRoad/comments/1q13cga/) (2 videos) | measured-once ⚑ | — | Time a stall battle to the 30-second warning |
 | o | Stat stages (±4: 1.25 / 1.5 / 1.75 / 2; 0.8 / 0.667 / …) | Game master `COMBAT_STAT_STAGE_SETTINGS` | data-mined; unmeasured in Rocket ⚑ | F8's Force Palm 17 / 21 / 25 at +0 / +1 / +2 is a calculation; F5's debuffed rows are excluded | A recorded +1 Force Palm that isn't 21 |
 | p | Your charged-attack mini-game: 0.25 / 0.5 / 0.75 / 1.0 | Game master `chargeScore*` | data-mined; assumed for Rocket ⚑ | — | Rocket damage from a deliberate "Nice" that isn't 0.5× |
@@ -54,8 +54,8 @@ weak cross-check, never as an acceptance target. Each fixture record carries thi
 |---|---|---|---|---|---|
 | F1 | AurumKodEXo, [13puajs](https://www.reddit.com/r/TheSilphRoad/comments/13puajs/) + [z3qck5](https://www.reddit.com/r/TheSilphRoad/comments/z3qck5/), video 3 Dec 2022 | old, trainer level 50 | Shadow Metagross (level 43.5, 15/9/12, Bullet Punch) vs a Fairy grunt. **Recorded:** Metagross HP 163; damage taken: Tackle 4, Bite 11, Charge Beam 8; Snubbull still standing after 7 Bullet Punches; Kirlia knocked out in 6. **Calculated** by Venonic, not recorded: Bullet Punch 19 on Snubbull, 134 HP, 1 left after 7. | yes (move powers at the date) | **all match**, re-checked by hand |
 | F2 | Venonic, [122pfk8](https://www.reddit.com/r/TheSilphRoad/comments/122pfk8/), Mar 2023 | old, 41 | Grunt Cyndaquil HP 100 | yes | match |
-| F3 | AurumKodEXo, [184iqov](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/), Nov 2023 | old, 50 | Shadow Metagross (level 46.5) kills Snubbull in 8, survives "with 1 HP" | partly | **model gives 2 HP**: open, 1 HP off |
-| F4 | cwizz1, [10hihvd](https://www.reddit.com/r/TheSilphRoad/comments/10hihvd/), Jan 2023 | old, 50 | 28 Smack Down hit counts (Tyranitar, Rhyperior, Rampardos, Shadow Tyranitar vs Flying and Bug grunt slots 1–2) | yes | **27/28**; the miss (Ducklett vs Shadow Tyranitar) is a knife edge (raw 32.90 vs 33.02) |
+| F3 | AurumKodEXo, [184iqov](https://www.reddit.com/r/TheSilphRoad/comments/184iqov/), Nov 2023 | old, 50 | Shadow Metagross (level 46.5, 15/9/12) as the lead survives Bite Snubbull "with 1 HP" (recorded). The 8 Bullet Punches are the author's expectation (calculated) | yes for the lead matchup; turn order needed | **our hand calculation gives 2 HP**: open discrepancy, 1 HP off |
+| F4 | cwizz1, [10hihvd](https://www.reddit.com/r/TheSilphRoad/comments/10hihvd/), Jan 2023 | old, 50 | 32 Smack Down hit counts (Tyranitar, Rhyperior, Rampardos, Shadow Tyranitar vs 8 Flying and Bug grunt Pokémon, slots 1–2) | yes | **31/32**; the miss (Ducklett vs Shadow Tyranitar, recorded 4) is an open discrepancy: our calculation gives raw 32.90 at attack IV 14, about 0.1 short of the next damage point |
 | F5 | cwizz1, [10qgrga](https://www.reddit.com/r/TheSilphRoad/comments/10qgrga/), Feb 2023 | old, 50 | 6 Razor Leaf hit counts (Roserade vs Water and Ground grunts) | attack IV not stated (13–15 give the same) | 6/6 |
 | F6 | cwizz1 videos, [13u4wnq](https://www.reddit.com/r/TheSilphRoad/comments/13u4wnq/), [13yprjp](https://www.reddit.com/r/TheSilphRoad/comments/13yprjp/), May–Jun 2023 | old, 50 | Mud-Slap and Counter hit counts | IVs not given | not yet checked |
 | F7 | RestorerForer, [1uwoshu](https://www.reddit.com/r/TheSilphRoad/comments/1uwoshu/), video 14 Jul 2026 | **new, 76** | Grunt Nidorina: Mega Mewtwo Y 3 Confusions, Shadow Mewtwo 4 | partly (defence and HP IVs, buddy status) | match, but weak: also passes on the old table |
@@ -66,8 +66,8 @@ weak cross-check, never as an acceptance target. Each fixture record carries thi
 **Totals:**
 
 - **Before Oct 2025:** 44 recorded or measured numbers in `tests/fixtures/sim/battles.json` (F1 6, F2 1, F4 31,
-  F5 6) reproduce, plus three expected failures (F3's 1 HP claim, F4's knife edge). F1's three calculated values
-  are weak cross-checks only.
+  F5 6) reproduce, plus two open discrepancies (F3's 1 HP survival, F4's Ducklett cell). Calculated values
+  (F1's three, F3's 8 hits, F8) are weak cross-checks only.
 - **Since Oct 2025:** **no strong battle fixture.** F7 is recorded but does not tell the rCPM tables apart; F8 is
   calculated; F9 is inferred. The current regime is checked by CP readings only.
 - **CP readings:** about 160 or more before Oct 2025 (comments, spreadsheets), plus 13 paired readings and the NFL collection sheet after.
@@ -85,8 +85,9 @@ weak cross-check, never as an acceptance target. Each fixture record carries thi
 
 1. **Fixture suite:** the recorded and measured records of F1, F2, F4 and F5 become exact tests (with the move
    powers at each date), along with the CP readings at trainer levels 50 and 70. Calculated and inferred records
-   (F1's three, F8, F9) and F7 run as weak cross-checks that are reported but do not gate. Expected-to-fail cases (F3, F4's knife edge) are kept and
-   marked, not silently dropped.
+   (F1's three, F3's 8 hits, F8, F9) and F7 run as weak cross-checks that are reported but do not gate. A recorded
+   value our model misses (F3's 1 HP, F4's Ducklett cell) is never downgraded to an expected failure: it stays an
+   open discrepancy that every run reports. CP readings with an unstated rank, or that conflict, are weak.
 2. **Unvalidated until passing:** the simulator prints rankings only once the suite passes. Before that, every
    output says "unvalidated".
 3. **Grades in the output:** any number that depends on an ⚑ item carries its grade. For example, a win rate
@@ -98,8 +99,7 @@ weak cross-check, never as an acceptance target. Each fixture record carries thi
 
 - damage per hit;
 - Rocket Pokémon HP, attack and defence for the pre-Oct-2025 table (by battle fixtures) and by CP only since;
-- fast-move hits to knock out;
-- grunt shields and leader shields.
+- fast-move hits to knock out.
 
 These are measured and reproduced, and the simulator can be held to them exactly.
 
@@ -108,6 +108,8 @@ These are measured and reproduced, and the simulator can be held to them exactly
 - **When the Rocket side fires its charged attacks, and how hard they hit:** no measurement exists.
 - **Pause after your own switch:** sources conflict.
 - **Simultaneous charged attacks:** measured once.
+- **Shields:** grunts none, leaders and Giovanni the first two. These are consistent community reports from play,
+  not measurements; F8's shielded 1 damage is a calculation. The simulator uses them as stated rules.
 - **Anything about Giovanni beyond CP:** no hit counts exist.
 - **Post-Oct-2025 damage and HP:** checked only by CP; no recorded battle number discriminates the new table.
   Check 1 below is the cheapest fix.
