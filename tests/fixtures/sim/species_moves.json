@@ -1,0 +1,1553 @@
+{
+  "as_of": "2026-07-14",
+  "pvpoke_commit": "caafd09972142cb32bd244dd72957d683d7e56f0",
+  "species": {
+    "abomasnow": {
+      "baseStats": {
+        "atk": 178,
+        "def": 158,
+        "hp": 207
+      },
+      "types": [
+        "grass",
+        "ice"
+      ]
+    },
+    "alakazam": {
+      "baseStats": {
+        "atk": 271,
+        "def": 167,
+        "hp": 146
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "amoonguss": {
+      "baseStats": {
+        "atk": 155,
+        "def": 139,
+        "hp": 249
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "ampharos": {
+      "baseStats": {
+        "atk": 211,
+        "def": 169,
+        "hp": 207
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "anorith": {
+      "baseStats": {
+        "atk": 176,
+        "def": 100,
+        "hp": 128
+      },
+      "types": [
+        "rock",
+        "bug"
+      ]
+    },
+    "aron": {
+      "baseStats": {
+        "atk": 121,
+        "def": 141,
+        "hp": 137
+      },
+      "types": [
+        "steel",
+        "rock"
+      ]
+    },
+    "baltoy": {
+      "baseStats": {
+        "atk": 77,
+        "def": 124,
+        "hp": 120
+      },
+      "types": [
+        "ground",
+        "psychic"
+      ]
+    },
+    "banette": {
+      "baseStats": {
+        "atk": 218,
+        "def": 126,
+        "hp": 162
+      },
+      "types": [
+        "ghost",
+        "none"
+      ]
+    },
+    "bayleef": {
+      "baseStats": {
+        "atk": 122,
+        "def": 155,
+        "hp": 155
+      },
+      "types": [
+        "grass",
+        "none"
+      ]
+    },
+    "beedrill": {
+      "baseStats": {
+        "atk": 169,
+        "def": 130,
+        "hp": 163
+      },
+      "types": [
+        "bug",
+        "poison"
+      ]
+    },
+    "bibarel": {
+      "baseStats": {
+        "atk": 162,
+        "def": 119,
+        "hp": 188
+      },
+      "types": [
+        "normal",
+        "water"
+      ]
+    },
+    "blaziken": {
+      "baseStats": {
+        "atk": 240,
+        "def": 141,
+        "hp": 190
+      },
+      "types": [
+        "fire",
+        "fighting"
+      ]
+    },
+    "blitzle": {
+      "baseStats": {
+        "atk": 118,
+        "def": 64,
+        "hp": 128
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "bulbasaur": {
+      "baseStats": {
+        "atk": 118,
+        "def": 111,
+        "hp": 128
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "cacnea": {
+      "baseStats": {
+        "atk": 156,
+        "def": 74,
+        "hp": 137
+      },
+      "types": [
+        "grass",
+        "none"
+      ]
+    },
+    "cacturne": {
+      "baseStats": {
+        "atk": 221,
+        "def": 115,
+        "hp": 172
+      },
+      "types": [
+        "grass",
+        "dark"
+      ]
+    },
+    "camerupt": {
+      "baseStats": {
+        "atk": 194,
+        "def": 136,
+        "hp": 172
+      },
+      "types": [
+        "fire",
+        "ground"
+      ]
+    },
+    "charizard": {
+      "baseStats": {
+        "atk": 223,
+        "def": 173,
+        "hp": 186
+      },
+      "types": [
+        "fire",
+        "flying"
+      ]
+    },
+    "charmander": {
+      "baseStats": {
+        "atk": 116,
+        "def": 93,
+        "hp": 118
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "cloyster": {
+      "baseStats": {
+        "atk": 186,
+        "def": 256,
+        "hp": 137
+      },
+      "types": [
+        "water",
+        "ice"
+      ]
+    },
+    "crobat": {
+      "baseStats": {
+        "atk": 194,
+        "def": 178,
+        "hp": 198
+      },
+      "types": [
+        "poison",
+        "flying"
+      ]
+    },
+    "croconaw": {
+      "baseStats": {
+        "atk": 150,
+        "def": 142,
+        "hp": 163
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "cyndaquil": {
+      "baseStats": {
+        "atk": 116,
+        "def": 93,
+        "hp": 118
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "diglett_alolan": {
+      "baseStats": {
+        "atk": 108,
+        "def": 81,
+        "hp": 67
+      },
+      "types": [
+        "ground",
+        "steel"
+      ]
+    },
+    "donphan": {
+      "baseStats": {
+        "atk": 214,
+        "def": 185,
+        "hp": 207
+      },
+      "types": [
+        "ground",
+        "none"
+      ]
+    },
+    "dragonite": {
+      "baseStats": {
+        "atk": 263,
+        "def": 198,
+        "hp": 209
+      },
+      "types": [
+        "dragon",
+        "flying"
+      ]
+    },
+    "dratini": {
+      "baseStats": {
+        "atk": 119,
+        "def": 91,
+        "hp": 121
+      },
+      "types": [
+        "dragon",
+        "none"
+      ]
+    },
+    "drifloon": {
+      "baseStats": {
+        "atk": 117,
+        "def": 80,
+        "hp": 207
+      },
+      "types": [
+        "ghost",
+        "flying"
+      ]
+    },
+    "drowzee": {
+      "baseStats": {
+        "atk": 89,
+        "def": 136,
+        "hp": 155
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "ducklett": {
+      "baseStats": {
+        "atk": 84,
+        "def": 96,
+        "hp": 158
+      },
+      "types": [
+        "water",
+        "flying"
+      ]
+    },
+    "dusclops": {
+      "baseStats": {
+        "atk": 124,
+        "def": 234,
+        "hp": 120
+      },
+      "types": [
+        "ghost",
+        "none"
+      ]
+    },
+    "dusknoir": {
+      "baseStats": {
+        "atk": 180,
+        "def": 254,
+        "hp": 128
+      },
+      "types": [
+        "ghost",
+        "none"
+      ]
+    },
+    "duskull": {
+      "baseStats": {
+        "atk": 70,
+        "def": 162,
+        "hp": 85
+      },
+      "types": [
+        "ghost",
+        "none"
+      ]
+    },
+    "electabuzz": {
+      "baseStats": {
+        "atk": 198,
+        "def": 158,
+        "hp": 163
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "exeggutor_alolan": {
+      "baseStats": {
+        "atk": 230,
+        "def": 153,
+        "hp": 216
+      },
+      "types": [
+        "grass",
+        "dragon"
+      ]
+    },
+    "feebas": {
+      "baseStats": {
+        "atk": 29,
+        "def": 85,
+        "hp": 85
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "feraligatr": {
+      "baseStats": {
+        "atk": 205,
+        "def": 188,
+        "hp": 198
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "ferrothorn": {
+      "baseStats": {
+        "atk": 158,
+        "def": 223,
+        "hp": 179
+      },
+      "types": [
+        "grass",
+        "steel"
+      ]
+    },
+    "flygon": {
+      "baseStats": {
+        "atk": 205,
+        "def": 168,
+        "hp": 190
+      },
+      "types": [
+        "ground",
+        "dragon"
+      ]
+    },
+    "foongus": {
+      "baseStats": {
+        "atk": 97,
+        "def": 91,
+        "hp": 170
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "forretress": {
+      "baseStats": {
+        "atk": 161,
+        "def": 205,
+        "hp": 181
+      },
+      "types": [
+        "bug",
+        "steel"
+      ]
+    },
+    "gallade": {
+      "baseStats": {
+        "atk": 237,
+        "def": 195,
+        "hp": 169
+      },
+      "types": [
+        "psychic",
+        "fighting"
+      ]
+    },
+    "gardevoir": {
+      "baseStats": {
+        "atk": 237,
+        "def": 195,
+        "hp": 169
+      },
+      "types": [
+        "psychic",
+        "fairy"
+      ]
+    },
+    "girafarig": {
+      "baseStats": {
+        "atk": 182,
+        "def": 133,
+        "hp": 172
+      },
+      "types": [
+        "normal",
+        "psychic"
+      ]
+    },
+    "gloom": {
+      "baseStats": {
+        "atk": 153,
+        "def": 136,
+        "hp": 155
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "golbat": {
+      "baseStats": {
+        "atk": 161,
+        "def": 150,
+        "hp": 181
+      },
+      "types": [
+        "poison",
+        "flying"
+      ]
+    },
+    "golduck": {
+      "baseStats": {
+        "atk": 191,
+        "def": 162,
+        "hp": 190
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "golem": {
+      "baseStats": {
+        "atk": 211,
+        "def": 198,
+        "hp": 190
+      },
+      "types": [
+        "rock",
+        "ground"
+      ]
+    },
+    "golett": {
+      "baseStats": {
+        "atk": 127,
+        "def": 92,
+        "hp": 153
+      },
+      "types": [
+        "ground",
+        "ghost"
+      ]
+    },
+    "granbull": {
+      "baseStats": {
+        "atk": 212,
+        "def": 131,
+        "hp": 207
+      },
+      "types": [
+        "fairy",
+        "none"
+      ]
+    },
+    "graveler": {
+      "baseStats": {
+        "atk": 164,
+        "def": 164,
+        "hp": 146
+      },
+      "types": [
+        "rock",
+        "ground"
+      ]
+    },
+    "grimer": {
+      "baseStats": {
+        "atk": 135,
+        "def": 90,
+        "hp": 190
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "gyarados": {
+      "baseStats": {
+        "atk": 237,
+        "def": 186,
+        "hp": 216
+      },
+      "types": [
+        "water",
+        "flying"
+      ]
+    },
+    "hippopotas": {
+      "baseStats": {
+        "atk": 124,
+        "def": 118,
+        "hp": 169
+      },
+      "types": [
+        "ground",
+        "none"
+      ]
+    },
+    "hippowdon": {
+      "baseStats": {
+        "atk": 201,
+        "def": 191,
+        "hp": 239
+      },
+      "types": [
+        "ground",
+        "none"
+      ]
+    },
+    "hitmonchan": {
+      "baseStats": {
+        "atk": 193,
+        "def": 197,
+        "hp": 137
+      },
+      "types": [
+        "fighting",
+        "none"
+      ]
+    },
+    "houndoom": {
+      "baseStats": {
+        "atk": 224,
+        "def": 144,
+        "hp": 181
+      },
+      "types": [
+        "dark",
+        "fire"
+      ]
+    },
+    "hypno": {
+      "baseStats": {
+        "atk": 144,
+        "def": 193,
+        "hp": 198
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "kakuna": {
+      "baseStats": {
+        "atk": 46,
+        "def": 75,
+        "hp": 128
+      },
+      "types": [
+        "bug",
+        "poison"
+      ]
+    },
+    "kartana": {
+      "baseStats": {
+        "atk": 323,
+        "def": 182,
+        "hp": 139
+      },
+      "types": [
+        "grass",
+        "steel"
+      ]
+    },
+    "kingdra": {
+      "baseStats": {
+        "atk": 194,
+        "def": 194,
+        "hp": 181
+      },
+      "types": [
+        "water",
+        "dragon"
+      ]
+    },
+    "kirlia": {
+      "baseStats": {
+        "atk": 117,
+        "def": 90,
+        "hp": 116
+      },
+      "types": [
+        "psychic",
+        "fairy"
+      ]
+    },
+    "lairon": {
+      "baseStats": {
+        "atk": 158,
+        "def": 198,
+        "hp": 155
+      },
+      "types": [
+        "steel",
+        "rock"
+      ]
+    },
+    "lapras": {
+      "baseStats": {
+        "atk": 165,
+        "def": 174,
+        "hp": 277
+      },
+      "types": [
+        "water",
+        "ice"
+      ]
+    },
+    "lileep": {
+      "baseStats": {
+        "atk": 105,
+        "def": 150,
+        "hp": 165
+      },
+      "types": [
+        "rock",
+        "grass"
+      ]
+    },
+    "lucario": {
+      "baseStats": {
+        "atk": 236,
+        "def": 144,
+        "hp": 172
+      },
+      "types": [
+        "fighting",
+        "steel"
+      ]
+    },
+    "luxray": {
+      "baseStats": {
+        "atk": 232,
+        "def": 156,
+        "hp": 190
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "machamp": {
+      "baseStats": {
+        "atk": 234,
+        "def": 159,
+        "hp": 207
+      },
+      "types": [
+        "fighting",
+        "none"
+      ]
+    },
+    "machop": {
+      "baseStats": {
+        "atk": 137,
+        "def": 82,
+        "hp": 172
+      },
+      "types": [
+        "fighting",
+        "none"
+      ]
+    },
+    "magikarp": {
+      "baseStats": {
+        "atk": 29,
+        "def": 85,
+        "hp": 85
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "magmar": {
+      "baseStats": {
+        "atk": 206,
+        "def": 154,
+        "hp": 163
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "makuhita": {
+      "baseStats": {
+        "atk": 99,
+        "def": 54,
+        "hp": 176
+      },
+      "types": [
+        "fighting",
+        "none"
+      ]
+    },
+    "mareep": {
+      "baseStats": {
+        "atk": 114,
+        "def": 79,
+        "hp": 146
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "mawile": {
+      "baseStats": {
+        "atk": 155,
+        "def": 141,
+        "hp": 137
+      },
+      "types": [
+        "steel",
+        "fairy"
+      ]
+    },
+    "metagross": {
+      "baseStats": {
+        "atk": 257,
+        "def": 228,
+        "hp": 190
+      },
+      "types": [
+        "steel",
+        "psychic"
+      ]
+    },
+    "metang": {
+      "baseStats": {
+        "atk": 138,
+        "def": 176,
+        "hp": 155
+      },
+      "types": [
+        "steel",
+        "psychic"
+      ]
+    },
+    "mewtwo": {
+      "baseStats": {
+        "atk": 300,
+        "def": 182,
+        "hp": 214
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "mewtwo_mega_y": {
+      "baseStats": {
+        "atk": 413,
+        "def": 223,
+        "hp": 228
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "muk": {
+      "baseStats": {
+        "atk": 190,
+        "def": 172,
+        "hp": 233
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "murkrow": {
+      "baseStats": {
+        "atk": 175,
+        "def": 87,
+        "hp": 155
+      },
+      "types": [
+        "dark",
+        "flying"
+      ]
+    },
+    "natu": {
+      "baseStats": {
+        "atk": 134,
+        "def": 89,
+        "hp": 120
+      },
+      "types": [
+        "psychic",
+        "flying"
+      ]
+    },
+    "nidoran_male": {
+      "baseStats": {
+        "atk": 105,
+        "def": 76,
+        "hp": 130
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "nidorina": {
+      "baseStats": {
+        "atk": 117,
+        "def": 120,
+        "hp": 172
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "nidorino": {
+      "baseStats": {
+        "atk": 137,
+        "def": 111,
+        "hp": 156
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "ninetales_alolan": {
+      "baseStats": {
+        "atk": 170,
+        "def": 193,
+        "hp": 177
+      },
+      "types": [
+        "ice",
+        "fairy"
+      ]
+    },
+    "numel": {
+      "baseStats": {
+        "atk": 119,
+        "def": 79,
+        "hp": 155
+      },
+      "types": [
+        "fire",
+        "ground"
+      ]
+    },
+    "oddish": {
+      "baseStats": {
+        "atk": 131,
+        "def": 112,
+        "hp": 128
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "onix": {
+      "baseStats": {
+        "atk": 85,
+        "def": 232,
+        "hp": 111
+      },
+      "types": [
+        "rock",
+        "ground"
+      ]
+    },
+    "patrat": {
+      "baseStats": {
+        "atk": 98,
+        "def": 73,
+        "hp": 128
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "persian": {
+      "baseStats": {
+        "atk": 150,
+        "def": 136,
+        "hp": 163
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "phanpy": {
+      "baseStats": {
+        "atk": 107,
+        "def": 98,
+        "hp": 207
+      },
+      "types": [
+        "ground",
+        "none"
+      ]
+    },
+    "pidove": {
+      "baseStats": {
+        "atk": 98,
+        "def": 80,
+        "hp": 137
+      },
+      "types": [
+        "normal",
+        "flying"
+      ]
+    },
+    "poliwrath": {
+      "baseStats": {
+        "atk": 182,
+        "def": 184,
+        "hp": 207
+      },
+      "types": [
+        "water",
+        "fighting"
+      ]
+    },
+    "psyduck": {
+      "baseStats": {
+        "atk": 122,
+        "def": 95,
+        "hp": 137
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "quilava": {
+      "baseStats": {
+        "atk": 158,
+        "def": 126,
+        "hp": 151
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "qwilfish": {
+      "baseStats": {
+        "atk": 184,
+        "def": 138,
+        "hp": 163
+      },
+      "types": [
+        "water",
+        "poison"
+      ]
+    },
+    "ralts": {
+      "baseStats": {
+        "atk": 79,
+        "def": 59,
+        "hp": 99
+      },
+      "types": [
+        "psychic",
+        "fairy"
+      ]
+    },
+    "rampardos": {
+      "baseStats": {
+        "atk": 295,
+        "def": 109,
+        "hp": 219
+      },
+      "types": [
+        "rock",
+        "none"
+      ]
+    },
+    "raticate": {
+      "baseStats": {
+        "atk": 161,
+        "def": 139,
+        "hp": 146
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "rattata": {
+      "baseStats": {
+        "atk": 103,
+        "def": 70,
+        "hp": 102
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "regice": {
+      "baseStats": {
+        "atk": 179,
+        "def": 309,
+        "hp": 190
+      },
+      "types": [
+        "ice",
+        "none"
+      ]
+    },
+    "rhyperior": {
+      "baseStats": {
+        "atk": 241,
+        "def": 190,
+        "hp": 251
+      },
+      "types": [
+        "ground",
+        "rock"
+      ]
+    },
+    "roserade": {
+      "baseStats": {
+        "atk": 243,
+        "def": 185,
+        "hp": 155
+      },
+      "types": [
+        "grass",
+        "poison"
+      ]
+    },
+    "sableye": {
+      "baseStats": {
+        "atk": 141,
+        "def": 136,
+        "hp": 137
+      },
+      "types": [
+        "dark",
+        "ghost"
+      ]
+    },
+    "sandslash_alolan": {
+      "baseStats": {
+        "atk": 177,
+        "def": 195,
+        "hp": 181
+      },
+      "types": [
+        "ice",
+        "steel"
+      ]
+    },
+    "sceptile": {
+      "baseStats": {
+        "atk": 223,
+        "def": 169,
+        "hp": 172
+      },
+      "types": [
+        "grass",
+        "none"
+      ]
+    },
+    "scizor": {
+      "baseStats": {
+        "atk": 236,
+        "def": 181,
+        "hp": 172
+      },
+      "types": [
+        "bug",
+        "steel"
+      ]
+    },
+    "shinx": {
+      "baseStats": {
+        "atk": 117,
+        "def": 64,
+        "hp": 128
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "shuckle": {
+      "baseStats": {
+        "atk": 17,
+        "def": 396,
+        "hp": 85
+      },
+      "types": [
+        "bug",
+        "rock"
+      ]
+    },
+    "shuppet": {
+      "baseStats": {
+        "atk": 138,
+        "def": 65,
+        "hp": 127
+      },
+      "types": [
+        "ghost",
+        "none"
+      ]
+    },
+    "skorupi": {
+      "baseStats": {
+        "atk": 93,
+        "def": 151,
+        "hp": 120
+      },
+      "types": [
+        "poison",
+        "bug"
+      ]
+    },
+    "snorlax": {
+      "baseStats": {
+        "atk": 190,
+        "def": 169,
+        "hp": 330
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "snover": {
+      "baseStats": {
+        "atk": 115,
+        "def": 105,
+        "hp": 155
+      },
+      "types": [
+        "grass",
+        "ice"
+      ]
+    },
+    "snubbull": {
+      "baseStats": {
+        "atk": 137,
+        "def": 85,
+        "hp": 155
+      },
+      "types": [
+        "fairy",
+        "none"
+      ]
+    },
+    "spoink": {
+      "baseStats": {
+        "atk": 125,
+        "def": 122,
+        "hp": 155
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "staraptor": {
+      "baseStats": {
+        "atk": 234,
+        "def": 140,
+        "hp": 198
+      },
+      "types": [
+        "normal",
+        "flying"
+      ]
+    },
+    "staravia": {
+      "baseStats": {
+        "atk": 142,
+        "def": 94,
+        "hp": 146
+      },
+      "types": [
+        "normal",
+        "flying"
+      ]
+    },
+    "starly": {
+      "baseStats": {
+        "atk": 101,
+        "def": 58,
+        "hp": 120
+      },
+      "types": [
+        "normal",
+        "flying"
+      ]
+    },
+    "steelix": {
+      "baseStats": {
+        "atk": 148,
+        "def": 272,
+        "hp": 181
+      },
+      "types": [
+        "steel",
+        "ground"
+      ]
+    },
+    "sudowoodo": {
+      "baseStats": {
+        "atk": 167,
+        "def": 176,
+        "hp": 172
+      },
+      "types": [
+        "rock",
+        "none"
+      ]
+    },
+    "swampert": {
+      "baseStats": {
+        "atk": 208,
+        "def": 175,
+        "hp": 225
+      },
+      "types": [
+        "water",
+        "ground"
+      ]
+    },
+    "swinub": {
+      "baseStats": {
+        "atk": 90,
+        "def": 69,
+        "hp": 137
+      },
+      "types": [
+        "ice",
+        "ground"
+      ]
+    },
+    "torchic": {
+      "baseStats": {
+        "atk": 130,
+        "def": 87,
+        "hp": 128
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "totodile": {
+      "baseStats": {
+        "atk": 117,
+        "def": 109,
+        "hp": 137
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "treecko": {
+      "baseStats": {
+        "atk": 124,
+        "def": 94,
+        "hp": 120
+      },
+      "types": [
+        "grass",
+        "none"
+      ]
+    },
+    "typhlosion": {
+      "baseStats": {
+        "atk": 223,
+        "def": 173,
+        "hp": 186
+      },
+      "types": [
+        "fire",
+        "none"
+      ]
+    },
+    "tyranitar": {
+      "baseStats": {
+        "atk": 251,
+        "def": 207,
+        "hp": 225
+      },
+      "types": [
+        "rock",
+        "dark"
+      ]
+    },
+    "ursaring": {
+      "baseStats": {
+        "atk": 236,
+        "def": 144,
+        "hp": 207
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "vulpix_alolan": {
+      "baseStats": {
+        "atk": 96,
+        "def": 109,
+        "hp": 116
+      },
+      "types": [
+        "ice",
+        "none"
+      ]
+    },
+    "wailmer": {
+      "baseStats": {
+        "atk": 136,
+        "def": 68,
+        "hp": 277
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "wailord": {
+      "baseStats": {
+        "atk": 175,
+        "def": 87,
+        "hp": 347
+      },
+      "types": [
+        "water",
+        "none"
+      ]
+    },
+    "weedle": {
+      "baseStats": {
+        "atk": 63,
+        "def": 50,
+        "hp": 120
+      },
+      "types": [
+        "bug",
+        "poison"
+      ]
+    },
+    "weezing": {
+      "baseStats": {
+        "atk": 174,
+        "def": 197,
+        "hp": 163
+      },
+      "types": [
+        "poison",
+        "none"
+      ]
+    },
+    "whismur": {
+      "baseStats": {
+        "atk": 92,
+        "def": 42,
+        "hp": 162
+      },
+      "types": [
+        "normal",
+        "none"
+      ]
+    },
+    "wobbuffet": {
+      "baseStats": {
+        "atk": 60,
+        "def": 106,
+        "hp": 382
+      },
+      "types": [
+        "psychic",
+        "none"
+      ]
+    },
+    "xatu": {
+      "baseStats": {
+        "atk": 192,
+        "def": 146,
+        "hp": 163
+      },
+      "types": [
+        "psychic",
+        "flying"
+      ]
+    },
+    "zebstrika": {
+      "baseStats": {
+        "atk": 211,
+        "def": 136,
+        "hp": 181
+      },
+      "types": [
+        "electric",
+        "none"
+      ]
+    },
+    "zubat": {
+      "baseStats": {
+        "atk": 83,
+        "def": 73,
+        "hp": 120
+      },
+      "types": [
+        "poison",
+        "flying"
+      ]
+    }
+  },
+  "moves": {
+    "BITE": {
+      "type": "dark"
+    },
+    "BULLET_PUNCH": {
+      "type": "steel"
+    },
+    "CHARGE_BEAM": {
+      "type": "electric"
+    },
+    "CONFUSION": {
+      "type": "psychic"
+    },
+    "FORCE_PALM": {
+      "type": "fighting"
+    },
+    "POWER_UP_PUNCH": {
+      "type": "fighting"
+    },
+    "RAZOR_LEAF": {
+      "type": "grass"
+    },
+    "SMACK_DOWN": {
+      "type": "rock"
+    },
+    "TACKLE": {
+      "type": "normal"
+    }
+  }
+}
