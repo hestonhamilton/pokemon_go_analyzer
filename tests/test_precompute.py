@@ -319,7 +319,7 @@ def test_skip_overall_without_previous(cache, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         topn_cli, "complete_overall", lambda *a, **k: pytest.fail("overall must be skipped")
     )
-    first = run(cache, out, "--all", "--skip-overall")
+    first = run(cache, out, "--skip-overall")
     assert first["overall"] == {"key": None, "file": None, "status": "skipped"}
     assert not (out / "overall.json").exists()
     assert first["skip_overall"] is True
@@ -384,7 +384,7 @@ def test_skip_overall_preserves_stale(characters, tmp_path, monkeypatch, capsys,
     monkeypatch.setattr(
         topn, "screen_candidates", lambda *a, **k: pytest.fail("must reuse character finalists")
     )
-    third = run(characters, out, "--all")
+    third = run(characters, out)
     assert {entry["status"] for entry in third["characters"]} == {"reused", "unavailable"}
     # Force alone leaves the inputs unchanged, so a later ordinary run can reuse it.
     assert third["overall"]["status"] == ("reused" if change == "force" else "computed")
@@ -439,7 +439,7 @@ def test_full_run_after_skip_completes_without_screening(characters, tmp_path, m
     monkeypatch.setattr(
         topn, "screen_candidates", lambda *a, **k: pytest.fail("must reuse character finalists")
     )
-    second = run(characters, out, "--all")
+    second = run(characters, out)
     assert {entry["status"] for entry in second["characters"]} == {"reused", "unavailable"}
     assert second["overall"]["status"] == "computed"
     overall = json.loads((out / "overall.json").read_text())

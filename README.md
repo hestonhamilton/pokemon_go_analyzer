@@ -290,7 +290,7 @@ once a week; that step can take about 14 hours:
 ```sh
 # Frequent runs
 uv run pogo-analyzer precompute --out reports --skip-overall
-# Weekly full run (also accepts --all)
+# Weekly full run
 uv run pogo-analyzer precompute --out reports
 ```
 

@@ -20,9 +20,7 @@ from .sim.rocket import rule_data
 def add_parser(commands):
     sub = commands.add_parser("precompute", help="Write cached top-N estimates for a static site")
     sub.add_argument("--out", type=Path, required=True)
-    select = sub.add_mutually_exclusive_group()
-    select.add_argument("--character")
-    select.add_argument("--all", action="store_true", help="Run all characters (the default)")
+    sub.add_argument("--character")
     topn_cli.add_options(sub)
     sub.add_argument("--workers", type=int, default=3)
     sub.add_argument("--nice", type=int, default=10)
