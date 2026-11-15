@@ -24,6 +24,12 @@ def add_parser(commands):
     select = sub.add_mutually_exclusive_group(required=True)
     select.add_argument("--character")
     select.add_argument("--all", action="store_true")
+    add_options(sub)
+    sub.add_argument("--format", choices=("json",), default="json")
+
+
+def add_options(sub):
+    """Shared ranking inputs; command selection and execution options stay separate."""
     sub.add_argument("--battle-date", help="ISO date (default: today's local date)")
     sub.add_argument("--level", type=float, action="append")
     sub.add_argument("--trainer-level", type=int, default=50)
@@ -33,7 +39,6 @@ def add_parser(commands):
     sub.add_argument("--rcpm-table", choices=calc.TABLES, default="dec-2025")
     sub.add_argument("--fixtures-dir", type=Path, default=DEFAULT_FIXTURES)
     sub.add_argument("--cache-dir", type=Path, default=Path(".cache/pokebattler"))
-    sub.add_argument("--format", choices=("json",), default="json")
 
 
 def _decorate(row, candidate, context, pools, records, args, validation):
@@ -100,7 +105,8 @@ def _screen_stats_grade(candidate, context, pools, records, args, validation):
     )
 
 
-def build_output(args):
+def prepare_output(args):
+    """Validate inputs and prepare shared provenance and character pools, without battles."""
     stamp = sim._iso_date(
         args.battle_date if args.battle_date is not None else date.today().isoformat()
     )
@@ -128,9 +134,8 @@ def build_output(args):
         selectors=selectors,
         exclude_elite_legacy=args.exclude_elite_legacy,
     )
-    by_key = {c.key: c for c in candidates}
     validation = run_acceptance(args.fixtures_dir)
-    reports, unresolved, unavailable, planned, results = [], [], [], {}, {}
+    reports, unresolved, unavailable, planned = [], [], [], {}
     for character in selected:
         pools, missing, records = sim._pools(character, species, moves, args)
         unresolved.extend(missing)
@@ -152,7 +157,6 @@ def build_output(args):
             "finalists": {f"{level:g}": [] for level in levels},
         }
         reports.append(report)
-        results[character.name] = {}
         planned[character.name] = context, pools, records
         if any(not p for p in pools):
             report["reason"] = topn.UNAVAILABLE
@@ -176,33 +180,6 @@ def build_output(args):
         "--all adds union completion battles.",
         file=sys.stderr,
     )
-    for report in eligible:
-        name = report["name"]
-        context, pools, records = planned[name]
-
-        ranked = topn.rank_character(
-            candidates,
-            pools,
-            k=args.k,
-            rank=context["rank"],
-            battle_date=stamp,
-            trial_runner=sim._timed_trials,
-            stats_grade=partial(
-                _screen_stats_grade,
-                context=context,
-                pools=pools,
-                records=records,
-                args=args,
-                validation=validation,
-            ),
-            pool_complete=context["pool_complete"],
-        )
-        for level, rows in ranked.items():
-            for row in rows:
-                key = topn.row_key(row)
-                _decorate(row, by_key[key], context, pools, records, args, validation)
-                results[name][key] = row
-            report["finalists"][f"{level:g}"] = rows
     data = {
         "validation_label": validation["label"],
         "estimate_label": "estimate (every number)",
@@ -242,54 +219,135 @@ def build_output(args):
         "skipped": skipped,
         "characters": reports,
     }
-    if args.all:
-        union = sorted({key for rows in results.values() for key in rows})
-        for report in reports:
-            name = report["name"]
-            context, pools, records = planned[name]
-            if "reason" in report:
-                continue
-            pending = [key for key in union if key not in results[name]]
-            print(f"estimate: {name}: completing {len(pending)} overall builds.", file=sys.stderr)
-            for key in pending:
-                candidate = by_key[key]
-                row = topn.full_result(
+    return data, planned, candidates
+
+
+def rank_report(
+    report,
+    planned,
+    candidates,
+    args,
+    validation,
+    *,
+    mapper=map,
+    trial_runner=None,
+    battle_date=None,
+):
+    """Fill one prepared report with the engine's decorated finalists."""
+    if "reason" in report:
+        return
+    context, pools, records = planned
+    stamp = battle_date or sim._iso_date(
+        args.battle_date if args.battle_date is not None else date.today().isoformat()
+    )
+    by_key = {c.key: c for c in candidates}
+    ranked = topn.rank_character(
+        candidates,
+        pools,
+        k=args.k,
+        rank=context["rank"],
+        battle_date=stamp,
+        trial_runner=trial_runner,
+        mapper=mapper,
+        # The worker receives a module-level callable over picklable source inputs.
+        stats_grade=partial(
+            _screen_stats_grade,
+            context=context,
+            pools=pools,
+            records=records,
+            args=args,
+            validation=validation,
+        ),
+        pool_complete=context["pool_complete"],
+    )
+    for level, rows in ranked.items():
+        for row in rows:
+            key = topn.row_key(row)
+            _decorate(row, by_key[key], context, pools, records, args, validation)
+        report["finalists"][f"{level:g}"] = rows
+
+
+def complete_overall(data, planned, candidates, args, *, mapper=map, trial_runner=None):
+    """Complete the finalist union across all available characters."""
+    reports = data["characters"]
+    stamp, validation = data["battle_date"], data["validation"]
+    by_key = {c.key: c for c in candidates}
+    results = {
+        report["name"]: {
+            topn.row_key(row): row for rows in report["finalists"].values() for row in rows
+        }
+        for report in reports
+    }
+    union = sorted({key for rows in results.values() for key in rows})
+    for report in reports:
+        name = report["name"]
+        context, pools, records = planned[name]
+        if "reason" in report:
+            continue
+        pending = [key for key in union if key not in results[name]]
+        print(f"estimate: {name}: completing {len(pending)} overall builds.", file=sys.stderr)
+        builds = [by_key[key] for key in pending]
+        rows = topn.full_results(
+            builds,
+            pools,
+            mapper=mapper,
+            rank=context["rank"],
+            battle_date=stamp,
+            trial_runner=trial_runner,
+        )
+        for candidate, row in zip(builds, rows, strict=True):
+            row.update(
+                candidate.output(),
+                screen=topn.screen_candidate(
                     candidate,
                     pools,
                     rank=context["rank"],
                     battle_date=stamp,
-                    trial_runner=sim._timed_trials,
-                )
-                row.update(
-                    candidate.output(),
-                    screen=topn.screen_candidate(
-                        candidate,
-                        pools,
-                        rank=context["rank"],
-                        battle_date=stamp,
-                        stats_grade=_screen_stats_grade(
-                            candidate, context, pools, records, args, validation
-                        ),
-                        pool_complete=context["pool_complete"],
+                    stats_grade=_screen_stats_grade(
+                        candidate, context, pools, records, args, validation
                     ),
-                )
-                row = _decorate(row, candidate, context, pools, records, args, validation)
-                # Overall-only builds keep their grade, not the per-option calc cells.
-                row.pop("calc_rows")
-                results[name][key] = row
-        overall = {"weighting_note": topn.WEIGHTING_NOTE}
-        for name, ranks in (
-            ("all", None),
-            ("grunts", {"grunt"}),
-            ("leaders", {"leader", "giovanni"}),
-        ):
-            view = topn.overall_view(reports, results, ranks=ranks)
-            for rows in view["results"].values():
-                for row in rows:
-                    sim._grade(row, row["stats_grade"])
-            overall[name] = view
-        overall["coverage"] = overall["all"]["coverage"]
-        data["overall"] = overall
+                    pool_complete=context["pool_complete"],
+                ),
+            )
+            row = _decorate(row, candidate, context, pools, records, args, validation)
+            # Overall-only builds keep their grade, not the per-option calc cells.
+            row.pop("calc_rows")
+            results[name][candidate.key] = row
+    overall = {"weighting_note": topn.WEIGHTING_NOTE}
+    for name, ranks in (
+        ("all", None),
+        ("grunts", {"grunt"}),
+        ("leaders", {"leader", "giovanni"}),
+    ):
+        view = topn.overall_view(reports, results, ranks=ranks)
+        for rows in view["results"].values():
+            for row in rows:
+                sim._grade(row, row["stats_grade"])
+        overall[name] = view
+    overall["coverage"] = overall["all"]["coverage"]
+    return overall
+
+
+def build_output(args):
+    data, planned, candidates = prepare_output(args)
+    for report in data["characters"]:
+        rank_report(
+            report,
+            planned[report["name"]],
+            candidates,
+            args,
+            data["validation"],
+            trial_runner=sim._timed_trials,
+            battle_date=data["battle_date"],
+        )
+    if args.all:
+        data["overall"] = complete_overall(
+            data,
+            planned,
+            candidates,
+            args,
+            trial_runner=sim._timed_trials,
+        )
     return data
 
 
