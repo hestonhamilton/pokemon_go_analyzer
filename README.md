@@ -209,3 +209,19 @@ gate prints UNVALIDATED. Large characters continue with stdlib multiprocessing o
 120 seconds; result order is preserved. It uses at most four processes in all: three workers plus the
 parent, which collects and aggregates results (fewer workers on machines with fewer than four CPUs). See the [win rate report](tests/fixtures/sim/winrate_report.md)
 for metric definitions, grade dependencies, pool sizes, runtimes and model choices.
+
+## Development checks
+
+- `uv run pytest -q` runs offline. An autouse fixture blocks the network, and the calculator and
+  simulator tests read small cached source extracts under `tests/fixtures/`.
+- `pre-commit run --all-files` runs ruff, the JSON and secret checks, and a commit-message check.
+  Both it and `pytest` are required checks on `main`.
+- The PvPoke parity tools are verification aids, not test dependencies. They need Node.js. The
+  first run downloads the pinned, checksummed MIT sources into `.cache/fixture-sources/`, and
+  later runs read that cache only:
+  - `uv run python tools/parity/pvpoke_damage_parity.py`: exact raw and final damage, and every
+    type combination;
+  - `uv run python tools/parity/pvpoke_battle_parity.py`: the 1v1 turn loop turn by turn, plus
+    the native 3v3 component cases.
+- `tools/fixtures/acceptance_pin.py` regenerates the acceptance pin. Only the owner's review of
+  its diff defends a pin change.
