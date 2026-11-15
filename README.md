@@ -330,21 +330,28 @@ python -m http.server 8000 --directory public
 
 Open `http://localhost:8000` to view the site. The output is plain static HTML with
 inline CSS, system fonts, light/dark colors and no remote assets or runtime dependencies.
-Source URLs appear as visible text only. Files are replaced atomically under `--out`;
-rerunning the command is safe. Use a dedicated output directory: pages from characters
-removed from a later manifest are not pruned automatically.
+Source URLs appear as visible text only. Each build stages a complete site in a temporary
+sibling directory, renames the old output aside, installs the new tree, then removes the
+old tree. Rerunning is safe and prunes pages for characters removed from the manifest.
+Use a dedicated output directory: `.pogo-site` records the files produced by the build.
+Existing nonempty directories without a valid marker, or containing unrelated files,
+are refused. When upgrading an older unmarked site, choose a new or empty `--out` path.
 
 - `index.html`: level-40 top-three tiles for All Rocket and every manifest character.
 - `list/<slug>.html` and `list/all.html`, `list/grunts.html`, `list/leaders.html`:
   ranked lists with level sections, attacker-type filter chips, win rate, percentage
   of the current view's best counter, Rocket KOs, HP left and headline grades.
 - `counters/<slug>.html`: ranked counters with native expandable rows containing the
-  stage-1 screen and its own grade, conditional species win rates per Rocket slot,
+  stage-1 screen and its own grade, conditional species win rates per Rocket slot with
+  their sample sizes (`n`, or “n not recorded”) and headline grades in the caption,
   and one calc summary row per slot/species. Each calc column shows the range over
-  Rocket movesets and its weakest contributing cell grade.
+  Rocket movesets and its weakest contributing cell grade. If the grade order is unknown,
+  every distinct contributing grade is shown in sorted order.
 
 All pages work without JavaScript. A short inline script filters list rows by attacker
-type and updates rank and percentage of best; without it, every row remains visible.
+type and updates rank and percentage of best; without it, every row remains visible
+and filter controls stay hidden. Lists warn when the current view's best counter has
+a win rate below 50%.
 Both levels 40 and 50 have sections, with an explicit reason when not calculated.
 Elite/legacy moves are badged with a legend; shadow forms are marked. New precompute
 reports include attacker types and overall mean Rocket KOs. Older reports that lack
@@ -354,9 +361,17 @@ The trust strip, assumptions line and notes show the complete validation label,
 UNVALIDATED when appropriate, open discrepancy IDs from validation data, estimate
 marks on simulator numbers, pool completeness and extrapolation grades, rCPM and
 moveset-pool notes, equal-weight model assumptions, player charging/shield policies,
-level, IVs, trainer level, Mega and move filters, credits and every source's fetch time.
+levels 40/50 (per section), IVs, trainer level, Mega and move filters, credits and every
+source's fetch time. Every notes footer includes coverage and missing characters, or
+“coverage not recorded”. Missing grades are marked “grade not recorded”; validation is
+UNVALIDATED unless explicitly recorded as true.
 Screen numbers carry the grid caveat. Every page explains the model's sensitivity to
 the assumed Rocket pause after charged attacks (ledger row k).
+
+Percentages that would round to 100.0% or 0.0% show “>99.9%” or “<0.1%” when
+the underlying rate is strictly between zero and one; exact endpoints retain 0.0%
+and 100.0%. Non-integer counts keep two decimals, flooring near an integer when
+rounding up would imply a full KO. These percentage rules also apply to “% of best”.
 
 The renderer checks report keys against the manifest, ignores unlisted files and
 dotfiles, and shows stale, missing or unavailable reports with a reason. Stale overall

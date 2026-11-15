@@ -3,10 +3,12 @@
 import json
 import os
 import re
+import shutil
 import tempfile
 from collections import defaultdict
 from datetime import date
 from html import escape
+from math import floor
 from pathlib import Path
 
 PAUSE_NOTE = (
@@ -63,14 +65,20 @@ clip:rect(0,0,0,0);white-space:nowrap;border:0}
 [hidden]{display:none!important}@media(max-width:640px){main{padding-inline:8px}}
 """
 # Filtering only hides server-rendered rows. Without JS all rows and levels remain available.
-FILTER_JS = """document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
+FILTER_JS = """const percent=v=>{
+const text=(v*100).toFixed(1);
+return v>0&&text==='0.0'?'<0.1%':v<1&&text==='100.0'?'>99.9%':text+'%';
+};
+document.querySelectorAll('.controls').forEach(c=>c.hidden=false);
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
 const s=b.closest('section'),t=b.dataset.filter;
 s.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',x===b));
 s.querySelectorAll('tr[data-types]').forEach(r=>r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t));
 const rows=[...s.querySelectorAll('tr[data-types]')].filter(r=>!r.hidden);
 const best=Number(rows[0]?.dataset.win||0);
+s.querySelector('[data-best-warning]').hidden=rows.length===0||best>=0.5;
 rows.forEach((r,i)=>{r.querySelector('[data-rank]').textContent=i+1;
-r.querySelector('[data-best]').textContent=best?(Number(r.dataset.win)/best*100).toFixed(1)+'%':'—';});
+r.querySelector('[data-best]').textContent=best?percent(Number(r.dataset.win)/best):'—';});
 });"""
 
 
@@ -84,6 +92,8 @@ def chip(value, kind=""):
 
 def grades(value, flags=()):
     parts = str(value).split("; ") if value else []
+    if not parts:
+        parts.append("grade not recorded")
     if "extrapolated" in flags and "extrapolated forward" not in parts:
         parts.append("extrapolated forward")
     return " ".join(
@@ -92,17 +102,36 @@ def grades(value, flags=()):
             "est"
             if p == "estimate"
             else "warn"
-            if any(word in p for word in ("unverified", "incomplete", "extrapolated"))
+            if any(
+                word in p for word in ("unverified", "incomplete", "extrapolated", "not recorded")
+            )
             else "",
         )
         for p in parts
     )
 
 
+def percentage(value):
+    formatted = f"{value * 100:.1f}"
+    if value > 0 and formatted == "0.0":
+        return "<0.1%"
+    if value < 1 and formatted == "100.0":
+        return ">99.9%"
+    return formatted + "%"
+
+
 def estimate(value, *, percent=False):
     if value is None:
         return '<span class="moves">not recorded</span>'
-    formatted = f"{value * 100:.1f}%" if percent else f"{value:.2f}".rstrip("0").rstrip(".")
+    if percent:
+        formatted = percentage(value)
+    elif value == int(value):
+        formatted = str(int(value))
+    else:
+        formatted = f"{value:.2f}"
+        # Floor to 2dp near an integer when rounding up would suggest a full KO.
+        if float(formatted).is_integer() and float(formatted) > value:
+            formatted = f"{floor(value * 100) / 100:.2f}"
     return f'{e(formatted)}<span class="est-mark" title="estimate">est</span>'
 
 
@@ -141,7 +170,8 @@ def assumptions(data, level):
         else "elite/legacy included and badged"
     )
     return (
-        f'<div class="assume">You: level {e(level)} · IVs {e(iv_text)} · trainer level '
+        f'<div class="assume">You: {"levels" if "/" in level else "level"} {e(level)} '
+        f"· IVs {e(iv_text)} · trainer level "
         f"{e(params.get('trainer_level', 'not recorded'))} · Mega excluded (unsupported) · "
         f"{e(move_note)} · player {e(policy)} · player {e(shields)}. "
         f"{e(data.get('filter_note', 'Filter note not recorded'))}</div>"
@@ -151,7 +181,9 @@ def assumptions(data, level):
 def trust(data, level):
     validation = data.get("validation", {})
     label = data.get("validation_label", "Validation label not recorded")
-    failed = validation.get("validated") is False or any(
+    if not isinstance(label, str):
+        raise ValueError("validation_label must be a string")
+    failed = validation.get("validated") is not True or any(
         word in label.casefold() for word in ("unvalidated", "gate failed")
     )
     discrepancies = validation.get("open_discrepancies", [])
@@ -165,7 +197,7 @@ def trust(data, level):
     return f'<div class="trust">{strip}</div>{provenance(data)}{assumptions(data, level)}'
 
 
-def notes(data):
+def notes(data, coverage_view=None):
     fields = (
         ("Model notes", "limitations"),
         ("Rocket moveset pool", "moveset_pool_note"),
@@ -177,6 +209,7 @@ def notes(data):
     body = "".join(
         f"<p><b>{title}.</b> {e(data.get(key, 'not recorded'))}</p>" for title, key in fields
     )
+    body += coverage(data if coverage_view is None else coverage_view)
     body += f"<p>{e(PAUSE_NOTE)}</p><p>Dates before 2019-07-22 are rejected.</p>"
     for source in data.get("sources", []):
         body += (
@@ -187,20 +220,21 @@ def notes(data):
     return f'<footer class="notes">{body}</footer>'
 
 
-def document(title, data, body, nav, *, level="40", script=False):
+def document(title, data, body, nav, *, script=False, coverage_view=None):
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{e(title)}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<main>\n"
         f'<nav aria-label="Pages">{nav}</nav>\n<div class="screen">'
-        f'<header class="screen-title"><h1>{e(title)}</h1></header>\n{trust(data, level)}\n'
-        f'<div class="body">{body}</div>\n{notes(data)}\n</div>\n</main>\n'
+        f'<header class="screen-title"><h1>{e(title)}</h1></header>\n'
+        f"{trust(data, '40/50 (per section)')}\n"
+        f'<div class="body">{body}</div>\n{notes(data, coverage_view)}\n</div>\n</main>\n'
         + (f"<script>{FILTER_JS}</script>\n" if script else "")
         + "</body>\n</html>\n"
     )
 
 
-def label(identifier):
+def heading(identifier):
     """Readable PvPoke id: DRAGON_BREATH -> Dragon Breath; the shadow chip carries the form."""
     words = str(identifier).removesuffix("_shadow").replace("_", " ").split()
     return " ".join(w.capitalize() for w in words)
@@ -210,13 +244,13 @@ def counter_name(row):
     def move(key):
         name = row.get(key, "not recorded")
         flags = row.get("move_flags", {}).get(name, {})
-        return f'<span title="{e(name)}">{e(label(name))}</span>' + "".join(
+        return f'<span title="{e(name)}">{e(heading(name))}</span>' + "".join(
             chip(k) for k in ("elite", "legacy") if flags.get(k)
         )
 
     species = row.get("speciesId", row.get("species", "not recorded"))
     return (
-        f'<span class="mon" title="{e(species)}">{e(label(species))}</span> '
+        f'<span class="mon" title="{e(species)}">{e(heading(species))}</span> '
         + (chip("shadow") if row.get("form") == "shadow" else "")
         + '<span class="moves" style="display:block">'
         + f"{move('fast_move')} · {move('charged_move')}</span>"
@@ -268,14 +302,15 @@ def list_body(data, results, reason, extra=""):
             body += unavailable(reason or "no full results at this level") + "</section>"
             continue
         types = sorted({t for row in rows for t in row.get("types", [])})
-        body += '<div class="controls" role="group" aria-label="Attacker types">'
+        body += '<div class="controls" role="group" aria-label="Attacker types" hidden>'
         body += '<button class="t" data-filter="" aria-pressed="true">All types</button>'
         body += "".join(
             f'<button class="t" data-filter="{e(t)}" aria-pressed="false">{e(t)}</button>'
             for t in types
         )
         body += (
-            '</div><p class="moves">Without JavaScript all types are shown.</p>'
+            '</div><noscript><p class="moves">Without JavaScript all types are shown.'
+            "</p></noscript>"
             '<div class="wrap"><table><thead><tr>'
         )
         body += "".join(
@@ -303,7 +338,7 @@ def list_body(data, results, reason, extra=""):
             body += f"<td data-rank>{rank}</td><td>{counter_name(row)}</td>"
             body += f"<td>{e(types_text)}</td>"
             body += f'<td class="num">{estimate(row["win_rate"], percent=True)}</td>'
-            ratio_text = f"{ratio * 100:.1f}%" if ratio is not None else "—"
+            ratio_text = percentage(ratio) if ratio is not None else "—"
             body += (
                 f'<td class="num"><span data-best>{e(ratio_text)}</span>'
                 '<span class="est-mark" title="estimate">est</span></td>'
@@ -312,12 +347,17 @@ def list_body(data, results, reason, extra=""):
             hp = estimate(row.get("mean_player_hp_fraction_left"), percent=True)
             body += f'<td class="num">{hp}</td>'
             body += f"<td>{grades(row.get('grade'), row.get('flags', []))}</td></tr>"
-        body += "</tbody></table></div></section>"
+        body += "</tbody></table></div>"
+        body += (
+            f"<p data-best-warning{' hidden' if best >= 0.5 else ''}>"
+            f"{chip('best counter loses most battles', 'warn')}</p>"
+        )
+        body += "</section>"
     return body
 
 
 def calc_summary(rows, grade_order):
-    """Retain only ranges and weakest cell grades, never individual moveset rows."""
+    """Retain ranges and weakest known grades, or every distinct grade if any is unknown."""
     grouped = defaultdict(lambda: defaultdict(list))
     columns = ("fast_damage", "fast_hits_to_ko", "charged", "rocket_fast_damage", "turns_survived")
     for row in rows:
@@ -350,7 +390,7 @@ def calc_summary(rows, grade_order):
     for (slot, species), group in sorted(grouped.items()):
         body += (
             f"<tr data-calc-summary><td>{e(slot)}</td>"
-            f'<td title="{e(species)}">{e(label(species))}</td>'
+            f'<td title="{e(species)}">{e(heading(species))}</td>'
         )
         for key in columns:
             cells = group[key]
@@ -359,14 +399,14 @@ def calc_summary(rows, grade_order):
                 continue
             values, cell_grades = zip(*cells, strict=True)
             # Unknown grade vocabularies fail visibly rather than claiming a stronger grade.
-            grade = max(
-                cell_grades,
-                key=lambda g: grade_order.index(g) if g in grade_order else len(grade_order),
-            )
+            if any(g not in grade_order for g in cell_grades):
+                grade_chips = " ".join(chip(g) for g in sorted(set(cell_grades)))
+            else:
+                grade_chips = chip(max(cell_grades, key=grade_order.index))
             body += (
                 f'<td class="num">{estimate(min(values))}'
                 + ("" if min(values) == max(values) else f"–{estimate(max(values))}")
-                + f"<br>{chip(grade)}</td>"
+                + f"<br>{grade_chips}</td>"
             )
         body += "</tr>"
     return body + "</tbody></table></div>"
@@ -385,15 +425,17 @@ def counter_detail(row, data):
             body += f"<p>Screen slot {slot}: {estimate(rate, percent=True)}</p>"
     body += "<h3>Full battle · conditional win rate per Rocket species in each slot</h3>"
     body += (
-        '<div class="wrap"><table><thead><tr><th>Slot</th><th>Rocket species</th>'
-        "<th>Conditional win rate</th></tr></thead><tbody>"
+        '<div class="wrap"><table><caption>Conditional win rates · '
+        f"{grades(row.get('grade'), row.get('flags', []))}</caption>"
+        "<thead><tr><th>Slot</th><th>Rocket species</th>"
+        "<th>Conditional win rate</th><th>n</th></tr></thead><tbody>"
     )
     for slot in row.get("per_slot", []):
         for species in slot.get("species", []):
             body += (
-                f"<tr><td>{e(slot['slot'])}</td><td>{e(label(species['species']))}</td>"
+                f"<tr><td>{e(slot['slot'])}</td><td>{e(heading(species['species']))}</td>"
                 f'<td class="num">{estimate(species["conditional_win_rate"], percent=True)}'
-                "</td></tr>"
+                f"</td><td>{e(species.get('battles', 'n not recorded'))}</td></tr>"
             )
     body += "</tbody></table></div>"
     body += calc_summary(row.get("calc_rows", []), [g["id"] for g in data.get("grades", [])])
@@ -453,14 +495,15 @@ def counters_body(data, results, reason):
                     f"{estimate(row.get(key), percent=percent)}</span>"
                 )
             body += (
-                f"<span>{grades(row.get('grade'), row.get('flags', []))}</span></span></summary>"
+                '<span><span class="sr-only">Grade: </span>'
+                f"{grades(row.get('grade'), row.get('flags', []))}</span></span></summary>"
             )
             body += counter_detail(row, data) + "</details>"
         body += "</div></section>"
     return body
 
 
-def tile(title, href, data, results, reason, *, overall=False, extra=""):
+def tile(title, href, data, results, reason, *, overall=False, extra="", coverage_view=None):
     body = (
         f'<article class="tile{" overall" if overall else ""}"><h2>'
         f'<a href="{e(href)}">{e(title)}</a></h2>{extra}'
@@ -481,7 +524,7 @@ def tile(title, href, data, results, reason, *, overall=False, extra=""):
     body += provenance(data)
     body += (
         "<details><summary>Assumptions, validation and sources</summary>"
-        f"{trust(data, '40')}{notes(data)}</details></article>"
+        f"{trust(data, '40')}{notes(data, coverage_view)}</details></article>"
     )
     return body
 
@@ -524,7 +567,7 @@ def read_report(root, entry):
         return {}, f"report file unreadable ({type(exc).__name__})"
     if not isinstance(data, dict):
         return {}, "report file invalid: expected a JSON object"
-    if data.get("key") != entry.get("key"):
+    if not entry.get("key") or not data.get("key") or data["key"] != entry["key"]:
         return data, "stale report: key does not match manifest entry"
     if entry.get("status") == "stale":
         return data, "stale report: manifest marks results stale"
@@ -537,8 +580,84 @@ def check_dates(data):
             raise ValueError(f"{key} before Team GO Rocket: dates before 2019-07-22 are rejected")
 
 
+def check_destination(destination):
+    """Only replace empty directories or trees whose files a previous build recorded."""
+    if not destination.exists():
+        return
+    if not destination.is_dir():
+        raise ValueError("--out must be a directory")
+    children = list(destination.iterdir())
+    if any(p.is_symlink() for p in children):
+        raise ValueError("output symlink may point outside --out")
+    if not children:
+        return
+    marker = destination / ".pogo-site"
+    refusal = "refusing to replace --out: missing or invalid .pogo-site build marker"
+    try:
+        recorded = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(refusal) from exc
+    if not isinstance(recorded, dict) or recorded.get("version") != 1:
+        raise ValueError(refusal)
+    files = recorded.get("files")
+    if not isinstance(files, list) or not all(
+        isinstance(name, str)
+        and re.fullmatch(r"(?:index|(?:list|counters)/[a-z0-9]+(?:-[a-z0-9]+)*)\.html", name)
+        for name in files
+    ):
+        raise ValueError(refusal)
+    allowed = {".pogo-site", *files}
+    directories = {str(Path(name).parent) for name in files} - {"."}
+    for path in destination.rglob("*"):
+        relative = str(path.relative_to(destination))
+        if path.is_symlink():
+            raise ValueError(f"output path outside --out: {relative}")
+        if (path.is_dir() and relative in directories) or (path.is_file() and relative in allowed):
+            continue
+        raise ValueError(f"refusing to replace --out: file not produced by site build: {relative}")
+
+
+def publish_pages(destination, pages):
+    """Stage a complete tree beside --out, swap it in, then remove the owned old tree."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staged = Path(tempfile.mkdtemp(prefix=f".{destination.name}.new-", dir=destination.parent))
+    old = None
+    try:
+        # mkdtemp starts private; publish with ordinary directory permissions.
+        umask = os.umask(0)
+        os.umask(umask)
+        staged.chmod(0o777 & ~umask)
+        for relative, body in pages.items():
+            atomic_text(staged / relative, body)
+        atomic_text(staged / ".pogo-site", json.dumps({"version": 1, "files": sorted(pages)}))
+        # Recheck ownership immediately before moving anything out of --out.
+        check_destination(destination)
+        if destination.exists():
+            old = Path(tempfile.mkdtemp(prefix=f".{destination.name}.old-", dir=destination.parent))
+            try:
+                os.replace(destination, old)
+            except OSError:
+                old.rmdir()
+                old = None
+                raise
+        try:
+            os.replace(staged, destination)
+        except OSError:
+            if old is not None:
+                os.replace(old, destination)
+            raise
+    finally:
+        if staged.exists():
+            shutil.rmtree(staged)
+    if old is not None:
+        shutil.rmtree(old)
+
+
 def build_site(data_dir, out):
+    if Path(out).is_symlink():
+        raise ValueError("output symlink points outside --out")
     root, destination = Path(data_dir).resolve(), Path(out).resolve()
+    check_destination(destination)
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     check_dates(manifest)
     slugs = {"all", "grunts", "leaders"}
@@ -552,8 +671,8 @@ def build_site(data_dir, out):
     fallback = overall or manifest
     if not overall:
         for entry in manifest["characters"]:
-            first, _ = read_report(root, entry)
-            if first:
+            first, why = read_report(root, entry)
+            if first and not why:
                 fallback = {k: v for k, v in first.items() if k != "character"}
                 del first
                 break
@@ -602,19 +721,21 @@ def build_site(data_dir, out):
         meta = metadata(data, entry)
         results = data.get("character", {}).get("finalists", {}) if not reason else {}
         slug, name = entry["slug"], entry["name"]
-        index_body += tile(name, f"list/{slug}.html", meta, results, reason)
+        index_body += tile(name, f"list/{slug}.html", meta, results, reason, coverage_view=all_view)
         pages[f"list/{slug}.html"] = document(
             f"{name} · top counters",
             meta,
             list_body(meta, results, reason),
             home + overall_nav + f'<a href="../counters/{e(slug)}.html">Counter details</a>',
             script=True,
+            coverage_view=all_view,
         )
         pages[f"counters/{slug}.html"] = document(
             f"{name} · counters",
             meta,
             counters_body(meta, results, reason),
             home + f'<a href="../list/{e(slug)}.html">Ranked list</a>',
+            coverage_view=all_view,
         )
         del data, report, results, meta
     for view, title in (("all", "All Rocket"), ("grunts", "Grunts"), ("leaders", "Leaders")):
@@ -625,6 +746,7 @@ def build_site(data_dir, out):
             list_body(overall_meta, data.get("results", {}), overall_reason, coverage(data)),
             home + overall_nav,
             script=True,
+            coverage_view=data,
         )
     pages["index.html"] = document(
         "Rocket counters · top 3",
@@ -632,13 +754,9 @@ def build_site(data_dir, out):
         index_body + "</div>",
         '<a href="list/all.html">All Rocket</a><a href="list/grunts.html">Grunts</a>'
         '<a href="list/leaders.html">Leaders</a>',
+        coverage_view=all_view,
     )
-    for relative in pages:
-        target = destination / relative
-        if not target.resolve().is_relative_to(destination):
-            raise ValueError(f"output path outside --out: {relative}")
-    for relative, body in pages.items():
-        atomic_text(destination / relative, body)
+    publish_pages(destination, pages)
     return len(pages)
 
 
