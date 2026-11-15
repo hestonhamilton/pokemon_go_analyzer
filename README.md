@@ -223,8 +223,10 @@ When `topn` supplies a trial runner, engine rows report
 This counts workers within one aggregate; precompute still maps builds across workers.
 
 Offline CI compares battles and full aggregates against the reference.
-The measured overall completion for all 26 characters fell from about 150 core-hours
-to about 44 CPU-minutes. All 22,750 build × character results were identical.
+On the sources of a measured full run, overall completion for all 26 characters fell
+from about 150 core-hours to about 55 CPU-minutes (14 minutes on 4 workers). All 22,750
+build × character results were identical. Stage 1, the 1v1 screen, is unchanged and is
+now most of a per-character run.
 
 ## Top-N counters (estimate)
 
