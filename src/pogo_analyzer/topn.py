@@ -7,7 +7,7 @@ from functools import partial
 from statistics import mean
 
 from . import calc_cli as calc
-from .sim import winrate
+from .sim import solo, winrate
 from .sim.grades import weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
@@ -241,18 +241,22 @@ def full_result(
     trial_runner=None,
     rules=DEFAULT_ROCKET_RULES,
 ):
-    """The same lineup enumeration and aggregate as full sim; inject trials or battles."""
+    """Exact solo aggregation where supported, otherwise the reference simulator."""
     team = candidate.team
     execution = {}
-    if trial_runner is None:
-        trials = winrate.trials(
-            team, pools, rank=rank, battle_date=battle_date, battle=battle, rules=rules
-        )
+    if battle is simulate_rocket and solo.supports(team, pools, rules):
+        row = solo.aggregate(team, pools, rank=rank, battle_date=battle_date, rules=rules)
+        execution.update(mode="exact solo engine", workers=1)
     else:
-        trials = trial_runner(
-            team, pools, rank=rank, battle_date=battle_date, execution=execution, rules=rules
-        )
-    row = winrate.aggregate(team, trials)
+        if trial_runner is None:
+            trials = winrate.trials(
+                team, pools, rank=rank, battle_date=battle_date, battle=battle, rules=rules
+            )
+        else:
+            trials = trial_runner(
+                team, pools, rank=rank, battle_date=battle_date, execution=execution, rules=rules
+            )
+        row = winrate.aggregate(team, trials)
     if trial_runner is not None:
         # Keep repeated topn JSON stable without changing sim's timing reports.
         execution.pop("runtime_seconds", None)

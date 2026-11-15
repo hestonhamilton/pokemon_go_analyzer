@@ -12,7 +12,7 @@ import pytest
 from pogo_analyzer import calc_cli, cli, sim_cli, topn, topn_cli
 from pogo_analyzer.lineups import EVENT_INFO_URL, PVPOKE_GM_URL
 from pogo_analyzer.pokebattler import PoliteClient
-from pogo_analyzer.sim import winrate
+from pogo_analyzer.sim import solo, winrate
 
 FIXTURES = Path(__file__).parent / "fixtures" / "calc"
 
@@ -85,13 +85,13 @@ def finalists(data):
 @pytest.mark.parametrize("k", [1, 2])
 def test_cli_k_limits_stage_two(cache, capsys, monkeypatch, k):
     calls = []
-    original = sim_cli._timed_trials
+    original = solo.aggregate
 
     def counted(team, pools, **kwargs):
         calls.append(team)
         return original(team, pools, **kwargs)
 
-    monkeypatch.setattr(sim_cli, "_timed_trials", counted)
+    monkeypatch.setattr(solo, "aggregate", counted)
     data = output(cache, capsys, ["--k", str(k)])
     assert len(finalists(data)) == 2 * k
     assert len(calls) == 3 * len(finalists(data))  # Era result plus two sensitivity passes.
@@ -100,6 +100,9 @@ def test_cli_k_limits_stage_two(cache, capsys, monkeypatch, k):
     assert all(type(level) is float for level in data["params"]["levels"])
     assert data["params"]["trainer_level"] == 50
     assert all(r["battles"] == 1 for r in finalists(data))
+    assert all(
+        r["execution"] == {"mode": "exact solo engine", "workers": 1} for r in finalists(data)
+    )
 
 
 def test_default_pause_band_and_none_preserve_ranking_and_fields(cache, capsys):
@@ -217,7 +220,8 @@ def test_era_only_pause_band_rejected_before_sources(cache, capsys, monkeypatch,
     )
 
 
-def test_screen_top_k_and_moves_ties_are_deterministic(cache):
+def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
+    monkeypatch.setattr(solo, "supports", lambda *a: False)
     builds = candidates(cache, (40, 50))
     calls = []
     scores = {"metagross": 0.9, "kirlia": 0.5, "snubbull": 0.5}
@@ -269,7 +273,8 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache):
             assert row["screen"]["grid_limitation"] == winrate.GRID_NOTE
 
 
-def test_full_sort_uses_win_rate_hp_then_turns(cache):
+def test_full_sort_uses_win_rate_hp_then_turns(cache, monkeypatch):
+    monkeypatch.setattr(solo, "supports", lambda *a: False)
     # Distinct synthetic source identities keep all four builds through screening.
     builds = [
         topn.Candidate(f"s{i}", c.attacker, c.move_flags)
@@ -456,13 +461,13 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
 
     monkeypatch.setattr(topn, "screen_candidate", different_favorites)
     calls = []
-    original_trials = sim_cli._timed_trials
+    original_trials = solo.aggregate
 
     def counted(team, pools, **kwargs):
         calls.append(kwargs["rank"])
         return original_trials(team, pools, **kwargs)
 
-    monkeypatch.setattr(sim_cli, "_timed_trials", counted)
+    monkeypatch.setattr(solo, "aggregate", counted)
     data = output(cache, capsys, ["--k", "1", "--level", "40"], all_characters=True)
     assert len(calls) == 12  # 3 finalists x 3 passes + 3 overall-only results with no band.
     coverage = data["overall"]["coverage"]
