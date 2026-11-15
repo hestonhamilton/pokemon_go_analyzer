@@ -45,6 +45,7 @@ class Candidate:
             "speciesId": self.species_id,
             "species": item["speciesId"],
             "form": item["form"],
+            "types": list(item["types"]),
             "level": item["level"],
             "ivs": dict(item["ivs"]),
             "fast_move": fast.id,
@@ -306,6 +307,16 @@ def overall_view(characters, results, *, ranks=None):
                     )
                 },
                 "win_rate": mean(r["win_rate"] for r in contributions),
+                **({"types": first["types"]} if "types" in first else {}),
+                **(
+                    {
+                        "mean_rocket_knocked_out": mean(
+                            r["mean_rocket_knocked_out"] for r in contributions
+                        )
+                    }
+                    if all("mean_rocket_knocked_out" in r for r in contributions)
+                    else {}
+                ),
                 "mean_player_hp_fraction_left": mean(
                     r["mean_player_hp_fraction_left"] for r in contributions
                 ),

@@ -319,6 +319,55 @@ workers inherit it. `--nice 0` leaves priority unchanged. Progress goes only to 
 The nightly timer is a separate machine setup step that passes `--workers 12` at idle
 priority; this command does not install a timer. The `sim` and `topn` defaults are unchanged.
 
+## Static site (estimate)
+
+Render a precompute directory without running battles or fetching sources:
+
+```sh
+uv run pogo-analyzer site --data reports --out public
+python -m http.server 8000 --directory public
+```
+
+Open `http://localhost:8000` to view the site. The output is plain static HTML with
+inline CSS, system fonts, light/dark colors and no remote assets or runtime dependencies.
+Source URLs appear as visible text only. Files are replaced atomically under `--out`;
+rerunning the command is safe. Use a dedicated output directory: pages from characters
+removed from a later manifest are not pruned automatically.
+
+- `index.html`: level-40 top-three tiles for All Rocket and every manifest character.
+- `list/<slug>.html` and `list/all.html`, `list/grunts.html`, `list/leaders.html`:
+  ranked lists with level sections, attacker-type filter chips, win rate, percentage
+  of the current view's best counter, Rocket KOs, HP left and headline grades.
+- `counters/<slug>.html`: ranked counters with native expandable rows containing the
+  stage-1 screen and its own grade, conditional species win rates per Rocket slot,
+  and one calc summary row per slot/species. Each calc column shows the range over
+  Rocket movesets and its weakest contributing cell grade.
+
+All pages work without JavaScript. A short inline script filters list rows by attacker
+type and updates rank and percentage of best; without it, every row remains visible.
+Both levels 40 and 50 have sections, with an explicit reason when not calculated.
+Elite/legacy moves are badged with a legend; shadow forms are marked. New precompute
+reports include attacker types and overall mean Rocket KOs. Older reports that lack
+these fields show “types not recorded” or “not recorded” rather than guessing.
+
+The trust strip, assumptions line and notes show the complete validation label,
+UNVALIDATED when appropriate, open discrepancy IDs from validation data, estimate
+marks on simulator numbers, pool completeness and extrapolation grades, rCPM and
+moveset-pool notes, equal-weight model assumptions, player charging/shield policies,
+level, IVs, trainer level, Mega and move filters, credits and every source's fetch time.
+Screen numbers carry the grid caveat. Every page explains the model's sensitivity to
+the assumed Rocket pause after charged attacks (ledger row k).
+
+The renderer checks report keys against the manifest, ignores unlisted files and
+dotfiles, and shows stale, missing or unavailable reports with a reason. Stale overall
+results are suppressed. Each file's own `computed_for_battle_date`, date source and
+`valid_for` era are displayed, including on home tiles; the manifest's current run date
+does not replace a reused file's date. Dates before 2019-07-22 are rejected.
+
+The landing-page golden is refreshed deliberately with
+`POGO_UPDATE_SITE_GOLDEN=1 uv run pytest -q tests/test_site.py::test_index_golden`;
+review `tests/fixtures/site/expected_index.html` after changing the renderer.
+
 ## Development checks
 
 - `uv run pytest -q` runs offline. An autouse fixture blocks the network, and the calculator and
