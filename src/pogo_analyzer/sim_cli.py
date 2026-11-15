@@ -9,7 +9,6 @@ import re
 import signal
 import sys
 import time
-from dataclasses import asdict
 from datetime import date
 from functools import partial
 from pathlib import Path
@@ -17,7 +16,7 @@ from pathlib import Path
 from . import calc_cli as calc
 from .sim.calculator import calculate_matchup
 from .sim.grades import GRADES, grade_row, weakest
-from .sim.rocket import DEFAULT_ROCKET_RULES, rocket_combatant, simulate_rocket
+from .sim.rocket import DEFAULT_ROCKET_RULES, rocket_combatant, rules_dict, simulate_rocket
 from .sim.stats import rcpm
 from .sim.validation import DEFAULT_FIXTURES, run_acceptance
 from .sim.winrate import (
@@ -226,10 +225,10 @@ def _trial(lineup, *, team, rank, battle_date, rules):
     return lineup, battle_summary(result, team)
 
 
-def _timed_trials(team, pools, *, rank, battle_date, execution):
+def _timed_trials(team, pools, *, rank, battle_date, execution, rules=DEFAULT_ROCKET_RULES):
     """Serial until this character actually exceeds two minutes; preserve result order."""
     pending = lineups(pools)
-    run = partial(_trial, team=team, rank=rank, battle_date=battle_date, rules=DEFAULT_ROCKET_RULES)
+    run = partial(_trial, team=team, rank=rank, battle_date=battle_date, rules=rules)
     start = time.perf_counter()
     execution.update(mode="serial", workers=1)
     workers = _workers()
@@ -347,7 +346,7 @@ def build_output(args):
         "validation_label": validation["label"],
         "estimate_label": "estimate (every number)",
         "battle_date": stamp,
-        "rules": asdict(DEFAULT_ROCKET_RULES),
+        "rules": rules_dict(DEFAULT_ROCKET_RULES),
         "player_policy": "ChargedWhenReady",
         "player_shield_policy": "first_two",
         "mode": "per-slot 1v1 grid" if args.per_slot else "full fixed-order team battles",

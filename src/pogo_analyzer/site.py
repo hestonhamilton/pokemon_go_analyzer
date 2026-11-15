@@ -13,6 +13,22 @@ PAUSE_NOTE = (
     "Rankings depend strongly on the modelled Rocket pause after each charged attack "
     "(verification ledger row k); its trigger is an owner observation and not measured."
 )
+
+
+def pause_band_legend(data):
+    """Legend from the run's own band settings; the threshold is a model choice."""
+    params = data.get("params", {})
+    threshold = params.get("pause_threshold", 0.15)
+    turns = params.get("pause_band") or []
+    span = f"{min(turns)} and {max(turns)} turns" if turns else "the tested pause lengths"
+    return (
+        "Pause band: win-rate range over the tested charged-attack and faint pause lengths "
+        "(verification ledger row k); ranking uses the era value. "
+        f"pause-sensitive: the win rate moves more than {threshold:g} between {span}; "
+        "threshold is a model choice."
+    )
+
+
 CSS = """
 :root{--bg:#eef0ec;--panel:#fbfbf8;--ink:#1d2321;--muted:#5d6762;--line:#d3d8d2;
 --accent:#1f5f8b;--win:#2f7d4f;--amber:#9a6200;--violet:#6a4c9c;
@@ -44,6 +60,7 @@ border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font:6
 var(--display);color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .num{font-family:var(--mono);text-align:right;white-space:nowrap}.est-mark{font:500 .62rem
 var(--mono);color:var(--muted);vertical-align:super;margin-left:2px}.mon{font-weight:600}
+.pause-band{display:block;white-space:normal;font-size:.74rem}
 .notes{padding:10px 14px 14px;border-top:1px solid var(--line);display:grid;gap:5px;
 font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}.notes b{color:var(--ink)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
@@ -104,6 +121,22 @@ def estimate(value, *, percent=False):
         return '<span class="moves">not recorded</span>'
     formatted = f"{value * 100:.1f}%" if percent else f"{value:.2f}".rstrip("0").rstrip(".")
     return f'{e(formatted)}<span class="est-mark" title="estimate">est</span>'
+
+
+def win_rate(row):
+    text = estimate(row.get("win_rate"), percent=True)
+    band = row.get("pause_band")
+    if not band:
+        return text + '<span class="pause-band">band not computed</span>'
+    first, last = band["turns"][0], band["turns"][-1]
+    text += (
+        f'<span class="pause-band" title="{e(band.get("note", ""))}">'
+        f"({e(first)}–{e(last)} turns: {estimate(band['min'], percent=True)}"
+        f"–{estimate(band['max'], percent=True)})"
+    )
+    if band.get("sensitive"):
+        text += " " + chip("pause-sensitive", "warn")
+    return text + "</span>"
 
 
 def provenance(data):
@@ -250,7 +283,7 @@ def levels(data, results):
     )
 
 
-def list_body(data, results, reason, extra=""):
+def list_body(data, results, reason, extra="", *, overall=False):
     level_keys = levels(data, results)
     body = (
         extra
@@ -259,6 +292,11 @@ def list_body(data, results, reason, extra=""):
         + '</nav><p class="legend">Badges: elite = elite move; legacy = legacy move. '
     )
     body += "Ranked by win rate, HP left, then turns. % of best uses the current filtered view.</p>"
+    body += (
+        '<p class="legend">pause band not computed for the overall list</p>'
+        if overall
+        else f'<p class="legend">{e(pause_band_legend(data))}</p>'
+    )
     for level in level_keys:
         rows = ordered(results.get(level, []))
         body += (
@@ -302,7 +340,7 @@ def list_body(data, results, reason, extra=""):
             types_text = " / ".join(row.get("types", [])) or "types not recorded"
             body += f"<td data-rank>{rank}</td><td>{counter_name(row)}</td>"
             body += f"<td>{e(types_text)}</td>"
-            body += f'<td class="num">{estimate(row["win_rate"], percent=True)}</td>'
+            body += f'<td class="num">{win_rate(row)}</td>'
             ratio_text = f"{ratio * 100:.1f}%" if ratio is not None else "—"
             body += (
                 f'<td class="num"><span data-best>{e(ratio_text)}</span>'
@@ -408,6 +446,7 @@ def counters_body(data, results, reason):
         + '</nav><p class="legend">Badges: elite = elite move; legacy = legacy move. '
     )
     body += "Ranked by win rate, HP left, then turns. Expand a counter for its details.</p>"
+    body += f'<p class="legend">{e(pause_band_legend(data))}</p>'
     for level in level_keys:
         body += (
             f'<section id="level-{e(level)}"><h2>Level {e(level)}</h2>{assumptions(data, level)}'
@@ -448,10 +487,10 @@ def counters_body(data, results, reason):
                 f"<span>{rank}.</span><span>{counter_name(row)}</span>"
             )
             for key, label, percent in columns:
-                body += (
-                    f'<span class="num"><span class="sr-only">{label}: </span>'
-                    f"{estimate(row.get(key), percent=percent)}</span>"
+                value = (
+                    win_rate(row) if key == "win_rate" else estimate(row.get(key), percent=percent)
                 )
+                body += f'<span class="num"><span class="sr-only">{label}: </span>{value}</span>'
             body += (
                 f"<span>{grades(row.get('grade'), row.get('flags', []))}</span></span></summary>"
             )
@@ -622,7 +661,9 @@ def build_site(data_dir, out):
         pages[f"list/{view}.html"] = document(
             f"{title} · top counters",
             overall_meta,
-            list_body(overall_meta, data.get("results", {}), overall_reason, coverage(data)),
+            list_body(
+                overall_meta, data.get("results", {}), overall_reason, coverage(data), overall=True
+            ),
             home + overall_nav,
             script=True,
         )

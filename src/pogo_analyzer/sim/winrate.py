@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from itertools import product
 
 from .battle import Combatant
-from .rocket import DEFAULT_ROCKET_RULES, simulate_rocket
+from .rocket import DEFAULT_ROCKET_RULES, rules_dict, simulate_rocket
 
 GRID_NOTE = "ignores carried-over shields and HP between slots"
 SORT_NOTE = "win_rate descending, mean player HP fraction left descending, mean turns ascending"
@@ -80,7 +80,7 @@ def battle_summary(result, team):
         "fainted": sorted(fainted),
         "battle_date": result.battle_date,
         "era": result.era,
-        "rules": asdict(result.rules),
+        "rules": rules_dict(result.rules),
         "ledger_rows": result.ledger_rows,
         "flags": result.flags,
         "evidence": [asdict(e) for e in result.evidence],

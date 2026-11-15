@@ -1,5 +1,7 @@
 """Hand arithmetic checks of model rules, never Rocket acceptance targets."""
 
+import hashlib
+import json
 import warnings
 from dataclasses import asdict, replace
 from datetime import date
@@ -16,6 +18,7 @@ from pogo_analyzer.sim.battle import (
 from pogo_analyzer.sim.calculator import Move
 from pogo_analyzer.sim.rocket import RocketRules, rocket_combatant, rule_data, simulate_rocket
 from pogo_analyzer.sim.stats import rocket_stats
+from pogo_analyzer.sim.winrate import battle_summary
 
 # Zero power still does floor(0)+1 = 1, irrespective of shadows or typing.
 F = Move("F", "normal", 0, 1, energy_gain=0)
@@ -42,6 +45,63 @@ def starts(result, side, kind="fast"):
         for r in result.timeline
         if any(a.startswith(f"{kind}:start:") for a in r.core.actions[side])
     ]
+
+
+def test_default_fixture_output_bytes_unchanged():
+    player, rocket = mon(4, charged=(C,), energy=20), mon(11)
+    default = simulate_rocket([player], [rocket], battle_date=None)
+    explicit = simulate_rocket(
+        [player], [rocket], battle_date=None, rules=RocketRules(pause_turns_override=None)
+    )
+    assert default == explicit
+    payload = {
+        **battle_summary(default, [player]),
+        "timeline": [asdict(t) for t in default.timeline],
+    }
+    # Captured before adding the override field; covers all summary and timeline bytes.
+    assert hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest() == (
+        "78b0015220aa008bacb702ad45f299c95059b0a9dce4d3e2ffe1c029d5e70882"
+    )
+
+
+@pytest.mark.parametrize("turns,winner", [(6, "rocket"), (8, "player")])
+def test_pause_override_changes_fixture_outcome(turns, winner):
+    player, rocket = mon(4, charged=(C,), energy=20), mon(11)
+    result = simulate_rocket(
+        [player], [rocket], battle_date=None, rules=RocketRules(pause_turns_override=turns)
+    )
+    assert result.winner == winner
+    assert result.pause_lengths == (turns, turns, 9)
+    assert result.timeline[0].pause_through == turns + 2
+    summary = battle_summary(result, [player])
+    assert summary["rules"]["pause_turns_override"] == turns
+    assert any(
+        e["row"] == "k"
+        and e["grade"] == "pause length override (sensitivity run, not a source value)"
+        and e["option"] == f"pause_turns_override:{turns}"
+        for e in summary["evidence"]
+    )
+
+
+@pytest.mark.parametrize("turns", [1, 20])
+@pytest.mark.parametrize("stamp,switch", [("2026-01-01", 12), (None, 9)])
+def test_pause_override_changes_faint_but_keeps_manual_switch(turns, stamp, switch):
+    result = simulate_rocket(
+        [mon()],
+        [mon(1), mon()],
+        battle_date=stamp,
+        rules=RocketRules(pause_turns_override=turns),
+        max_turns=24,
+        player_policy=FastOnly(),
+    )
+    assert result.pause_lengths == (turns, turns, switch)
+    assert starts(result, 1) == [1, *range(turns + 2, 25)]
+
+
+@pytest.mark.parametrize("value", [0, -1, 21, True, False, 6.0, "6", float("nan")])
+def test_invalid_pause_override(value):
+    with pytest.raises(ValueError, match="pause_turns_override"):
+        RocketRules(pause_turns_override=value)
 
 
 @pytest.mark.parametrize(

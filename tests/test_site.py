@@ -104,6 +104,12 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
         assert not re.search(r"url\s*\(\s*['\"]?https?://", html, re.I)
         if path.startswith("counters/"):
             assert "<script>" not in html  # Native details never need script.
+        if path.startswith(("list/", "counters/")):
+            if path in ("list/all.html", "list/grunts.html", "list/leaders.html"):
+                assert "pause band not computed for the overall list" in html
+            else:
+                assert "pause-sensitive: the win rate moves more than" in html
+                assert "threshold is a model choice" in html
     for entry in manifest["characters"]:
         data = read(reports, entry["file"])
         if data["character"].get("reason"):
@@ -159,6 +165,8 @@ def test_hostile_data_is_escaped(reports, tmp_path):
                 row["fast_move"] = hostile
                 row["screen"]["grid_limitation"] = hostile
                 row["calc_rows"][0]["defender"]["value"] = hostile
+                row["pause_band"]["note"] = hostile
+                row["pause_band"]["turns"] = [hostile, hostile]
 
     change(reports, entry["file"], mutate)
     pages = build(reports, tmp_path / "site")
@@ -382,6 +390,41 @@ def test_old_reports_without_types_or_overall_kos_are_explicit(reports, tmp_path
     html = build(reports, tmp_path / "site")["list/all.html"]
     assert "types not recorded" in html
     assert '<td class="num"><span class="moves">not recorded</span></td>' in html
+
+
+def test_pause_band_range_chip_and_old_reports(reports, tmp_path):
+    entry = read(reports, "manifest.json")["characters"][0]
+
+    def mutate(data):
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row["win_rate"] = 0.97
+                row["pause_band"].update(min=0.80, max=1.0, sensitive=True)
+
+    change(reports, entry["file"], mutate)
+    pages = build(reports, tmp_path / "site")
+    paths = [f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"]
+    for path in paths:
+        html = pages[path]
+        assert site.estimate(0.97, percent=True) in html
+        assert "(6–8 turns:" in html
+        assert site.estimate(0.80, percent=True) in html
+        assert site.estimate(1.0, percent=True) in html
+        assert site.chip("pause-sensitive", "warn") in html
+        assert "threshold is a model choice" in html
+        assert "moves more than 0.15 between" in html
+        assert "verification ledger row k" in html
+
+    def remove(data):
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row.pop("pause_band")
+
+    change(reports, entry["file"], remove)
+    pages = build(reports, tmp_path / "old-site")
+    for path in paths:
+        assert "band not computed" in pages[path]
+        assert site.chip("pause-sensitive", "warn") not in pages[path]
 
 
 def test_single_character_precompute_without_overall(reports, tmp_path):

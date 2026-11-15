@@ -2,7 +2,6 @@
 
 import json
 import sys
-from dataclasses import asdict
 from datetime import date
 from functools import partial
 from math import prod
@@ -13,7 +12,7 @@ from . import sim_cli as sim
 from . import topn
 from .sim.calculator import calculate_matchup
 from .sim.grades import GRADES, grade_row, weakest
-from .sim.rocket import DEFAULT_ROCKET_RULES, _era, rule_data
+from .sim.rocket import DEFAULT_ROCKET_RULES, _era, rule_data, rules_dict
 from .sim.stats import player_stats, rcpm
 from .sim.validation import DEFAULT_FIXTURES, run_acceptance
 from .sim.winrate import SORT_NOTE
@@ -34,6 +33,15 @@ def add_options(sub):
     sub.add_argument("--level", type=float, action="append")
     sub.add_argument("--trainer-level", type=int, default=50)
     sub.add_argument("--k", type=int, default=30)
+    sub.add_argument(
+        "--pause-band", type=topn.parse_pause_band, default="6,8", help="Pause lengths, or none"
+    )
+    sub.add_argument(
+        "--pause-threshold",
+        type=topn.parse_pause_threshold,
+        default=topn.PAUSE_BAND_THRESHOLD,
+        help="Win-rate spread that marks a row pause-sensitive (model choice; default 0.15)",
+    )
     sub.add_argument("--candidates", help="Comma-separated PvPoke species IDs or names")
     sub.add_argument("--exclude-elite-legacy", action="store_true")
     sub.add_argument("--rcpm-table", choices=calc.TABLES, default="dec-2025")
@@ -186,7 +194,7 @@ def prepare_output(args):
         "battle_date": stamp,
         "battle_date_source": "default: run date" if args.battle_date is None else "explicit",
         "era": era["id"],
-        "rules": asdict(DEFAULT_ROCKET_RULES),
+        "rules": rules_dict(DEFAULT_ROCKET_RULES),
         "player_policy": "ChargedWhenReady",
         "player_shield_policy": "first_two",
         "mode": "two-stage solo counter ranking",
@@ -211,6 +219,8 @@ def prepare_output(args):
             "ivs": dict(topn.IVS),
             "trainer_level": args.trainer_level,
             "k": args.k,
+            "pause_band": list(args.pause_band),
+            "pause_threshold": args.pause_threshold,
             "exclude_elite_legacy": args.exclude_elite_legacy,
             "candidate_count": len({c.species_id for c in candidates}),
         },
@@ -249,6 +259,8 @@ def rank_report(
         battle_date=stamp,
         trial_runner=trial_runner,
         mapper=mapper,
+        pause_band=args.pause_band,
+        pause_threshold=args.pause_threshold,
         # The worker receives a module-level callable over picklable source inputs.
         stats_grade=partial(
             _screen_stats_grade,

@@ -438,8 +438,23 @@ def test_parallel_equals_serial_including_overall_completion(
     assert first == second
     assert len(first["overall.json"]["all"]["results"]["40"]) == 2
     assert sum(size for function, size in mapped if function is _favor_by_rank) == 10
-    # Two local finalists and the two missing overall-union battles all use the pool.
-    assert sum(size for function, size in mapped if function is topn.full_result) == 4
+    # Two finalists x three passes, plus two overall-only builds, all use the pool.
+    assert sum(size for function, size in mapped if function is topn.full_result) == 8
+
+
+def test_pause_band_params_invalidate_reuse(cache, tmp_path):
+    out = tmp_path / "reports"
+    first = run(cache, out)
+    reordered = run(cache, out, "--pause-band", "8,6,6")
+    assert reordered["shared_key"] == first["shared_key"]
+    assert reordered["characters"][0]["status"] == "reused"
+    for setting, expected in (("none", []), ("5,9", [5, 9])):
+        changed = run(cache, out, "--pause-band", setting)
+        assert changed["params"]["pause_band"] == expected
+        assert changed["shared_key"] != first["shared_key"]
+        assert changed["characters"][0]["key"] != first["characters"][0]["key"]
+        assert changed["overall"]["key"] != first["overall"]["key"]
+        assert changed["characters"][0]["status"] == changed["overall"]["status"] == "computed"
 
 
 @pytest.mark.parametrize("existing", [False, True])

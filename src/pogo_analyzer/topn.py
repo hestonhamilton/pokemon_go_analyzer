@@ -1,14 +1,14 @@
 """Pure two-stage counter ranking over the existing offline calculator and simulator."""
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from statistics import mean
 
 from . import calc_cli as calc
 from .sim import winrate
 from .sim.grades import weakest
-from .sim.rocket import simulate_rocket
+from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
 SCREEN_NOTE = (
     "Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. "
@@ -22,6 +22,36 @@ WEIGHTING_NOTE = (
 )
 UNAVAILABLE = "not calculated: at least one slot has no resolved options"
 IVS = {"atk": 15, "def": 15, "hp": 15}
+PAUSE_BAND_THRESHOLD = 0.15
+PAUSE_BAND_NOTE = (
+    "Win rate at other Rocket pause lengths (ledger row k); ranking uses the era value."
+)
+
+
+def parse_pause_threshold(value):
+    """A win-rate spread in (0, 1); the default 0.15 is a model choice, not a source value."""
+    try:
+        threshold = float(value)
+    except ValueError as exc:
+        raise ValueError("--pause-threshold must be a number") from exc
+    if not 0 < threshold < 1:
+        raise ValueError("--pause-threshold must be between 0 and 1")
+    return threshold
+
+
+def parse_pause_band(value):
+    """Normalize CLI lengths so order and duplicates do not change reuse keys."""
+    if value.strip().lower() == "none":
+        return ()
+    try:
+        turns = tuple(sorted({int(part.strip()) for part in value.split(",")}))
+        for turn in turns:
+            RocketRules(pause_turns_override=turn)
+    except ValueError:
+        raise ValueError(
+            "--pause-band must be comma-separated integers from 1 to 20, or none"
+        ) from None
+    return turns
 
 
 @dataclass
@@ -194,14 +224,27 @@ def screen_candidates(
     return [(c, s) for _, c, s in sorted(best.values(), key=lambda entry: entry[0])]
 
 
-def full_result(candidate, pools, *, rank, battle_date, battle=simulate_rocket, trial_runner=None):
+def full_result(
+    candidate,
+    pools,
+    *,
+    rank,
+    battle_date,
+    battle=simulate_rocket,
+    trial_runner=None,
+    rules=DEFAULT_ROCKET_RULES,
+):
     """The same lineup enumeration and aggregate as full sim; inject trials or battles."""
     team = candidate.team
     execution = {}
     if trial_runner is None:
-        trials = winrate.trials(team, pools, rank=rank, battle_date=battle_date, battle=battle)
+        trials = winrate.trials(
+            team, pools, rank=rank, battle_date=battle_date, battle=battle, rules=rules
+        )
     else:
-        trials = trial_runner(team, pools, rank=rank, battle_date=battle_date, execution=execution)
+        trials = trial_runner(
+            team, pools, rank=rank, battle_date=battle_date, execution=execution, rules=rules
+        )
     row = winrate.aggregate(team, trials)
     if trial_runner is not None:
         # Keep repeated topn JSON stable without changing sim's timing reports.
@@ -228,6 +271,8 @@ def rank_character(
     stats_grade=None,
     pool_complete=True,
     mapper=map,
+    pause_band=(),
+    pause_threshold=PAUSE_BAND_THRESHOLD,
 ):
     """Run stage 2 only for the top K species per level, before full-result sorting."""
     if k < 1:
@@ -262,6 +307,41 @@ def rank_character(
     levels = {level: [] for level in counts}
     for (candidate, screen), row in zip(finalists, rows, strict=True):
         levels[candidate.key[1]].append({**row, **candidate.output(), "screen": screen})
+    if pause_band and finalists:
+        era, _ = _era(battle_date, rule_data())
+        era_turns = era["charged"]
+        turns = sorted({era_turns, *pause_band})
+        by_key = {row_key(row): row for rows in levels.values() for row in rows}
+        rates = {key: {str(era_turns): row["win_rate"]} for key, row in by_key.items()}
+        builds = [c for c, _ in finalists]
+        for turn in turns:
+            if turn == era_turns:
+                continue
+            band_rows = full_results(
+                builds,
+                pools,
+                mapper=mapper,
+                rank=rank,
+                battle_date=battle_date,
+                battle=battle,
+                trial_runner=trial_runner,
+                rules=replace(DEFAULT_ROCKET_RULES, pause_turns_override=turn),
+            )
+            for candidate, row in zip(builds, band_rows, strict=True):
+                rates[candidate.key][str(turn)] = row["win_rate"]
+        for key, row in by_key.items():
+            values = {str(turn): rates[key][str(turn)] for turn in turns}
+            low, high = min(values.values()), max(values.values())
+            row["pause_band"] = {
+                "turns": turns,
+                "win_rate": values,
+                "min": low,
+                "max": high,
+                "sensitive": high - low > pause_threshold,
+                "threshold": pause_threshold,
+                "threshold_note": "model choice",
+                "note": PAUSE_BAND_NOTE,
+            }
     return {level: winrate.sort_results(rows) for level, rows in levels.items()}
 
 

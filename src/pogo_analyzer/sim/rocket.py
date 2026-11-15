@@ -10,7 +10,7 @@ import json
 import math
 import warnings
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from fractions import Fraction
 from importlib.resources import files
@@ -58,6 +58,8 @@ class RocketRules:
     player_shield_threshold: float = 0.5
     timer: bool = True
     turn_rules: Rules = PVPOKE_RULES
+    # Sensitivity only: replace charged/faint pauses, keeping manual switch unchanged.
+    pause_turns_override: int | None = None
 
     def __post_init__(self):
         for name in ("pauses", "era_turn_rules", "rocket_shields", "timer"):
@@ -65,6 +67,10 @@ class RocketRules:
                 raise ValueError(f"{name} must be boolean")
         if self.pause_reading not in ("9db", "cwizz1"):
             raise ValueError("pause_reading must be 9db or cwizz1")
+        if self.pause_turns_override is not None and (
+            type(self.pause_turns_override) is not int or not 1 <= self.pause_turns_override <= 20
+        ):
+            raise ValueError("pause_turns_override must be an integer between 1 and 20 or None")
         if self.pause_trigger not in (None, "player_charged", "any_charged"):
             raise ValueError("pause_trigger must be player_charged or any_charged")
         if self.faint_trigger not in (None, "rocket_replacement", "any_replacement"):
@@ -96,6 +102,14 @@ class RocketRules:
 
 
 DEFAULT_ROCKET_RULES = RocketRules()
+
+
+def rules_dict(rules: RocketRules) -> dict:
+    """Keep default JSON unchanged; record overrides only when supplied."""
+    result = asdict(rules)
+    if rules.pause_turns_override is None:
+        result.pop("pause_turns_override")
+    return result
 
 
 @dataclass(frozen=True)
@@ -225,6 +239,8 @@ class _RocketBattle(_BattleHooks):
         self.shields = [2, 2 if self.rocket_shield_policy == "first_two" else 0]
         reading = era if rules.pause_reading == "9db" else data["cwizz1"]
         self.lengths = tuple(reading[k] for k in ("charged", "faint", "manual_switch"))
+        if rules.pause_turns_override is not None:
+            self.lengths = (rules.pause_turns_override, rules.pause_turns_override, self.lengths[2])
         self.pause_through = 0
         self.deadline = data["timer"]["base_turns"] if rules.timer else None
         self.per_charge = data["timer"]["per_charged_turns"]
@@ -394,6 +410,15 @@ def simulate_rocket(
         "A final knockout takes precedence over timeout on the same turn. "
         "Equal timeout scores draw.",
     ]
+    if rules.pause_turns_override is not None:
+        evidence.append(
+            Evidence(
+                "k",
+                "pause length override (sensitivity run, not a source value)",
+                f"pause_turns_override:{rules.pause_turns_override}",
+                "docs/rocket-battle-mechanics.md#5-shields-switching-and-the-npcs-behaviour",
+            )
+        )
     # Mar 2026 accounts support the trigger and the sum; earlier eras extend them.
     extension = (
         "" if era["id"] in data["cwizz1"]["eras"] else f" (applied to {era['id']} by extension)"

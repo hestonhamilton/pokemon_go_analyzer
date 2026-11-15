@@ -92,12 +92,87 @@ def test_cli_k_limits_stage_two(cache, capsys, monkeypatch, k):
 
     monkeypatch.setattr(sim_cli, "_timed_trials", counted)
     data = output(cache, capsys, ["--k", str(k)])
-    assert len(calls) == len(finalists(data)) == 2 * k
+    assert len(finalists(data)) == 2 * k
+    assert len(calls) == 3 * len(finalists(data))  # Era result plus two sensitivity passes.
     assert data["params"]["k"] == k
     assert data["params"]["levels"] == [40, 50]
     assert all(type(level) is float for level in data["params"]["levels"])
     assert data["params"]["trainer_level"] == 50
     assert all(r["battles"] == 1 for r in finalists(data))
+
+
+def test_default_pause_band_and_none_preserve_ranking_and_fields(cache, capsys):
+    extra = ["--k", "2", "--level", "40"]
+    data = output(cache, capsys, extra)
+    disabled = output(cache, capsys, [*extra, "--pause-band", "none"])
+    assert data["params"].pop("pause_band") == [6, 8]
+    assert disabled["params"].pop("pause_band") == []
+    assert data["params"]["pause_threshold"] == disabled["params"]["pause_threshold"] == 0.15
+    for row in finalists(data):
+        band = row.pop("pause_band")
+        assert set(band) == {
+            "turns",
+            "win_rate",
+            "min",
+            "max",
+            "sensitive",
+            "threshold",
+            "threshold_note",
+            "note",
+        }
+        assert band["threshold_note"] == "model choice"
+        assert band["turns"] == [6, 7, 8]
+        assert set(band["win_rate"]) == {"6", "7", "8"}
+        assert band["win_rate"]["7"] == row["win_rate"]
+        assert band["min"] == min(band["win_rate"].values())
+        assert band["max"] == max(band["win_rate"].values())
+        assert band["sensitive"] == (band["max"] - band["min"] > 0.15)
+        assert band["threshold"] == 0.15
+        assert band["note"] == topn.PAUSE_BAND_NOTE
+    assert all("pause_band" not in r for r in finalists(disabled))
+    assert data == disabled
+
+
+@pytest.mark.parametrize("spread,sensitive", [(0.15, False), (0.150001, True), (0, False)])
+@pytest.mark.parametrize("stamp,era_turns", [("2026-11-14", 7), ("2025-12-11", 8)])
+def test_pause_band_threshold_era_value_and_mapper(
+    cache, monkeypatch, spread, sensitive, stamp, era_turns
+):
+    builds = candidates(cache)[:1]
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+    calls, mapped = [], []
+
+    def full(candidate, pools, *, rules=None, **kwargs):
+        turn = rules.pause_turns_override if rules is not None else None
+        calls.append(turn)
+        return {
+            "win_rate": spread if turn == 6 else 0,
+            "mean_player_hp_fraction_left": 0,
+            "mean_turns": 1,
+        }
+
+    def mapper(function, items):
+        mapped.append(len(items))
+        return map(function, items)
+
+    monkeypatch.setattr(topn, "full_result", full)
+    ranked = topn.rank_character(
+        builds, pools, k=1, rank="grunt", battle_date=stamp, pause_band=(6, 8), mapper=mapper
+    )
+    (row,) = ranked[40]
+    assert row["pause_band"]["turns"] == sorted({6, 8, era_turns})
+    assert row["pause_band"]["win_rate"][str(era_turns)] == row["win_rate"] == 0
+    assert row["pause_band"]["sensitive"] is sensitive
+    assert calls == [None, *[t for t in (6, 8) if t != era_turns]]
+    assert mapped == [1] * (1 + len(calls))  # Screen and every full pass use the same mapper.
+
+
+@pytest.mark.parametrize("value", ["", "0", "21", "6.0", "6,", "none,8", "six"])
+def test_invalid_pause_band_rejected_before_sources(cache, monkeypatch, value):
+    monkeypatch.setattr(calc_cli, "load_sources", lambda *a: pytest.fail("must validate first"))
+    with pytest.raises(SystemExit) as exc:
+        cli.main([*args(cache), "--pause-band", value])
+    assert exc.value.code == 2
 
 
 def test_screen_top_k_and_moves_ties_are_deterministic(cache):
@@ -347,7 +422,7 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
 
     monkeypatch.setattr(sim_cli, "_timed_trials", counted)
     data = output(cache, capsys, ["--k", "1", "--level", "40"], all_characters=True)
-    assert len(calls) == 6  # 3 local finalists + 3 missing union results, no unavailable battles.
+    assert len(calls) == 12  # 3 finalists x 3 passes + 3 overall-only results with no band.
     coverage = data["overall"]["coverage"]
     assert coverage["characters_with_result"] == 3 and coverage["total"] == 4
     assert coverage["missing"] == [
@@ -379,6 +454,7 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
         rows = data["overall"][view]["results"]["40"]
         assert {r["speciesId"] for r in rows} == {"kirlia", "metagross"}
         for row in rows:
+            assert "pause_band" not in row
             assert row["grade"].startswith("estimate")
             assert row["label"] == "estimate (every number)"
             assert row["evidence"] and row["ledger_rows"] and row["interpretations"]
@@ -388,6 +464,7 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
             assert row["win_rate"] == pytest.approx(sum(r["win_rate"] for r in per) / len(per))
             # Overall entries are compact; calc cells stay on per-character finalists only.
             assert all("calc_rows" not in r and r["grade"].startswith("estimate") for r in per)
+            assert all("pause_band" not in r for r in per)
     assert all(r["calc_rows"] for r in finalists(data))
 
 
@@ -678,3 +755,36 @@ def test_unvalidated_still_estimate_and_empty_overall(cache, capsys, tmp_path):
     empty = topn_cli.build_output(parsed)
     assert empty["overall"]["coverage"]["characters_with_result"] == 0
     assert empty["overall"]["all"]["results"] == {}
+
+
+def test_pause_threshold_parameter_sets_sensitive_flag(cache, monkeypatch):
+    builds = candidates(cache)[:1]
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+
+    def full(candidate, pools, *, rules=None, **kwargs):
+        turn = rules.pause_turns_override if rules is not None else None
+        rate = 0.1 if turn == 6 else 0
+        return {"win_rate": rate, "mean_player_hp_fraction_left": 0, "mean_turns": 1}
+
+    monkeypatch.setattr(topn, "full_result", full)
+    for threshold, sensitive in ((0.15, False), (0.05, True)):
+        ranked = topn.rank_character(
+            builds,
+            pools,
+            k=1,
+            rank="grunt",
+            battle_date="2026-11-14",
+            pause_band=(6, 8),
+            pause_threshold=threshold,
+        )
+        band = ranked[40][0]["pause_band"]
+        assert band["threshold"] == threshold
+        assert band["sensitive"] is sensitive
+
+
+@pytest.mark.parametrize("value", ["0", "1", "-0.1", "x"])
+def test_invalid_pause_threshold_rejected_before_sources(cache, monkeypatch, value):
+    monkeypatch.setattr(calc_cli, "load_sources", lambda *a: pytest.fail("must validate first"))
+    with pytest.raises(SystemExit) as exc:
+        cli.main([*args(cache), "--pause-threshold", value])
+    assert exc.value.code == 2
