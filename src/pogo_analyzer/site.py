@@ -7,6 +7,7 @@ import shutil
 import tempfile
 from collections import defaultdict
 from datetime import date
+from decimal import Decimal
 from html import escape
 from math import floor
 from pathlib import Path
@@ -18,15 +19,30 @@ PAUSE_NOTE = (
 
 
 def pause_band_legend(data):
-    """Legend from the run's own band settings; the threshold is a model choice."""
+    """Escaped legend HTML with a fixed ledger link and the rows' actual band span."""
     params = data.get("params", {})
     threshold = params.get("pause_threshold", 0.15)
-    turns = params.get("pause_band") or []
-    span = f"{min(turns)} and {max(turns)} turns" if turns else "the tested pause lengths"
+    turns = [
+        turn
+        for rows in data.get("character", {}).get("finalists", {}).values()
+        for row in rows
+        for turn in row.get("pause_band", {}).get("turns", [])
+    ]
+    ledger = (
+        '<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
+        'docs/simulator-verification.md#ledger">verification ledger row k</a>'
+    )
+    note = (
+        "Pause band is a sensitivity check over assumed pause lengths, not a measured range "
+        f"({ledger}); ranking uses the era value. "
+    )
+    if params.get("pause_band") == [] or not turns:
+        return note + "band not computed for this run."
+    span = f"{e(min(turns))} and {e(max(turns))} turns"
+    points = format((Decimal(str(threshold)) * 100).normalize(), "f")
     return (
-        "Pause band: win-rate range over the tested charged-attack and faint pause lengths "
-        "(verification ledger row k); ranking uses the era value. "
-        f"pause-sensitive: the win rate moves more than {threshold:g} between {span}; "
+        note + f"pause-sensitive: the win rate moves more than {e(points)} percentage points "
+        f"between {span}; "
         "threshold is a model choice."
     )
 
@@ -152,8 +168,10 @@ def estimate(value, *, percent=False):
     return f'{e(formatted)}<span class="est-mark" title="estimate">est</span>'
 
 
-def win_rate(row):
+def win_rate(row, *, overall=False):
     text = estimate(row.get("win_rate"), percent=True)
+    if overall:
+        return text
     band = row.get("pause_band")
     if not band:
         return text + '<span class="pause-band">band not computed</span>'
@@ -329,7 +347,7 @@ def list_body(data, results, reason, extra="", *, overall=False):
     body += (
         '<p class="legend">pause band not computed for the overall list</p>'
         if overall
-        else f'<p class="legend">{e(pause_band_legend(data))}</p>'
+        else f'<p class="legend">{pause_band_legend(data)}</p>'
     )
     for level in level_keys:
         rows = ordered(results.get(level, []))
@@ -375,7 +393,7 @@ def list_body(data, results, reason, extra="", *, overall=False):
             types_text = " / ".join(row.get("types", [])) or "types not recorded"
             body += f"<td data-rank>{rank}</td><td>{counter_name(row)}</td>"
             body += f"<td>{e(types_text)}</td>"
-            body += f'<td class="num">{win_rate(row)}</td>'
+            body += f'<td class="num">{win_rate(row, overall=overall)}</td>'
             ratio_text = percentage(ratio) if ratio is not None else "—"
             body += (
                 f'<td class="num"><span data-best>{e(ratio_text)}</span>'
@@ -488,7 +506,7 @@ def counters_body(data, results, reason):
         + '</nav><p class="legend">Badges: elite = elite move; legacy = legacy move. '
     )
     body += "Ranked by win rate, HP left, then turns. Expand a counter for its details.</p>"
-    body += f'<p class="legend">{e(pause_band_legend(data))}</p>'
+    body += f'<p class="legend">{pause_band_legend(data)}</p>'
     for level in level_keys:
         body += (
             f'<section id="level-{e(level)}"><h2>Level {e(level)}</h2>{assumptions(data, level)}'

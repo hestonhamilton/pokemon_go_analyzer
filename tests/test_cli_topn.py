@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 from datetime import date
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -113,6 +114,9 @@ def test_default_pause_band_and_none_preserve_ranking_and_fields(cache, capsys):
         assert set(band) == {
             "turns",
             "win_rate",
+            "wins",
+            "battles",
+            "flags",
             "min",
             "max",
             "sensitive",
@@ -126,17 +130,26 @@ def test_default_pause_band_and_none_preserve_ranking_and_fields(cache, capsys):
         assert band["win_rate"]["7"] == row["win_rate"]
         assert band["min"] == min(band["win_rate"].values())
         assert band["max"] == max(band["win_rate"].values())
-        assert band["sensitive"] == (band["max"] - band["min"] > 0.15)
+        rates = [Fraction(band["wins"][t], band["battles"][t]) for t in band["wins"]]
+        assert band["sensitive"] == (max(rates) - min(rates) > Fraction("0.15"))
+        assert band["wins"]["7"] == row["wins"]
+        assert band["battles"]["7"] == row["battles"]
         assert band["threshold"] == 0.15
         assert band["note"] == topn.PAUSE_BAND_NOTE
+        assert "sensitivity check over assumed pause lengths, not a measured range" in band["note"]
     assert all("pause_band" not in r for r in finalists(disabled))
     assert data == disabled
 
 
-@pytest.mark.parametrize("spread,sensitive", [(0.15, False), (0.150001, True), (0, False)])
-@pytest.mark.parametrize("stamp,era_turns", [("2026-11-14", 7), ("2025-12-11", 8)])
+@pytest.mark.parametrize(
+    "wins,battles,sensitive", [(18, 20, False), (900001, 1000000, True), (15, 20, False)]
+)
+@pytest.mark.parametrize(
+    "stamp,era_turns,reuse_era",
+    [("2026-11-14", 7, True), ("2025-12-11", 8, False), ("2025-12-09", 5, False)],
+)
 def test_pause_band_threshold_era_value_and_mapper(
-    cache, monkeypatch, spread, sensitive, stamp, era_turns
+    cache, monkeypatch, wins, battles, sensitive, stamp, era_turns, reuse_era
 ):
     builds = candidates(cache)[:1]
     pools = [[winrate.Option("target", builds[0].team[0])]] * 3
@@ -145,8 +158,14 @@ def test_pause_band_threshold_era_value_and_mapper(
     def full(candidate, pools, *, rules=None, **kwargs):
         turn = rules.pause_turns_override if rules is not None else None
         calls.append(turn)
+        n_wins, n_battles = (wins, battles) if turn == 6 else (15, 20)
+        if turn is None and not reuse_era:
+            n_wins = 10  # The era's mixed lengths differ from every equal-length run.
         return {
-            "win_rate": spread if turn == 6 else 0,
+            "win_rate": n_wins / n_battles,
+            "wins": n_wins,
+            "battles": n_battles,
+            "flags": ["era"] if turn is None else [f"override-{turn}", "unverified"],
             "mean_player_hp_fraction_left": 0,
             "mean_turns": 1,
         }
@@ -160,10 +179,21 @@ def test_pause_band_threshold_era_value_and_mapper(
         builds, pools, k=1, rank="grunt", battle_date=stamp, pause_band=(6, 8), mapper=mapper
     )
     (row,) = ranked[40]
-    assert row["pause_band"]["turns"] == sorted({6, 8, era_turns})
-    assert row["pause_band"]["win_rate"][str(era_turns)] == row["win_rate"] == 0
-    assert row["pause_band"]["sensitive"] is sensitive
-    assert calls == [None, *[t for t in (6, 8) if t != era_turns]]
+    band = row["pause_band"]
+    turns = sorted({6, 8, era_turns})
+    overrides = [t for t in turns if t != era_turns or not reuse_era]
+    assert band["turns"] == turns
+    assert band["win_rate"][str(era_turns)] == 0.75
+    assert row["win_rate"] == (0.75 if reuse_era else 0.5)
+    assert band["wins"]["6"] == wins
+    assert band["battles"]["6"] == battles
+    assert band["wins"][str(era_turns)] == 15
+    assert band["battles"][str(era_turns)] == 20
+    assert band["sensitive"] is sensitive
+    assert band["flags"] == sorted(
+        [*(["era"] if reuse_era else []), *[f"override-{t}" for t in overrides], "unverified"]
+    )
+    assert calls == [None, *overrides]
     assert mapped == [1] * (1 + len(calls))  # Screen and every full pass use the same mapper.
 
 
@@ -173,6 +203,18 @@ def test_invalid_pause_band_rejected_before_sources(cache, monkeypatch, value):
     with pytest.raises(SystemExit) as exc:
         cli.main([*args(cache), "--pause-band", value])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("stamp,turns", [("2026-11-14", "7"), ("2025-12-11", "8")])
+def test_era_only_pause_band_rejected_before_sources(cache, capsys, monkeypatch, stamp, turns):
+    monkeypatch.setattr(calc_cli, "load_sources", lambda *a: pytest.fail("must validate first"))
+    with pytest.raises(SystemExit) as exc:
+        cli.main([*args(cache), "--battle-date", stamp, "--pause-band", turns])
+    assert exc.value.code == 2
+    assert (
+        "--pause-band must include a length other than the era's charged length"
+        in capsys.readouterr().err
+    )
 
 
 def test_screen_top_k_and_moves_ties_are_deterministic(cache):
@@ -764,7 +806,14 @@ def test_pause_threshold_parameter_sets_sensitive_flag(cache, monkeypatch):
     def full(candidate, pools, *, rules=None, **kwargs):
         turn = rules.pause_turns_override if rules is not None else None
         rate = 0.1 if turn == 6 else 0
-        return {"win_rate": rate, "mean_player_hp_fraction_left": 0, "mean_turns": 1}
+        return {
+            "win_rate": rate,
+            "wins": 1 if turn == 6 else 0,
+            "battles": 10,
+            "flags": [],
+            "mean_player_hp_fraction_left": 0,
+            "mean_turns": 1,
+        }
 
     monkeypatch.setattr(topn, "full_result", full)
     for threshold, sensitive in ((0.15, False), (0.05, True)):

@@ -2,6 +2,7 @@
 
 from collections import Counter
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from functools import partial
 from statistics import mean
 
@@ -24,7 +25,8 @@ UNAVAILABLE = "not calculated: at least one slot has no resolved options"
 IVS = {"atk": 15, "def": 15, "hp": 15}
 PAUSE_BAND_THRESHOLD = 0.15
 PAUSE_BAND_NOTE = (
-    "Win rate at other Rocket pause lengths (ledger row k); ranking uses the era value."
+    "Pause band is a sensitivity check over assumed pause lengths, not a measured range "
+    "(ledger row k); ranking uses the era value."
 )
 
 
@@ -52,6 +54,11 @@ def parse_pause_band(value):
             "--pause-band must be comma-separated integers from 1 to 20, or none"
         ) from None
     return turns
+
+
+def validate_pause_band(turns, era):
+    if turns and set(turns) == {era["charged"]}:
+        raise ValueError("--pause-band must include a length other than the era's charged length")
 
 
 @dataclass
@@ -277,6 +284,8 @@ def rank_character(
     """Run stage 2 only for the top K species per level, before full-result sorting."""
     if k < 1:
         raise ValueError("--k must be positive")
+    era, _ = _era(battle_date, rule_data())
+    validate_pause_band(pause_band, era)
     screened = screen_candidates(
         candidates,
         pools,
@@ -308,14 +317,14 @@ def rank_character(
     for (candidate, screen), row in zip(finalists, rows, strict=True):
         levels[candidate.key[1]].append({**row, **candidate.output(), "screen": screen})
     if pause_band and finalists:
-        era, _ = _era(battle_date, rule_data())
         era_turns = era["charged"]
         turns = sorted({era_turns, *pause_band})
         by_key = {row_key(row): row for rows in levels.values() for row in rows}
-        rates = {key: {str(era_turns): row["win_rate"]} for key, row in by_key.items()}
+        reuse_era = era["charged"] == era["faint"]
+        runs = {key: {str(era_turns): row} if reuse_era else {} for key, row in by_key.items()}
         builds = [c for c, _ in finalists]
         for turn in turns:
-            if turn == era_turns:
+            if turn == era_turns and reuse_era:
                 continue
             band_rows = full_results(
                 builds,
@@ -328,16 +337,21 @@ def rank_character(
                 rules=replace(DEFAULT_ROCKET_RULES, pause_turns_override=turn),
             )
             for candidate, row in zip(builds, band_rows, strict=True):
-                rates[candidate.key][str(turn)] = row["win_rate"]
+                runs[candidate.key][str(turn)] = row
         for key, row in by_key.items():
-            values = {str(turn): rates[key][str(turn)] for turn in turns}
+            band_rows = {str(turn): runs[key][str(turn)] for turn in turns}
+            values = {turn: result["win_rate"] for turn, result in band_rows.items()}
+            exact_rates = [Fraction(r["wins"], r["battles"]) for r in band_rows.values()]
             low, high = min(values.values()), max(values.values())
             row["pause_band"] = {
                 "turns": turns,
                 "win_rate": values,
+                "wins": {turn: result["wins"] for turn, result in band_rows.items()},
+                "battles": {turn: result["battles"] for turn, result in band_rows.items()},
+                "flags": sorted({flag for r in band_rows.values() for flag in r["flags"]}),
                 "min": low,
                 "max": high,
-                "sensitive": high - low > pause_threshold,
+                "sensitive": max(exact_rates) - min(exact_rates) > Fraction(str(pause_threshold)),
                 "threshold": pause_threshold,
                 "threshold_note": "model choice",
                 "note": PAUSE_BAND_NOTE,

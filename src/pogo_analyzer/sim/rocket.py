@@ -410,13 +410,13 @@ def simulate_rocket(
         "A final knockout takes precedence over timeout on the same turn. "
         "Equal timeout scores draw.",
     ]
-    if rules.pause_turns_override is not None:
+    if rules.pauses and rules.pause_turns_override is not None:
         evidence.append(
             Evidence(
                 "k",
                 "pause length override (sensitivity run, not a source value)",
                 f"pause_turns_override:{rules.pause_turns_override}",
-                "docs/rocket-battle-mechanics.md#5-shields-switching-and-the-npcs-behaviour",
+                "docs/simulator-verification.md#ledger",
             )
         )
     # Mar 2026 accounts support the trigger and the sum; earlier eras extend them.
@@ -427,6 +427,8 @@ def simulate_rocket(
         reading = era if rules.pause_reading == "9db" else data["cwizz1"]
         source = data["source"] if rules.pause_reading == "9db" else data["cwizz1"]["source"]
         for event in ("charged", "faint", "manual_switch"):
+            if rules.pause_turns_override is not None and event in ("charged", "faint"):
+                continue
             evidence.append(
                 Evidence(
                     "k",

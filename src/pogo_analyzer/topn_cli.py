@@ -119,6 +119,7 @@ def prepare_output(args):
         args.battle_date if args.battle_date is not None else date.today().isoformat()
     )
     era, _ = _era(stamp, rule_data())
+    topn.validate_pause_band(args.pause_band, era)
     if args.k < 1:
         raise ValueError("--k must be positive")
     levels = sorted(

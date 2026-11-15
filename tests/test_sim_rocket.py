@@ -79,8 +79,21 @@ def test_pause_override_changes_fixture_outcome(turns, winner):
         e["row"] == "k"
         and e["grade"] == "pause length override (sensitivity run, not a source value)"
         and e["option"] == f"pause_turns_override:{turns}"
+        and e["source"] == "docs/simulator-verification.md#ledger"
         for e in summary["evidence"]
     )
+    readings = [
+        e["option"] for e in summary["evidence"] if e["option"].startswith("pause_reading:")
+    ]
+    assert readings == ["pause_reading:9db:mar-2026:manual_switch"]
+
+
+def test_pause_override_adds_no_evidence_when_pauses_disabled():
+    result = run(pauses=False, pause_turns_override=6)
+    baseline = run(pauses=False)
+    assert result.evidence == baseline.evidence
+    assert result.timeline == baseline.timeline
+    assert not any(e.option.startswith("pause_turns_override:") for e in result.evidence)
 
 
 @pytest.mark.parametrize("turns", [1, 20])

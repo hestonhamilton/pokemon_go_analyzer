@@ -111,17 +111,26 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
             assert escape(source["url"]) in html
             assert f"fetched_at {FETCHED}" in html
         for tag, attrs in Elements(html).elements:
-            for key in ("src", "href"):
-                assert not re.search(r"https?://", attrs.get(key, ""), re.I), (path, tag)
-        assert not re.search(r"url\s*\(\s*['\"]?https?://", html, re.I)
+            for key, value in attrs.items():
+                # Plain <a href> navigation is allowed; src, srcset, link href,
+                # and other resource loads must still stay offline.
+                if tag == "a" and key == "href":
+                    continue
+                assert not re.search(r"(?:https?:)?//", value or "", re.I), (path, tag, key)
+        assert not re.search(r"\burl\s*\(|@import\b", html, re.I)
         if path.startswith("counters/"):
             assert "<script>" not in html  # Native details never need script.
         if path.startswith(("list/", "counters/")):
             if path in ("list/all.html", "list/grunts.html", "list/leaders.html"):
                 assert "pause band not computed for the overall list" in html
+                assert '<span class="pause-band">band not computed</span>' not in html
             else:
-                assert "pause-sensitive: the win rate moves more than" in html
-                assert "threshold is a model choice" in html
+                entry = next(e for e in manifest["characters"] if e["slug"] == Path(path).stem)
+                if read(reports, entry["file"])["character"].get("reason"):
+                    assert "band not computed for this run" in html
+                else:
+                    assert "pause-sensitive: the win rate moves more than" in html
+                    assert "threshold is a model choice" in html
     for entry in manifest["characters"]:
         data = read(reports, entry["file"])
         if data["character"].get("reason"):
@@ -435,7 +444,7 @@ def test_pause_band_range_chip_and_old_reports(reports, tmp_path):
         for rows in data["character"]["finalists"].values():
             for row in rows:
                 row["win_rate"] = 0.97
-                row["pause_band"].update(min=0.80, max=1.0, sensitive=True)
+                row["pause_band"].update(min=0.80, max=1.0, sensitive=True, turns=[5, 6, 8])
 
     change(reports, entry["file"], mutate)
     pages = build(reports, tmp_path / "site")
@@ -443,13 +452,17 @@ def test_pause_band_range_chip_and_old_reports(reports, tmp_path):
     for path in paths:
         html = pages[path]
         assert site.estimate(0.97, percent=True) in html
-        assert "(6–8 turns:" in html
+        assert "(5–8 turns:" in html
         assert site.estimate(0.80, percent=True) in html
         assert site.estimate(1.0, percent=True) in html
         assert site.chip("pause-sensitive", "warn") in html
         assert "threshold is a model choice" in html
-        assert "moves more than 0.15 between" in html
-        assert "verification ledger row k" in html
+        assert "moves more than 15 percentage points between 5 and 8 turns" in html
+        assert "sensitivity check over assumed pause lengths, not a measured range" in html
+        assert (
+            '<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
+            'docs/simulator-verification.md#ledger">verification ledger row k</a>'
+        ) in html
 
     def remove(data):
         for rows in data["character"]["finalists"].values():
@@ -461,6 +474,37 @@ def test_pause_band_range_chip_and_old_reports(reports, tmp_path):
     for path in paths:
         assert "band not computed" in pages[path]
         assert site.chip("pause-sensitive", "warn") not in pages[path]
+
+
+@pytest.mark.parametrize(
+    "threshold,points",
+    [(0.15, "15"), (0.125, "12.5"), (0.000125, "0.0125"), (0.333333333, "33.3333333")],
+)
+def test_pause_band_legend_percentage_points(threshold, points):
+    data = {
+        "params": {"pause_band": [6, 8], "pause_threshold": threshold},
+        "character": {"finalists": {"40": [{"pause_band": {"turns": [5, 6, 8]}}]}},
+    }
+    legend = site.pause_band_legend(data)
+    assert f"more than {points} percentage points between 5 and 8 turns" in legend
+    ledger = Path(__file__).parents[1] / "docs" / "simulator-verification.md"
+    assert "## Ledger" in ledger.read_text().splitlines()
+
+
+def test_pause_band_none_legend(reports, tmp_path):
+    entry = read(reports, "manifest.json")["characters"][0]
+
+    def disable(data):
+        data["params"]["pause_band"] = []
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row.pop("pause_band")
+
+    change(reports, entry["file"], disable)
+    pages = build(reports, tmp_path / "site")
+    for path in (f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
+        assert "band not computed for this run" in pages[path]
+        assert "pause-sensitive: the win rate moves more than" not in pages[path]
 
 
 def test_single_character_precompute_without_overall(reports, tmp_path):
