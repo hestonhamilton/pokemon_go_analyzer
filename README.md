@@ -228,6 +228,19 @@ keeps its best moveset per level; ties at the K cut break by species id alphabet
 Stage 2 battles the top `--k` species (default 30) against every full lineup, then ranks by
 win rate, HP left and turns, following `sim`.
 
+Each per-character finalist also gets a `pause_band`: full-battle win rates at
+`--pause-band 6,8` (the default) plus the era's charged-attack pause length read from
+the rules data. Extra runs override both charged-attack and faint pauses; manual-switch
+pauses stay unchanged. The era entry reuses the normal result, and ranking and all other
+metrics keep the era rules. The band records its tested `turns`, `win_rate` per length,
+`min`, `max`, and `sensitive` when the range exceeds `--pause-threshold` (default
+`0.15`, 15 percentage points; the threshold is a model choice, not a source value),
+with the threshold and a note naming verification ledger row k. Override battle evidence
+labels the length as a sensitivity assumption, not a source value.
+Choose other comma-separated integers from 1 to 20, or use `--pause-band none` to disable.
+The default costs about two extra stage-2 passes per character; screening is unchanged.
+Overall-completion builds get no extra passes, and overall rows carry no band.
+
 IVs are 15/15/15; levels default to 40 and 50, ranked separately (`--level` is repeatable).
 Trainer level defaults to 50 and rCPM to `dec-2025`. Shadows are separate candidates built with
 the calculator's base-species shadow form. Mega and Primal forms and calculator rejections appear
@@ -259,6 +272,11 @@ workers: at most three workers plus the parent. Progress goes to stderr.
 reports for a later static-site step. Every number is an **estimate**. The level, trainer
 level, K, candidate, elite/legacy, rCPM, cache and validation options have the same defaults
 and validation as `topn` (levels 40 and 50, trainer level 50, K 30).
+
+`--pause-band` is shared with `topn`: default `6,8`, or `none` to disable. Per-character
+reports include the band at a cost of about two extra stage-2 passes per character;
+overall rows have no band. The normalized band setting is recorded in `params` and
+included in the reuse key, so changing it recomputes reports.
 
 ```sh
 uv run pogo-analyzer precompute --out reports --battle-date 2026-11-14
@@ -356,6 +374,14 @@ Both levels 40 and 50 have sections, with an explicit reason when not calculated
 Elite/legacy moves are badged with a legend; shadow forms are marked. New precompute
 reports include attacker types and overall mean Rocket KOs. Older reports that lack
 these fields show “types not recorded” or “not recorded” rather than guessing.
+
+Per-character list and counters pages show the pause band beside each win rate, for
+example `97.0% est (6–8 turns: 87.0%–100.0% est)`. A `pause-sensitive` warning chip
+marks a range greater than the run's threshold (default 0.15, a model choice); the legend names ledger row k
+and explains that ranking uses the era value. Older reports and runs with
+`--pause-band none` show “band not computed”. Overall lists state “pause band not
+computed for the overall list”. Computing the default band adds about two stage-2
+passes per character during `topn` or `precompute`; site rendering runs no battles.
 
 The trust strip, assumptions line and notes show the complete validation label,
 UNVALIDATED when appropriate, open discrepancy IDs from validation data, estimate
