@@ -1,5 +1,6 @@
 """Pure two-stage counter ranking over the existing offline calculator and simulator."""
 
+from collections import Counter
 from dataclasses import dataclass
 from statistics import mean
 
@@ -12,6 +13,7 @@ SCREEN_NOTE = (
     "Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. "
     "The grid ignores carried-over shields and HP between slots. "
     "Screen numbers are not lineup win rates."
+    " Ties at the K cut break by species id alphabetically."
 )
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
@@ -69,7 +71,7 @@ def build_candidates(species, moves, levels, *, selectors=None, exclude_elite_le
         reason = None
         if source.get("released") is False or "unreleased" in source.get("tags", []):
             reason = "unreleased PvPoke entry"
-        elif "_mega" in name or "mega" in source.get("tags", []):
+        elif "_mega" in name or "_primal" in name or "mega" in source.get("tags", []):
             reason = "Mega is unsupported by the simulator"
         if reason:
             skipped.append({"speciesId": name, "reason": reason})
@@ -77,7 +79,8 @@ def build_candidates(species, moves, levels, *, selectors=None, exclude_elite_le
         try:
             pairs = winrate.moveset_ids(source, exclude_elite_legacy=exclude_elite_legacy)
         except ValueError as exc:
-            skipped.append({"speciesId": name, "reason": str(exc)})
+            reason = f"{name}: {exc}" if "_shadow" in name else str(exc)
+            skipped.append({"speciesId": name, "reason": reason})
             continue
         shadow = "_shadow" in name
         base = name.replace("_shadow", "", 1) if shadow else name
@@ -105,7 +108,7 @@ def build_candidates(species, moves, levels, *, selectors=None, exclude_elite_le
                             "level": level,
                             "fast_move": fast,
                             "charged_move": charged,
-                            "reason": str(exc),
+                            "reason": f"{name}: {exc}" if shadow else str(exc),
                         }
                     )
                     continue
@@ -113,24 +116,62 @@ def build_candidates(species, moves, levels, *, selectors=None, exclude_elite_le
     return candidates, skipped
 
 
-def screen_candidate(candidate, pools, *, rank, battle_date, grid=winrate.grid):
+def screen_candidate(
+    candidate,
+    pools,
+    *,
+    rank,
+    battle_date,
+    grid=winrate.grid,
+    stats_grade="model",
+    pool_complete=True,
+):
     """One member against each slot option; empty slots cannot produce a score."""
     _, groups = grid(candidate.team, pools, rank=rank, battle_date=battle_date)
     slots = {g["slot"]: g["win_rate"] for g in groups}
     rates = [slots.get(i) for i in range(1, 4)]
+    rules_grade = (
+        "unverified" if any(g["rules_grade"] == "unverified" for g in groups) else "estimate"
+    )
+    flags = sorted({flag for g in groups for flag in g["flags"]})
+    parts = ["estimate"]
+    if rules_grade == "unverified":
+        parts.append("unverified (l)")
+    if "extrapolated" in flags:
+        parts.append("extrapolated forward")
+    parts.append(f"stats {stats_grade}")
+    if not pool_complete:
+        parts.append("pool incomplete")
     return {
+        "label": "estimate (every number)",
+        "rules_grade": rules_grade,
+        "flags": flags,
+        "stats_grade": stats_grade,
+        "pool_complete": pool_complete,
+        "grade": "; ".join(parts),
         "score": mean(rates) if all(r is not None for r in rates) else None,
         "slot_win_rates": rates,
+        "slot_aggregates": groups,
         "grid_limitation": winrate.GRID_NOTE,
         "note": SCREEN_NOTE,
     }
 
 
-def screen_candidates(candidates, pools, *, rank, battle_date, grid=winrate.grid):
+def screen_candidates(
+    candidates, pools, *, rank, battle_date, grid=winrate.grid, stats_grade=None, pool_complete=True
+):
     """Best moveset for each source species and level, with deterministic ties."""
     best = {}
     for candidate in candidates:
-        screen = screen_candidate(candidate, pools, rank=rank, battle_date=battle_date, grid=grid)
+        screen = screen_candidate(
+            candidate,
+            pools,
+            rank=rank,
+            battle_date=battle_date,
+            grid=grid,
+            stats_grade=stats_grade(candidate) if stats_grade is not None else "model",
+            pool_complete=pool_complete,
+        )
         if screen["score"] is None:
             continue
         order = (-screen["score"], *candidate.key)
@@ -150,6 +191,8 @@ def full_result(candidate, pools, *, rank, battle_date, battle=simulate_rocket, 
         trials = trial_runner(team, pools, rank=rank, battle_date=battle_date, execution=execution)
     row = winrate.aggregate(team, trials)
     if trial_runner is not None:
+        # Keep repeated topn JSON stable without changing sim's timing reports.
+        execution.pop("runtime_seconds", None)
         row["execution"] = execution
     return row
 
@@ -164,11 +207,21 @@ def rank_character(
     grid=winrate.grid,
     battle=simulate_rocket,
     trial_runner=None,
+    stats_grade=None,
+    pool_complete=True,
 ):
     """Run stage 2 only for the top K species per level, before full-result sorting."""
     if k < 1:
         raise ValueError("--k must be positive")
-    screened = screen_candidates(candidates, pools, rank=rank, battle_date=battle_date, grid=grid)
+    screened = screen_candidates(
+        candidates,
+        pools,
+        rank=rank,
+        battle_date=battle_date,
+        grid=grid,
+        stats_grade=stats_grade,
+        pool_complete=pool_complete,
+    )
     levels = {}
     for candidate, screen in screened:
         rows = levels.setdefault(candidate.key[1], [])
@@ -190,9 +243,16 @@ def row_key(row):
     return row["speciesId"], row["level"], row["fast_move"], row["charged_move"]
 
 
+def validate_character_names(names):
+    duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
+    if duplicates:
+        raise ValueError(f"duplicate character names: {', '.join(duplicates)}")
+
+
 def overall_view(characters, results, *, ranks=None):
     """Equal character means, retaining full contributing records and missing coverage."""
     selected = [c for c in characters if ranks is None or c["rank"] in ranks]
+    validate_character_names(c["name"] for c in selected)
     missing = [
         {"character": c["name"], "reason": c.get("reason", "no eligible candidates")}
         for c in selected
@@ -226,6 +286,21 @@ def overall_view(characters, results, *, ranks=None):
                 ),
                 "mean_turns": mean(r["mean_turns"] for r in contributions),
                 "characters_with_result": len(contributions),
+                "label": "estimate (every number)",
+                "ledger_rows": sorted({v for r in contributions for v in r.get("ledger_rows", [])}),
+                "interpretations": sorted(
+                    {v for r in contributions for v in r.get("interpretations", [])}
+                ),
+                "evidence": [
+                    dict(zip(("row", "grade", "option", "source"), values, strict=True))
+                    for values in sorted(
+                        {
+                            tuple(e[k] for k in ("row", "grade", "option", "source"))
+                            for r in contributions
+                            for e in r.get("evidence", [])
+                        }
+                    )
+                ],
                 # Compact references; full finalist rows and calc_rows live per character.
                 "per_character": [
                     {
@@ -256,6 +331,8 @@ def overall_view(characters, results, *, ranks=None):
             "characters_with_result": len(selected) - len(missing),
             "total": len(selected),
             "missing": missing,
+            "text": f"covers {len(selected) - len(missing)} of {len(selected)} characters"
+            + ("; missing: " + ", ".join(c["character"] for c in missing) if missing else ""),
         },
         "results": {
             f"{level:g}": winrate.sort_results([r for r in rows if r["level"] == level])

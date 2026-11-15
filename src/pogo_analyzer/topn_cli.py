@@ -3,6 +3,9 @@
 import json
 import sys
 from dataclasses import asdict
+from datetime import date
+from functools import partial
+from math import prod
 from pathlib import Path
 
 from . import calc_cli as calc
@@ -21,7 +24,7 @@ def add_parser(commands):
     select = sub.add_mutually_exclusive_group(required=True)
     select.add_argument("--character")
     select.add_argument("--all", action="store_true")
-    sub.add_argument("--battle-date", required=True)
+    sub.add_argument("--battle-date", help="ISO date (default: today's local date)")
     sub.add_argument("--level", type=float, action="append")
     sub.add_argument("--trainer-level", type=int, default=50)
     sub.add_argument("--k", type=int, default=30)
@@ -79,12 +82,34 @@ def _decorate(row, candidate, context, pools, records, args, validation):
     return sim._grade(row, weakest(*grades))
 
 
+def _screen_stats_grade(candidate, context, pools, records, args, validation):
+    """Screen grades depend on every resolved option, just as full sim grades do."""
+    return weakest(
+        *(
+            sim._stats_grade(
+                candidate.attacker,
+                option,
+                records[option.species],
+                args,
+                context["rank"],
+                validation,
+            )
+            for pool in pools
+            for option in pool
+        )
+    )
+
+
 def build_output(args):
-    stamp = sim._iso_date(args.battle_date)
+    stamp = sim._iso_date(
+        args.battle_date if args.battle_date is not None else date.today().isoformat()
+    )
     era, _ = _era(stamp, rule_data())
     if args.k < 1:
         raise ValueError("--k must be positive")
-    levels = sorted(set(args.level if args.level is not None else (40, 50)))
+    levels = sorted(
+        {float(level) for level in (args.level if args.level is not None else (40, 50))}
+    )
     for level in levels:
         player_stats({"atk": 1, "def": 1, "hp": 1}, topn.IVS, level)
     rcpm(args.trainer_level, args.rcpm_table)
@@ -95,6 +120,7 @@ def build_output(args):
             raise ValueError("--candidates must be a nonempty comma-separated species list")
     characters, species, moves, sources = calc.load_sources(args.cache_dir)
     selected = characters if args.all else calc.matching_characters(args.character, characters)
+    topn.validate_character_names(c.name for c in selected)
     candidates, skipped = topn.build_candidates(
         species,
         moves,
@@ -139,12 +165,21 @@ def build_output(args):
                     "reason": topn.UNAVAILABLE,
                 }
             )
-            continue
-        print(
-            f"estimate: {character.name}: screening {len(candidates)} builds; "
-            f"full battles for up to {args.k} species per level.",
-            file=sys.stderr,
-        )
+    eligible = [report for report in reports if "reason" not in report]
+    screen_battles = sum(len(candidates) * sum(report["slot_option_counts"]) for report in eligible)
+    lineup_battles = sum(
+        args.k * len(levels) * prod(report["slot_option_counts"]) for report in eligible
+    )
+    print(
+        f"estimate: planned stage-1 1v1 battles: {screen_battles}; "
+        f"maximum stage-2 lineup battles: {lineup_battles}. "
+        "--all adds union completion battles.",
+        file=sys.stderr,
+    )
+    for report in eligible:
+        name = report["name"]
+        context, pools, records = planned[name]
+
         ranked = topn.rank_character(
             candidates,
             pools,
@@ -152,17 +187,27 @@ def build_output(args):
             rank=context["rank"],
             battle_date=stamp,
             trial_runner=sim._timed_trials,
+            stats_grade=partial(
+                _screen_stats_grade,
+                context=context,
+                pools=pools,
+                records=records,
+                args=args,
+                validation=validation,
+            ),
+            pool_complete=context["pool_complete"],
         )
         for level, rows in ranked.items():
             for row in rows:
                 key = topn.row_key(row)
                 _decorate(row, by_key[key], context, pools, records, args, validation)
-                results[character.name][key] = row
+                results[name][key] = row
             report["finalists"][f"{level:g}"] = rows
     data = {
         "validation_label": validation["label"],
         "estimate_label": "estimate (every number)",
         "battle_date": stamp,
+        "battle_date_source": "default: run date" if args.battle_date is None else "explicit",
         "era": era["id"],
         "rules": asdict(DEFAULT_ROCKET_RULES),
         "player_policy": "ChargedWhenReady",
@@ -218,7 +263,14 @@ def build_output(args):
                 row.update(
                     candidate.output(),
                     screen=topn.screen_candidate(
-                        candidate, pools, rank=context["rank"], battle_date=stamp
+                        candidate,
+                        pools,
+                        rank=context["rank"],
+                        battle_date=stamp,
+                        stats_grade=_screen_stats_grade(
+                            candidate, context, pools, records, args, validation
+                        ),
+                        pool_complete=context["pool_complete"],
                     ),
                 )
                 row = _decorate(row, candidate, context, pools, records, args, validation)
@@ -244,7 +296,7 @@ def build_output(args):
 def main_topn(args, arg_parser):
     try:
         data = build_output(args)
-    except (ValueError, KeyError, TypeError, OSError) as exc:
+    except (ValueError, OSError) as exc:
         arg_parser.error(str(exc))
     print(json.dumps(data, indent=2))
     return 0
