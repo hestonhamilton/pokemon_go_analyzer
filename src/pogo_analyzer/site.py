@@ -607,10 +607,12 @@ def atomic_text(path, value):
             temporary.unlink(missing_ok=True)
 
 
-def read_report(root, entry):
-    """Read only manifest entries; ignore dotfiles, orphans, stale and mismatched files."""
+def read_report(root, entry, *, overall=False):
+    """Read safe manifest entries; only overall may display matching stale results."""
     filename = entry.get("file")
     if not filename:
+        if overall and entry.get("status") == "skipped":
+            return {}, "overall list not computed on this run (--skip-overall)"
         return {}, "report file unavailable"
     relative = Path(filename)
     if relative.is_absolute() or any(part.startswith(".") for part in relative.parts):
@@ -626,7 +628,7 @@ def read_report(root, entry):
         return {}, "report file invalid: expected a JSON object"
     if not entry.get("key") or not data.get("key") or data["key"] != entry["key"]:
         return data, "stale report: key does not match manifest entry"
-    if entry.get("status") == "stale":
+    if entry.get("status") == "stale" and not overall:
         return data, "stale report: manifest marks results stale"
     return data, ""
 
@@ -723,7 +725,8 @@ def build_site(data_dir, out):
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) or slug in slugs:
             raise ValueError(f"unsafe or duplicate character slug: {slug}")
         slugs.add(slug)
-    overall, overall_reason = read_report(root, manifest.get("overall", {}))
+    overall_entry = manifest.get("overall", {})
+    overall, overall_reason = read_report(root, overall_entry, overall=True)
     check_dates(overall)
     fallback = overall or manifest
     if not overall:
@@ -746,7 +749,14 @@ def build_site(data_dir, out):
             "valid_for": entry.get("valid_for", {"era": "not recorded"}),
         }
 
-    overall_meta = metadata(overall, manifest.get("overall", {}))
+    overall_meta = metadata(overall, overall_entry)
+    overall_notice = ""
+    if not overall_reason and overall_entry.get("status") == "stale":
+        stamp = overall.get("computed_for_battle_date", overall.get("battle_date", "not recorded"))
+        overall_notice = chip("stale", "warn") + (
+            f"<p>This overall list was computed for battle date {e(stamp)} and is older than "
+            "the per-type lists, which have changed since it was computed.</p>"
+        )
     pages = {}
     home = '<a href="../index.html">Home</a>'
     overall_nav = "".join(
@@ -765,7 +775,7 @@ def build_site(data_dir, out):
         all_view.get("results", {}),
         overall_reason,
         overall=True,
-        extra=coverage(all_view),
+        extra=overall_notice + coverage(all_view),
     )
     # Process one character at a time: a real report can contain megabytes of calc cells.
     for entry in manifest["characters"]:
@@ -801,7 +811,11 @@ def build_site(data_dir, out):
             f"{title} · top counters",
             overall_meta,
             list_body(
-                overall_meta, data.get("results", {}), overall_reason, coverage(data), overall=True
+                overall_meta,
+                data.get("results", {}),
+                overall_reason,
+                overall_notice + coverage(data),
+                overall=True,
             ),
             home + overall_nav,
             script=True,

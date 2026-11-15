@@ -20,11 +20,18 @@ from .sim.rocket import rule_data
 def add_parser(commands):
     sub = commands.add_parser("precompute", help="Write cached top-N estimates for a static site")
     sub.add_argument("--out", type=Path, required=True)
-    sub.add_argument("--character")
+    select = sub.add_mutually_exclusive_group()
+    select.add_argument("--character")
+    select.add_argument("--all", action="store_true", help="Run all characters (the default)")
     topn_cli.add_options(sub)
     sub.add_argument("--workers", type=int, default=3)
     sub.add_argument("--nice", type=int, default=10)
     sub.add_argument("--force", action="store_true")
+    sub.add_argument(
+        "--skip-overall",
+        action="store_true",
+        help="Refresh characters without changing the overall",
+    )
 
 
 def _json_bytes(value):
@@ -147,6 +154,31 @@ def _provenance(data):
     }
 
 
+def _skipped_overall(out, key, force):
+    """Retain the previous overall without changing its file or computation date."""
+    try:
+        manifest = json.loads((out / "manifest.json").read_text())
+    except (OSError, ValueError):
+        manifest = None
+    previous = manifest.get("overall") if isinstance(manifest, dict) else None
+    if (
+        isinstance(previous, dict)
+        and previous.get("file") is not None
+        and (out / "overall.json").exists()
+    ):
+        cached = _cached(out / "overall.json", key, force) if previous["file"] else None
+        if cached is not None:
+            return {
+                "key": key,
+                "file": "overall.json",
+                "status": "reused",
+                **_provenance(cached),
+            }
+        if previous.get("key") is not None:
+            return {**previous, "status": "stale"}
+    return {"key": None, "file": None, "status": "skipped"}
+
+
 def _peak_memory():
     # Linux reports KiB; macOS reports bytes.
     divisor = 1024 if sys.platform == "darwin" else 1
@@ -212,10 +244,12 @@ def _run_locked(args, start, niceness):
         )
     )
     cached_overall = (
-        _cached(args.out / "overall.json", overall_key, args.force) if args.all else None
+        _cached(args.out / "overall.json", overall_key, args.force)
+        if args.all and not args.skip_overall
+        else None
     )
     changed = any(cached is None for _, _, _, cached in jobs)
-    need_overall = args.all and (changed or cached_overall is None)
+    need_overall = args.all and not args.skip_overall and (changed or cached_overall is None)
     need_pool = args.workers > 1 and (changed or need_overall)
     context = (
         sim_cli._pool_context().Pool(args.workers, initializer=sim_cli._ignore_interrupt)
@@ -274,7 +308,10 @@ def _run_locked(args, start, niceness):
                 }
             )
         overall = {"key": None, "file": None, "status": "unavailable"}
-        if args.all:
+        if args.skip_overall:
+            overall = _skipped_overall(args.out, overall_key, args.force)
+            print(f"estimate: overall: skipped ({overall['status']}).", file=sys.stderr)
+        elif args.all:
             if need_overall:
                 result = topn_cli.complete_overall(data, planned, candidates, args, mapper=mapper)
                 atomic_json(args.out / "overall.json", {**header, **result, "key": overall_key})
@@ -307,6 +344,7 @@ def _run_locked(args, start, niceness):
         "validation_label": data["validation_label"],
         "sources": sources,
         "workers": args.workers,
+        "skip_overall": args.skip_overall,
         "niceness": niceness,
         "characters": entries,
         "overall": overall,
@@ -318,6 +356,10 @@ def _run_locked(args, start, niceness):
 
 
 def run(args):
+    if args.skip_overall and args.character is not None:
+        raise ValueError(
+            "--skip-overall needs an all-characters run; --character never computes the overall"
+        )
     start = time.perf_counter()
     try:
         worker_limit = len(os.sched_getaffinity(0))

@@ -284,6 +284,25 @@ uv run pogo-analyzer precompute --out cliff-reports --battle-date 2026-11-14 \
   --character Cliff --workers 2 --nice 10 --level 40 --k 30
 ```
 
+Use frequent runs to refresh per-type lists as inputs change. Compute the overall union
+once a week; that step can take about 14 hours:
+
+```sh
+# Frequent runs
+uv run pogo-analyzer precompute --out reports --skip-overall
+# Weekly full run (also accepts --all)
+uv run pogo-analyzer precompute --out reports
+```
+
+`--skip-overall` works only for all-character runs. It never changes `overall.json` or
+runs union completion. The manifest records `skip_overall` separately from `params` and
+reuse keys. A weekly full run reuses unchanged character files without screening again.
+The retained overall has status `reused` when its file matches the current inputs,
+`stale` when an older overall remains, or `skipped` when no previous overall is available.
+With `--force`, character files recompute and an existing overall is marked `stale`.
+The site shows a matching stale overall with a warning and its own computed-for battle
+date. It explains that the per-type lists have changed since the overall was computed.
+
 All files use compact JSON and are replaced atomically after flushing and syncing,
 with permissions `0666 & ~umask` (0644 under umask 022):
 
@@ -323,9 +342,9 @@ is written, even with `--force`; use a separate output directory or run all char
 
 An exclusive nonblocking lock on `DIR/.lock` rejects concurrent runs into the same
 directory. A failed run can leave completed character files beside an older manifest.
-Consumers must verify each file's `key` matches its manifest entry and skip stale overall
-results. Orphaned files for removed characters are not pruned; publish only files listed
-in the manifest and skip dotfiles (locks and any temporary files left after a forced exit).
+Consumers must verify each file's `key` matches its manifest entry and label retained
+stale overall results. Orphaned files for removed characters are not pruned. Publish only
+files listed in the manifest and skip dotfiles (locks and temporary files left after a forced exit).
 
 `--workers` defaults to 3; 1 runs entirely in the parent. Higher values use that many
 worker processes plus the parent to screen candidates, battle finalists and complete
@@ -334,8 +353,9 @@ run serially. Values must be between 1 and the CPU affinity count (`os.sched_get
 falling back to `os.cpu_count()` where affinity is unavailable; precompute has no sim worker
 cap. `--nice` defaults to 10 and adds that amount to the process niceness before work;
 workers inherit it. `--nice 0` leaves priority unchanged. Progress goes only to stderr.
-The nightly timer is a separate machine setup step that passes `--workers 12` at idle
-priority; this command does not install a timer. The `sim` and `topn` defaults are unchanged.
+A separate machine setup step runs frequent `--skip-overall` runs and a weekly full run
+with `--workers 12` at idle priority. This command installs no timer.
+The `sim` and `topn` defaults are unchanged.
 
 ## Static site (estimate)
 
@@ -400,8 +420,10 @@ and 100.0%. Non-integer counts keep two decimals, flooring near an integer when
 rounding up would imply a full KO. These percentage rules also apply to “% of best”.
 
 The renderer checks report keys against the manifest, ignores unlisted files and
-dotfiles, and shows stale, missing or unavailable reports with a reason. Stale overall
-results are suppressed. Each file's own `computed_for_battle_date`, date source and
+dotfiles, and shows missing or unavailable reports with a reason. Key mismatches and
+stale character entries never publish rows. A manifest-marked stale overall with a
+matching key stays visible with a `stale` warning chip and its computed-for battle date.
+Each file's own `computed_for_battle_date`, date source and
 `valid_for` era are displayed, including on home tiles; the manifest's current run date
 does not replace a reused file's date. Dates before 2019-07-22 are rejected.
 
