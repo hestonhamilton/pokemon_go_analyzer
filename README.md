@@ -266,7 +266,8 @@ uv run pogo-analyzer precompute --out cliff-reports --battle-date 2026-11-14 \
   --character Cliff --workers 2 --nice 10 --level 40 --k 30
 ```
 
-All files use compact JSON and are replaced atomically after flushing and syncing:
+All files use compact JSON and are replaced atomically after flushing and syncing,
+with permissions `0666 & ~umask` (0644 under umask 022):
 
 - `characters/<slug>.json`: shared top-N provenance, policies, notes and grades; that
   character's unresolved/unavailable records; its `character` report with finalists per
@@ -275,23 +276,44 @@ All files use compact JSON and are replaced atomically after flushing and syncin
   and `weighting_note` sections, with a reuse `key`. `--character` restricts matching
   characters and skips this file.
 - `manifest.json`: written last, listing character names, slugs, ranks, files, keys,
-  computed/reused/unavailable status and runtimes; overall status; tool version and code
-  hash; parameters, date, era and validation label; source URLs, fetch times and body
-  SHA-256 hashes; worker count, resulting niceness, total runtime, and parent/maximum
+  computed/reused/unavailable status and runtimes; overall status; tool version, code
+  hash and shared reuse key; parameters, run date, era and validation label; source URLs,
+  fetch times and body SHA-256 hashes; worker count, resulting niceness, total runtime, and parent/maximum
   child peak RSS in KiB. RSS is the process-lifetime high-water mark reported by the OS.
 
-A character file is reused when its key matches, unless `--force` is supplied. The key
-hashes each cached source body (canonical JSON), all installed package `.py` and `.json`
-bytes in sorted path order, result parameters, era, extrapolation flag and validation
-label. Parameters include the battle date, rCPM table and candidate identities, so changes
-to those also invalidate reuse. Overall is recomputed if any character was computed,
-its file is missing, or its key (the hash of all character keys) differs. An exclusive
-nonblocking lock on `DIR/.lock` rejects concurrent runs into the same directory.
+A character file is reused when its key matches, unless `--force` is supplied. Shared
+inputs hash the gamemaster body (canonical JSON), all installed package `.py` and `.json`
+bytes in sorted path order, result parameters (including rCPM table and candidate
+identities), era, extrapolation flag and the entire validation dictionary. Each character
+key combines that shared key with its name, rank, resolved species and move IDs per slot,
+unresolved entries and the defender records it uses. An event-info change affecting only
+one character therefore recomputes only that character. Overall is recomputed if any
+character was computed, its file is missing, or its key (the hash of sorted character
+name/key pairs) differs.
+
+The raw battle date does not invalidate reuse; the era and extrapolated flag do. Character
+and overall files and their manifest entries record `computed_for_battle_date`,
+`computed_for_battle_date_source` and `valid_for: {era, extrapolated}`. Reused files retain
+their original computation dates, row dates and source fetch times without being rewritten.
+The manifest's `battle_date` and `battle_date_source` describe the current run separately.
+
+When `--character` targets a directory with a manifest, matching shared keys allow its
+entries to be merged while preserving other characters and the overall entry. If any
+selected character changes or is recomputed, the retained overall entry is marked `stale`;
+run all characters to refresh it. A different shared key causes an error before any report
+is written, even with `--force`; use a separate output directory or run all characters.
+
+An exclusive nonblocking lock on `DIR/.lock` rejects concurrent runs into the same
+directory. A failed run can leave completed character files beside an older manifest.
+Consumers must verify each file's `key` matches its manifest entry and skip stale overall
+results. Orphaned files for removed characters are not pruned; publish only files listed
+in the manifest and skip dotfiles (locks and any temporary files left after a forced exit).
 
 `--workers` defaults to 3; 1 runs entirely in the parent. Higher values use that many
 worker processes plus the parent to screen candidates, battle finalists and complete
 overall coverage, preserving deterministic result order. Full battles inside workers
-run serially. Values must be between 1 and `os.cpu_count()`; precompute has no sim worker
+run serially. Values must be between 1 and the CPU affinity count (`os.sched_getaffinity(0)`),
+falling back to `os.cpu_count()` where affinity is unavailable; precompute has no sim worker
 cap. `--nice` defaults to 10 and adds that amount to the process niceness before work;
 workers inherit it. `--nice 0` leaves priority unchanged. Progress goes only to stderr.
 The nightly timer is a separate machine setup step that passes `--workers 12` at idle

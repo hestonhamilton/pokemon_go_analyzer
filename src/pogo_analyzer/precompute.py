@@ -13,6 +13,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from . import __version__, sim_cli, topn_cli
+from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
 
 
@@ -66,6 +67,9 @@ def atomic_json(path, value):
             temporary = Path(stream.name)
             json.dump(value, stream, separators=(",", ":"))
             stream.flush()
+            umask = os.umask(0)
+            os.umask(umask)
+            os.fchmod(stream.fileno(), 0o666 & ~umask)
             os.fsync(stream.fileno())
         os.replace(temporary, path)
     finally:
@@ -91,6 +95,58 @@ def _slug(name):
     return slug
 
 
+def _character_key(shared_key, report, planned, unresolved):
+    _, pools, records = planned
+    return _hash(
+        {
+            "shared_key": shared_key,
+            "name": report["name"],
+            "rank": report["rank"],
+            "pools": [
+                [
+                    {
+                        "species": option.species,
+                        "fast": option.combatant.fast.id,
+                        "charged": [move.id for move in option.combatant.charged],
+                    }
+                    for option in pool
+                ]
+                for pool in pools
+            ],
+            "unresolved": [row for row in unresolved if row["character"] == report["name"]],
+            "defenders": records,
+        }
+    )
+
+
+def _merge_target(args, shared_key):
+    """Reject incompatible partial runs before publishing any character files."""
+    path = args.out / "manifest.json"
+    if args.all or not path.exists():
+        return None
+    try:
+        manifest = json.loads(path.read_text())
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError(f"cannot merge --character into invalid manifest: {path}") from exc
+    if not isinstance(manifest, dict) or manifest.get("shared_key") != shared_key:
+        raise ValueError(
+            f"cannot merge --character: existing manifest has a different shared key: {path}; "
+            "use a separate --out directory or run all characters"
+        )
+    return manifest
+
+
+def _provenance(data):
+    return {
+        field: data[field]
+        for field in (
+            "computed_for_battle_date",
+            "computed_for_battle_date_source",
+            "valid_for",
+        )
+    }
+
+
 def _peak_memory():
     # Linux reports KiB; macOS reports bytes.
     divisor = 1024 if sys.platform == "darwin" else 1
@@ -113,35 +169,52 @@ def _run_locked(args, start, niceness):
     )
     sources = _sources(args.cache_dir, data["sources"])
     package_hash = code_hash()
-    key = _hash(
+    valid_for = {
+        "era": data["era"],
+        "extrapolated": data["battle_date"] > rule_data()["latest_source_date"],
+    }
+    shared_key = _hash(
         {
-            "sources": [s["sha256"] for s in sources],
+            "gamemaster": next(s["sha256"] for s in sources if s["url"] == PVPOKE_GM_URL),
             "code_hash": package_hash,
             # Dates within the same era share results (and the extrapolation flag).
             "params": {k: v for k, v in data["params"].items() if k != "battle_date"},
-            "era": data["era"],
-            "extrapolated": data["battle_date"] > rule_data()["latest_source_date"],
-            "validation_label": data["validation_label"],
+            **valid_for,
+            "validation_hash": _hash(data["validation"]),
         }
     )
-    header = {k: v for k, v in data.items() if k != "characters"}
+    existing = _merge_target(args, shared_key)
+    header = {
+        **{k: v for k, v in data.items() if k != "characters"},
+        "computed_for_battle_date": data["battle_date"],
+        "computed_for_battle_date_source": data["battle_date_source"],
+        "valid_for": valid_for,
+    }
     jobs, slugs = [], set()
+    existing_slugs = (
+        {entry["slug"]: entry["name"] for entry in existing["characters"]} if existing else {}
+    )
     for index, report in enumerate(data["characters"]):
         slug = _slug(report["name"])
-        if slug in slugs:
+        if slug in slugs or existing_slugs.get(slug, report["name"]) != report["name"]:
             raise ValueError(f"duplicate character filename: {slug}")
         slugs.add(slug)
         file = f"characters/{slug}.json"
+        key = _character_key(shared_key, report, planned[report["name"]], data["unresolved"])
         cached = _cached(args.out / file, key, args.force)
         if cached is not None:
             data["characters"][index] = cached["character"]
-        jobs.append((file, slug, cached))
+        jobs.append((file, slug, key, cached))
 
-    overall_key = _hash([key for _ in jobs])
+    overall_key = _hash(
+        sorted(
+            (report["name"], job[2]) for report, job in zip(data["characters"], jobs, strict=True)
+        )
+    )
     cached_overall = (
         _cached(args.out / "overall.json", overall_key, args.force) if args.all else None
     )
-    changed = any(cached is None for _, _, cached in jobs)
+    changed = any(cached is None for _, _, _, cached in jobs)
     need_overall = args.all and (changed or cached_overall is None)
     need_pool = args.workers > 1 and (changed or need_overall)
     context = (
@@ -158,7 +231,7 @@ def _run_locked(args, start, niceness):
             chunksize = max(1, min(16, len(items) // (args.workers * 4)))
             return pool.imap(function, items, chunksize=chunksize)
 
-        for report, (file, slug, cached) in zip(data["characters"], jobs, strict=True):
+        for report, (file, slug, key, cached) in zip(data["characters"], jobs, strict=True):
             character_start = time.perf_counter()
             if cached is None:
                 if "reason" not in report:
@@ -196,6 +269,7 @@ def _run_locked(args, start, niceness):
                     "key": key,
                     "file": file,
                     "status": status,
+                    **_provenance(cached if cached is not None else header),
                     "runtime_seconds": time.perf_counter() - character_start,
                 }
             )
@@ -208,15 +282,28 @@ def _run_locked(args, start, niceness):
                 "key": overall_key,
                 "file": "overall.json",
                 "status": "computed" if need_overall else "reused",
+                **_provenance(header if need_overall else cached_overall),
             }
             print(f"estimate: overall: {overall['status']}.", file=sys.stderr)
+    if existing is not None:
+        merged = {entry["name"]: entry for entry in existing["characters"]}
+        entries_changed = changed or any(
+            entry["key"] != merged.get(entry["name"], {}).get("key") for entry in entries
+        )
+        merged.update((entry["name"], entry) for entry in entries)
+        entries = list(merged.values())
+        overall = dict(existing["overall"])
+        if entries_changed and overall["file"] is not None:
+            overall["status"] = "stale"
     manifest = {
         "tool_version": __version__,
         "code_hash": package_hash,
+        "shared_key": shared_key,
         "params": data["params"],
         "battle_date": data["battle_date"],
         "battle_date_source": data["battle_date_source"],
         "era": data["era"],
+        "valid_for": valid_for,
         "validation_label": data["validation_label"],
         "sources": sources,
         "workers": args.workers,
@@ -232,8 +319,12 @@ def _run_locked(args, start, niceness):
 
 def run(args):
     start = time.perf_counter()
-    if not 1 <= args.workers <= (os.cpu_count() or 1):
-        raise ValueError(f"--workers must be between 1 and {os.cpu_count() or 1}")
+    try:
+        worker_limit = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        worker_limit = os.cpu_count() or 1
+    if not 1 <= args.workers <= worker_limit:
+        raise ValueError(f"--workers must be between 1 and {worker_limit}")
     niceness = os.nice(args.nice) if args.nice else os.getpriority(os.PRIO_PROCESS, 0)
     args.out.mkdir(parents=True, exist_ok=True)
     with (args.out / ".lock").open("a") as lock:

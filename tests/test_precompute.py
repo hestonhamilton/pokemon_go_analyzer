@@ -5,6 +5,8 @@ import fcntl
 import hashlib
 import json
 import multiprocessing
+import os
+import stat
 from datetime import date
 
 import pytest
@@ -21,6 +23,10 @@ def _favor_by_rank(candidate, pools, *, rank, **kwargs):
     row = _ORIGINAL_SCREEN(candidate, pools, rank=rank, **kwargs)
     row["score"] = int(candidate.species_id == ("metagross" if rank == "grunt" else "kirlia"))
     return row
+
+
+def _raise_screen(*args, **kwargs):
+    raise ValueError("injected worker failure")
 
 
 @pytest.fixture(autouse=True)
@@ -111,6 +117,15 @@ def test_outputs_compact_provenance_and_every_character(characters, tmp_path, ca
         assert len(entry["key"]) == 64 and data["key"] == entry["key"]
         assert entry["rank"] and entry["runtime_seconds"] >= 0
         assert data["character"]["name"] == entry["name"]
+        for field in (
+            "computed_for_battle_date",
+            "computed_for_battle_date_source",
+            "valid_for",
+        ):
+            assert data[field] == entry[field]
+        assert entry["computed_for_battle_date"] == manifest["battle_date"]
+        assert entry["computed_for_battle_date_source"] == "explicit"
+        assert entry["valid_for"] == {"era": manifest["era"], "extrapolated": True}
         for field in ("unresolved", "unavailable"):
             assert all(row["character"] == entry["name"] for row in data[field])
         assert all(source["fetched_at"] for source in data["sources"])
@@ -169,6 +184,8 @@ def test_default_battle_date_and_source_in_reports(cache, tmp_path, monkeypatch)
     manifest = run(cache, out, "--battle-date", "2026-11-15")
     assert manifest["battle_date_source"] == "explicit"
     assert manifest["overall"]["status"] == "reused"
+    for entry in [*manifest["characters"], manifest["overall"]]:
+        assert entry["computed_for_battle_date_source"] == "default: run date"
     assert all((out / p).read_bytes() == body for p, body in before.items())
 
 
@@ -179,6 +196,7 @@ def test_default_battle_date_and_source_in_reports(cache, tmp_path, monkeypatch)
 def test_reuse_date_depends_on_era_and_extrapolation(cache, tmp_path, monkeypatch, stamp, reusable):
     out = tmp_path / "reports"
     first = run(cache, out)
+    before_files = {p: (out / p).read_bytes() for p in report_files(out) if p != "manifest.json"}
     if reusable:
         assert_no_stages(monkeypatch)
     second = run(cache, out, "--battle-date", stamp)
@@ -187,8 +205,18 @@ def test_reuse_date_depends_on_era_and_extrapolation(cache, tmp_path, monkeypatc
     for before, after in zip(first["characters"], second["characters"], strict=True):
         assert (before["key"] == after["key"]) is reusable
         assert after["status"] == ("reused" if reusable else "computed")
+        assert after["computed_for_battle_date"] == ("2026-11-14" if reusable else stamp)
+        assert after["computed_for_battle_date_source"] == "explicit"
+        assert after["valid_for"] == second["valid_for"]
     assert (first["overall"]["key"] == second["overall"]["key"]) is reusable
     assert second["overall"]["status"] == ("reused" if reusable else "computed")
+    if reusable:
+        assert all((out / p).read_bytes() == body for p, body in before_files.items())
+        for entry in [*second["characters"], second["overall"]]:
+            payload = json.loads((out / entry["file"]).read_text())
+            assert payload["computed_for_battle_date"] == entry["computed_for_battle_date"]
+            assert payload["computed_for_battle_date"] == "2026-11-14"
+            assert payload["valid_for"] == entry["valid_for"]
 
 
 def test_changed_source_body_recomputes(cache, tmp_path, monkeypatch):
@@ -210,6 +238,63 @@ def test_changed_source_body_recomputes(cache, tmp_path, monkeypatch):
     assert second["characters"][0]["status"] == second["overall"]["status"] == "computed"
     assert first["characters"][0]["key"] != second["characters"][0]["key"]
     assert first["overall"]["key"] != second["overall"]["key"]
+
+
+def test_validation_coverage_change_with_same_label_recomputes(cache, tmp_path, monkeypatch):
+    out = tmp_path / "reports"
+    first = run(cache, out)
+    validation = copy.deepcopy(topn_cli.run_acceptance(topn_cli.DEFAULT_FIXTURES))
+    validation["coverage"]["levels"]["rocket_hp"] = []
+    monkeypatch.setattr(topn_cli, "run_acceptance", lambda _: validation)
+    calls = []
+    original = topn.rank_character
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(topn, "rank_character", counted)
+    second = run(cache, out)
+    assert first["validation_label"] == second["validation_label"]
+    assert first["shared_key"] != second["shared_key"]
+    assert calls == [1]
+    assert second["characters"][0]["status"] == second["overall"]["status"] == "computed"
+    assert first["characters"][0]["key"] != second["characters"][0]["key"]
+    assert first["overall"]["key"] != second["overall"]["key"]
+
+
+def test_event_change_recomputes_only_affected_character(characters, tmp_path, monkeypatch):
+    out = tmp_path / "reports"
+    first = run(characters, out)
+    before = {entry["name"]: entry for entry in first["characters"]}
+    before_files = {entry["file"]: (out / entry["file"]).read_bytes() for entry in before.values()}
+    event = read_source(characters, EVENT_INFO_URL)
+    event["15"]["encounters"]["first"] = [{"id": 281}]
+    write_source(characters, EVENT_INFO_URL, event)
+    calls = []
+    original = topn_cli.rank_report
+
+    def counted(report, *args, **kwargs):
+        calls.append(report["name"])
+        return original(report, *args, **kwargs)
+
+    monkeypatch.setattr(topn_cli, "rank_report", counted)
+    second = run(characters, out)
+    assert first["shared_key"] == second["shared_key"]
+    for entry in second["characters"]:
+        if "Cliff" in entry["name"]:
+            assert calls == [entry["name"]]
+            assert entry["status"] == "computed"
+            assert entry["key"] != before[entry["name"]]["key"]
+        else:
+            assert entry["status"] == ("unavailable" if "Empty" in entry["name"] else "reused")
+            assert entry["key"] == before[entry["name"]]["key"]
+            assert (out / entry["file"]).read_bytes() == before_files[entry["file"]]
+    assert second["overall"]["status"] == "computed"
+    assert second["overall"]["key"] != first["overall"]["key"]
+    assert second["overall"]["key"] == precompute._hash(
+        sorted((entry["name"], entry["key"]) for entry in second["characters"])
+    )
 
 
 def test_force_recomputes(cache, tmp_path, monkeypatch):
@@ -236,6 +321,68 @@ def test_character_restricts_and_skips_overall(characters, tmp_path):
     assert "Cliff" in manifest["characters"][0]["name"]
     assert not (out / "overall.json").exists()
     assert manifest["overall"] == {"key": None, "file": None, "status": "unavailable"}
+
+
+@pytest.mark.parametrize("change_encounters", [False, True])
+def test_character_merges_full_manifest(characters, tmp_path, change_encounters):
+    out = tmp_path / "reports"
+    first = run(characters, out)
+    before = {entry["name"]: entry for entry in first["characters"]}
+    overall_body = (out / "overall.json").read_bytes()
+    if change_encounters:
+        event = read_source(characters, EVENT_INFO_URL)
+        event["15"]["encounters"]["first"] = [{"id": 281}]
+        write_source(characters, EVENT_INFO_URL, event)
+    second = run(characters, out, "--character", "Cliff", "--battle-date", "2026-11-15")
+    assert len(second["characters"]) == len(first["characters"])
+    assert second["shared_key"] == first["shared_key"]
+    for entry in second["characters"]:
+        if "Cliff" in entry["name"]:
+            assert entry["status"] == ("computed" if change_encounters else "reused")
+            assert entry["computed_for_battle_date"] == (
+                "2026-11-15" if change_encounters else "2026-11-14"
+            )
+        else:
+            assert entry == before[entry["name"]]
+    assert second["overall"] == {
+        **first["overall"],
+        "status": "stale" if change_encounters else first["overall"]["status"],
+    }
+    assert (out / "overall.json").read_bytes() == overall_body
+    if change_encounters:
+        third = run(characters, out)
+        assert third["overall"]["status"] == "computed"
+        assert third["overall"]["key"] != first["overall"]["key"]
+
+
+@pytest.mark.parametrize("extra", [[], ["--force"]])
+def test_character_refuses_incompatible_full_manifest(
+    characters, tmp_path, monkeypatch, capsys, extra
+):
+    out = tmp_path / "reports"
+    run(characters, out)
+    before = {p: (out / p).read_bytes() for p in report_files(out)}
+    assert_no_stages(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(argv(characters, out, "--character", "Cliff", "--k", "2", *extra))
+    assert exc.value.code == 2
+    assert "existing manifest has a different shared key" in capsys.readouterr().err
+    assert all((out / p).read_bytes() == body for p, body in before.items())
+
+
+def test_character_merge_refuses_filename_collision(characters, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "reports"
+    run(characters, out)
+    before = {p: (out / p).read_bytes() for p in report_files(out)}
+    event = read_source(characters, EVENT_INFO_URL)
+    event["15"]["type"] = "Cliff!"
+    write_source(characters, EVENT_INFO_URL, event)
+    assert_no_stages(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(argv(characters, out, "--character", "Cliff"))
+    assert exc.value.code == 2
+    assert "duplicate character filename: cliff" in capsys.readouterr().err
+    assert all((out / p).read_bytes() == body for p, body in before.items())
 
 
 @pytest.mark.parametrize("start_method", ["fork", "spawn"])
@@ -313,6 +460,32 @@ def test_failed_atomic_write_preserves_target_and_cleans_temp(tmp_path, monkeypa
     assert list(target.parent.iterdir()) == ([target] if existing else [])
 
 
+def test_atomic_write_respects_umask(tmp_path):
+    target = tmp_path / "report.json"
+    previous = os.umask(0o022)
+    try:
+        precompute.atomic_json(target, {"complete": True})
+        assert stat.S_IMODE(target.stat().st_mode) == 0o644
+        # Reading the umask must restore it before returning.
+        assert os.umask(0o022) == 0o022
+    finally:
+        os.umask(previous)
+
+
+def test_worker_failure_propagates_and_releases_lock(cache, tmp_path, monkeypatch):
+    out = tmp_path / "reports"
+    monkeypatch.setattr(topn, "screen_candidate", _raise_screen)
+    options = cli.parser().parse_args(argv(cache, out, "--workers", "2"))
+    with pytest.raises(ValueError, match="injected worker failure"):
+        precompute.run(options)
+    assert not list(out.rglob("*.json"))
+    assert list(out.iterdir()) == [out / ".lock"]
+    with (out / ".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    monkeypatch.setattr(topn, "screen_candidate", _ORIGINAL_SCREEN)
+    assert run(cache, out)["overall"]["status"] == "computed"
+
+
 def test_failed_job_write_does_not_publish_manifest(cache, tmp_path, monkeypatch, capsys):
     out = tmp_path / "reports"
 
@@ -348,8 +521,13 @@ def test_priority(cache, tmp_path, priority, nice, calls, result):
 
 
 @pytest.mark.parametrize("workers", [0, -1, 3])
-def test_workers_rejected_before_sources(cache, tmp_path, monkeypatch, capsys, workers):
-    monkeypatch.setattr(precompute.os, "cpu_count", lambda: 2)
+@pytest.mark.parametrize("affinity", [True, False])
+def test_workers_rejected_before_sources(cache, tmp_path, monkeypatch, capsys, workers, affinity):
+    monkeypatch.setattr(precompute.os, "cpu_count", lambda: 64 if affinity else 2)
+    if affinity:
+        monkeypatch.setattr(precompute.os, "sched_getaffinity", lambda _: {0, 1}, raising=False)
+    else:
+        monkeypatch.delattr(precompute.os, "sched_getaffinity", raising=False)
     monkeypatch.setattr(calc_cli, "load_sources", lambda *a: pytest.fail("must validate first"))
     with pytest.raises(SystemExit) as exc:
         cli.main(argv(cache, tmp_path / "reports", "--workers", str(workers)))
