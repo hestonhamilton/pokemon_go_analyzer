@@ -2,6 +2,7 @@
 
 from collections import Counter
 from dataclasses import dataclass
+from functools import partial
 from statistics import mean
 
 from . import calc_cli as calc
@@ -127,6 +128,8 @@ def screen_candidate(
     pool_complete=True,
 ):
     """One member against each slot option; empty slots cannot produce a score."""
+    if callable(stats_grade):
+        stats_grade = stats_grade(candidate)
     _, groups = grid(candidate.team, pools, rank=rank, battle_date=battle_date)
     slots = {g["slot"]: g["win_rate"] for g in groups}
     rates = [slots.get(i) for i in range(1, 4)]
@@ -158,20 +161,29 @@ def screen_candidate(
 
 
 def screen_candidates(
-    candidates, pools, *, rank, battle_date, grid=winrate.grid, stats_grade=None, pool_complete=True
+    candidates,
+    pools,
+    *,
+    rank,
+    battle_date,
+    grid=winrate.grid,
+    stats_grade=None,
+    pool_complete=True,
+    mapper=map,
 ):
     """Best moveset for each source species and level, with deterministic ties."""
+    candidates = list(candidates)
     best = {}
-    for candidate in candidates:
-        screen = screen_candidate(
-            candidate,
-            pools,
-            rank=rank,
-            battle_date=battle_date,
-            grid=grid,
-            stats_grade=stats_grade(candidate) if stats_grade is not None else "model",
-            pool_complete=pool_complete,
-        )
+    run = partial(
+        screen_candidate,
+        pools=pools,
+        rank=rank,
+        battle_date=battle_date,
+        grid=grid,
+        stats_grade=stats_grade if stats_grade is not None else "model",
+        pool_complete=pool_complete,
+    )
+    for candidate, screen in zip(candidates, mapper(run, candidates), strict=True):
         if screen["score"] is None:
             continue
         order = (-screen["score"], *candidate.key)
@@ -197,6 +209,11 @@ def full_result(candidate, pools, *, rank, battle_date, battle=simulate_rocket, 
     return row
 
 
+def full_results(candidates, pools, *, mapper=map, **kwargs):
+    """Map independent candidate battles in input order; trials stay serial by default."""
+    return mapper(partial(full_result, pools=pools, **kwargs), candidates)
+
+
 def rank_character(
     candidates,
     pools,
@@ -209,6 +226,7 @@ def rank_character(
     trial_runner=None,
     stats_grade=None,
     pool_complete=True,
+    mapper=map,
 ):
     """Run stage 2 only for the top K species per level, before full-result sorting."""
     if k < 1:
@@ -221,21 +239,28 @@ def rank_character(
         grid=grid,
         stats_grade=stats_grade,
         pool_complete=pool_complete,
+        mapper=mapper,
     )
-    levels = {}
+    counts = {}
+    finalists = []
     for candidate, screen in screened:
-        rows = levels.setdefault(candidate.key[1], [])
-        if len(rows) >= k:
+        level = candidate.key[1]
+        if counts.get(level, 0) >= k:
             continue
-        row = full_result(
-            candidate,
-            pools,
-            rank=rank,
-            battle_date=battle_date,
-            battle=battle,
-            trial_runner=trial_runner,
-        )
-        rows.append({**row, **candidate.output(), "screen": screen})
+        counts[level] = counts.get(level, 0) + 1
+        finalists.append((candidate, screen))
+    rows = full_results(
+        [c for c, _ in finalists],
+        pools,
+        mapper=mapper,
+        rank=rank,
+        battle_date=battle_date,
+        battle=battle,
+        trial_runner=trial_runner,
+    )
+    levels = {level: [] for level in counts}
+    for (candidate, screen), row in zip(finalists, rows, strict=True):
+        levels[candidate.key[1]].append({**row, **candidate.output(), "screen": screen})
     return {level: winrate.sort_results(rows) for level, rows in levels.items()}
 
 

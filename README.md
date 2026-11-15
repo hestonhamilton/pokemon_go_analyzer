@@ -253,6 +253,50 @@ and maximum stage-2 lineup battles (K × levels × lineups, summed over availabl
 `--all` adds union completion battles. Screening is serial; full enumeration reuses `sim`'s capped
 workers: at most three workers plus the parent. Progress goes to stderr.
 
+## Precompute reports (estimate)
+
+`precompute` runs the same two-stage top-N engine for every Rocket character and writes
+reports for a later static-site step. Every number is an **estimate**. The level, trainer
+level, K, candidate, elite/legacy, rCPM, cache and validation options have the same defaults
+and validation as `topn` (levels 40 and 50, trainer level 50, K 30).
+
+```sh
+uv run pogo-analyzer precompute --out reports --battle-date 2026-11-14
+uv run pogo-analyzer precompute --out cliff-reports --battle-date 2026-11-14 \
+  --character Cliff --workers 2 --nice 10 --level 40 --k 30
+```
+
+All files use compact JSON and are replaced atomically after flushing and syncing:
+
+- `characters/<slug>.json`: shared top-N provenance, policies, notes and grades; that
+  character's unresolved/unavailable records; its `character` report with finalists per
+  level and graded `calc_rows`; and its reuse `key`.
+- `overall.json`: shared provenance plus the top-N `all`, `grunts`, `leaders`, `coverage`
+  and `weighting_note` sections, with a reuse `key`. `--character` restricts matching
+  characters and skips this file.
+- `manifest.json`: written last, listing character names, slugs, ranks, files, keys,
+  computed/reused/unavailable status and runtimes; overall status; tool version and code
+  hash; parameters, date, era and validation label; source URLs, fetch times and body
+  SHA-256 hashes; worker count, resulting niceness, total runtime, and parent/maximum
+  child peak RSS in KiB. RSS is the process-lifetime high-water mark reported by the OS.
+
+A character file is reused when its key matches, unless `--force` is supplied. The key
+hashes each cached source body (canonical JSON), all installed package `.py` and `.json`
+bytes in sorted path order, result parameters, era, extrapolation flag and validation
+label. Parameters include the battle date, rCPM table and candidate identities, so changes
+to those also invalidate reuse. Overall is recomputed if any character was computed,
+its file is missing, or its key (the hash of all character keys) differs. An exclusive
+nonblocking lock on `DIR/.lock` rejects concurrent runs into the same directory.
+
+`--workers` defaults to 3; 1 runs entirely in the parent. Higher values use that many
+worker processes plus the parent to screen candidates, battle finalists and complete
+overall coverage, preserving deterministic result order. Full battles inside workers
+run serially. Values must be between 1 and `os.cpu_count()`; precompute has no sim worker
+cap. `--nice` defaults to 10 and adds that amount to the process niceness before work;
+workers inherit it. `--nice 0` leaves priority unchanged. Progress goes only to stderr.
+The nightly timer is a separate machine setup step that passes `--workers 12` at idle
+priority; this command does not install a timer. The `sim` and `topn` defaults are unchanged.
+
 ## Development checks
 
 - `uv run pytest -q` runs offline. An autouse fixture blocks the network, and the calculator and
