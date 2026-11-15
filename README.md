@@ -210,6 +210,49 @@ gate prints UNVALIDATED. Large characters continue with stdlib multiprocessing o
 parent, which collects and aggregates results (fewer workers on machines with fewer than four CPUs). See the [win rate report](tests/fixtures/sim/winrate_report.md)
 for metric definitions, grade dependencies, pool sizes, runtimes and model choices.
 
+## Top-N counters (estimate)
+
+`topn` ranks solo attackers using the offline calculator and simulator. Every number is an
+**estimate**; screening and enumeration do not validate battle mechanics.
+
+```sh
+uv run pogo-analyzer topn --character Cliff --k 30
+uv run pogo-analyzer topn --all --battle-date 2026-11-14 --level 40 --level 50 \
+  --candidates metagross,metagross_shadow --exclude-elite-legacy --format json
+```
+
+Stage 1 screens every released PvPoke species and fast × single charged moveset with a solo 1v1
+grid. Its score is the mean of the three slot win rates; draws are not wins. The grid ignores
+carried-over shields and HP between slots, so screen scores are not lineup win rates. Each species
+keeps its best moveset per level; ties at the K cut break by species id alphabetically.
+Stage 2 battles the top `--k` species (default 30) against every full lineup, then ranks by
+win rate, HP left and turns, following `sim`.
+
+IVs are 15/15/15; levels default to 40 and 50, ranked separately (`--level` is repeatable).
+Trainer level defaults to 50 and rCPM to `dec-2025`. Shadows are separate candidates built with
+the calculator's base-species shadow form. Mega and Primal forms and calculator rejections appear
+in `skipped` with reasons. Elite and legacy membership is recorded for each move;
+`--exclude-elite-legacy` filters both attacker and Rocket pools. `--candidates` restricts source
+species IDs or names.
+Battle date defaults to today's local date; `--battle-date` overrides it. Output echoes the date
+and `battle_date_source` (`default: run date` or `explicit`). Source caching, rules, player policies
+and evidence limitations follow `sim`. Duplicate selected character names fail before battles run.
+
+Output is JSON only. `characters[].finalists` contains ranked lists keyed by level, with full sim
+metrics, headline grades, screen rates and calculator per-cell graded `calc_rows`. Each screen keeps
+its slot aggregates' rules grades, flags and labels, plus its own headline grade using the weakest
+calculator stat grade across that build's slot options and any incomplete-pool warning. With `--all`,
+the union of finalists is battled against every available character. `overall` gives `all`,
+`grunts`, and `leaders` (including Giovanni) views with `results` keyed by level. Each entry uses
+equal weight per character, a model choice with no encounter-rate source. Coverage lists missing
+characters and states how many are covered; an empty resolved slot excludes its character rather
+than counting it as zero. Overall rows retain the estimate label and union of contributing ledger
+evidence. Incomplete pools and the weakest contributing grades remain explicit. Before battles run,
+stderr shows planned stage-1 1v1 battles (builds × slot options, summed over available characters)
+and maximum stage-2 lineup battles (K × levels × lineups, summed over available characters).
+`--all` adds union completion battles. Screening is serial; full enumeration reuses `sim`'s capped
+workers: at most three workers plus the parent. Progress goes to stderr.
+
 ## Development checks
 
 - `uv run pytest -q` runs offline. An autouse fixture blocks the network, and the calculator and
