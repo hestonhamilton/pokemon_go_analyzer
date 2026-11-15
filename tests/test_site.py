@@ -232,7 +232,7 @@ def test_unvalidated_and_discrepancies_are_data_driven(reports, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "mode", ["key", "missing", "hidden", "name", "file_key", "manifest_key", "both_keys"]
+    "mode", ["key", "missing", "hidden", "name", "file_key", "manifest_key", "both_keys", "status"]
 )
 def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
     manifest = read(reports, "manifest.json")
@@ -244,6 +244,8 @@ def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
     elif mode == "hidden":
         change(reports, "manifest.json", lambda d: d["characters"][0].update(file=".temp.json"))
         (reports / ".temp.json").write_text("not JSON: must not be read")
+    elif mode == "status":
+        change(reports, "manifest.json", lambda d: d["characters"][0].update(status="stale"))
     elif mode in ("file_key", "manifest_key", "both_keys"):
         if mode in ("file_key", "both_keys"):
             change(reports, entry["file"], lambda d: d.pop("key"))
@@ -256,19 +258,84 @@ def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
     assert "not calculated" in html
     assert '<details class="counter">' not in html
     assert "not calculated" in pages[f"list/{entry['slug']}.html"]
+    assert "data-win=" not in pages[f"list/{entry['slug']}.html"]
 
 
 @pytest.mark.parametrize("mode", ["key", "status"])
 def test_stale_overall_is_visible(reports, tmp_path, mode):
+    change(
+        reports,
+        "overall.json",
+        lambda d: d.update(
+            battle_date="2026-10-01",
+            computed_for_battle_date="2026-10-01",
+            computed_for_battle_date_source="default: run date",
+            valid_for={"era": "overall-file-era", "extrapolated": True},
+        ),
+    )
     if mode == "key":
         change(reports, "overall.json", lambda d: d.update(key="wrong"))
     else:
         change(reports, "manifest.json", lambda d: d["overall"].update(status="stale"))
     pages = build(reports, tmp_path / "site")
     for path in ("index.html", "list/all.html", "list/grunts.html", "list/leaders.html"):
-        assert "stale report:" in pages[path]
+        html = pages[path]
+        if mode == "key":
+            assert "stale report: key does not match manifest entry" in html
+            assert "not calculated" in html
+            assert site.chip("stale", "warn") not in html
+        else:
+            assert site.chip("stale", "warn") in html
+            assert "This overall list was computed for battle date 2026-10-01" in html
+            assert (
+                "older than the per-type lists, which have changed since it was computed." in html
+            )
+        assert "Computed for battle date 2026-10-01" in html
+        assert "battle_date_source: default: run date" in html
+        assert "valid_for era: overall-file-era" in html
+        if path.startswith("list/"):
+            assert ("data-win=" in html) is (mode == "status")
+            assert ("not calculated" in html) is (mode == "key")
+            assert "Computed for battle date 2026-11-14" not in html
+
+
+def test_skipped_overall_reason(reports, tmp_path):
+    change(
+        reports,
+        "manifest.json",
+        lambda d: d.update(overall={"key": None, "file": None, "status": "skipped"}),
+    )
+    pages = build(reports, tmp_path / "site")
+    for path in ("index.html", "list/all.html", "list/grunts.html", "list/leaders.html"):
+        assert "overall list not computed on this run (--skip-overall)" in pages[path]
+        assert "report file unavailable" not in pages[path]
+        if path.startswith("list/"):
+            assert "data-win=" not in pages[path]
+
+
+@pytest.mark.parametrize("mode", ["missing", "hidden", "absolute", "outside"])
+def test_stale_overall_requires_safe_existing_file(reports, tmp_path, mode):
+    filename = "overall.json"
+    if mode == "missing":
+        (reports / filename).unlink()
+    elif mode == "hidden":
+        filename = ".overall.json"
+        (reports / filename).write_text("not JSON: must not be read")
+    else:
+        outside = tmp_path / "outside.json"
+        outside.write_bytes((reports / filename).read_bytes())
+        if mode == "absolute":
+            filename = str(outside)
+        else:
+            filename = "outside.json"
+            (reports / filename).symlink_to(outside)
+    change(reports, "manifest.json", lambda d: d["overall"].update(file=filename, status="stale"))
+    pages = build(reports, tmp_path / "site")
+    for path in ("index.html", "list/all.html", "list/grunts.html", "list/leaders.html"):
         assert "not calculated" in pages[path]
-    assert "data-win=" not in pages["list/all.html"]
+        assert site.chip("stale", "warn") not in pages[path]
+        if path.startswith("list/"):
+            assert "data-win=" not in pages[path]
 
 
 def test_per_file_dates_and_ignored_orphans(reports, tmp_path):

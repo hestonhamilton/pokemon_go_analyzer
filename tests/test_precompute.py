@@ -314,6 +314,165 @@ def test_force_recomputes(cache, tmp_path, monkeypatch):
     assert first["overall"]["key"] == second["overall"]["key"]
 
 
+def test_skip_overall_without_previous(cache, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "reports"
+    monkeypatch.setattr(
+        topn_cli, "complete_overall", lambda *a, **k: pytest.fail("overall must be skipped")
+    )
+    first = run(cache, out, "--skip-overall")
+    assert first["overall"] == {"key": None, "file": None, "status": "skipped"}
+    assert not (out / "overall.json").exists()
+    assert first["skip_overall"] is True
+    assert "skip_overall" not in first["params"]
+    assert "estimate: overall: skipped (skipped)." in capsys.readouterr().err
+    assert_no_stages(monkeypatch)
+    second = run(cache, out, "--skip-overall", "--workers", "2")
+    assert second["characters"][0]["status"] == "reused"
+    assert second["overall"] == first["overall"]
+
+
+def test_skip_overall_reuses_previous(cache, tmp_path, monkeypatch, capsys):
+    out = tmp_path / "reports"
+    first = run(cache, out)
+    before = (out / "overall.json").read_bytes()
+    assert first["skip_overall"] is False
+    assert "skip_overall" not in first["params"]
+    # Reuse provenance must come from the file, even if the manifest is out of date.
+    previous = copy.deepcopy(first)
+    previous["overall"]["computed_for_battle_date"] = "2026-10-01"
+    precompute.atomic_json(out / "manifest.json", previous)
+    assert_no_stages(monkeypatch)
+    monkeypatch.setattr(
+        topn_cli, "complete_overall", lambda *a, **k: pytest.fail("overall must be skipped")
+    )
+    second = run(cache, out, "--skip-overall", "--workers", "2", "--battle-date", "2026-11-15")
+    assert second["overall"] == {**first["overall"], "status": "reused"}
+    assert (out / "overall.json").read_bytes() == before
+    assert "estimate: overall: skipped (reused)." in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("change", ["character", "shared", "force"])
+def test_skip_overall_preserves_stale(characters, tmp_path, monkeypatch, capsys, change):
+    out = tmp_path / "reports"
+    first = run(characters, out)
+    before = (out / "overall.json").read_bytes()
+    if change == "character":
+        event = read_source(characters, EVENT_INFO_URL)
+        event["15"]["encounters"]["first"] = [{"id": 281}]
+        write_source(characters, EVENT_INFO_URL, event)
+    elif change == "shared":
+        gm = read_source(characters, PVPOKE_GM_URL)
+        gm["harmless_note"] = "source hash changed"
+        write_source(characters, PVPOKE_GM_URL, gm)
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            topn_cli, "complete_overall", lambda *a, **k: pytest.fail("overall must be skipped")
+        )
+        second = run(
+            characters,
+            out,
+            "--skip-overall",
+            "--battle-date",
+            "2026-11-15",
+            *(["--force"] if change == "force" else []),
+        )
+    assert second["overall"] == {**first["overall"], "status": "stale"}
+    assert (out / "overall.json").read_bytes() == before
+    assert any(entry["status"] == "computed" for entry in second["characters"])
+    assert (first["shared_key"] != second["shared_key"]) is (change == "shared")
+    assert "estimate: overall: skipped (stale)." in capsys.readouterr().err
+    monkeypatch.setattr(
+        topn, "screen_candidates", lambda *a, **k: pytest.fail("must reuse character finalists")
+    )
+    third = run(characters, out)
+    assert {entry["status"] for entry in third["characters"]} == {"reused", "unavailable"}
+    # Force alone leaves the inputs unchanged, so a later ordinary run can reuse it.
+    assert third["overall"]["status"] == ("reused" if change == "force" else "computed")
+    assert third["skip_overall"] is False
+    assert third["params"] == first["params"]
+    assert third["overall"]["key"] == precompute._hash(
+        sorted((entry["name"], entry["key"]) for entry in third["characters"])
+    )
+
+
+@pytest.mark.parametrize(
+    "previous",
+    [None, b"not JSON", b"\xff", b"[]", b'{"overall":null}', b'{"overall":[]}'],
+)
+def test_skip_overall_ignores_invalid_manifest(cache, tmp_path, previous):
+    out = tmp_path / "reports"
+    run(cache, out)
+    before = (out / "overall.json").read_bytes()
+    if previous is None:
+        (out / "manifest.json").unlink()
+    else:
+        (out / "manifest.json").write_bytes(previous)
+    manifest = run(cache, out, "--skip-overall")
+    assert manifest["overall"] == {"key": None, "file": None, "status": "skipped"}
+    assert (out / "overall.json").read_bytes() == before
+
+
+def test_skip_overall_ignores_unreadable_manifest(cache, tmp_path, monkeypatch):
+    out = tmp_path / "reports"
+    run(cache, out)
+    before = (out / "overall.json").read_bytes()
+    path_type = type(out)
+    original = path_type.read_text
+
+    def read_text(path, *args, **kwargs):
+        if path == out / "manifest.json":
+            raise PermissionError("unreadable manifest")
+        return original(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(path_type, "read_text", read_text)
+        assert cli.main(argv(cache, out, "--skip-overall")) == 0
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["overall"] == {"key": None, "file": None, "status": "skipped"}
+    assert (out / "overall.json").read_bytes() == before
+
+
+def test_full_run_after_skip_completes_without_screening(characters, tmp_path, monkeypatch):
+    out = tmp_path / "reports"
+    first = run(characters, out, "--skip-overall")
+    before = {entry["file"]: (out / entry["file"]).read_bytes() for entry in first["characters"]}
+    monkeypatch.setattr(
+        topn, "screen_candidates", lambda *a, **k: pytest.fail("must reuse character finalists")
+    )
+    second = run(characters, out)
+    assert {entry["status"] for entry in second["characters"]} == {"reused", "unavailable"}
+    assert second["overall"]["status"] == "computed"
+    overall = json.loads((out / "overall.json").read_text())
+    assert overall["all"]["results"]["40"]
+    assert overall["key"] == second["overall"]["key"]
+    assert all((out / file).read_bytes() == body for file, body in before.items())
+
+
+@pytest.mark.parametrize("missing", ["file", "entry_file", "entry_key"])
+def test_skip_overall_without_usable_previous(cache, tmp_path, missing):
+    out = tmp_path / "reports"
+    previous = run(cache, out)
+    if missing == "file":
+        (out / "overall.json").unlink()
+    else:
+        previous["overall"][missing.removeprefix("entry_")] = None
+        precompute.atomic_json(out / "manifest.json", previous)
+    # Force ensures an entry without a key cannot be rescued by matching file contents.
+    manifest = run(cache, out, "--skip-overall", "--force")
+    assert manifest["overall"] == {"key": None, "file": None, "status": "skipped"}
+
+
+def test_skip_overall_with_character_is_error(cache, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(calc_cli, "load_sources", lambda *a: pytest.fail("must validate first"))
+    with pytest.raises(SystemExit) as exc:
+        cli.main(argv(cache, tmp_path / "reports", "--skip-overall", "--character", "Cliff"))
+    assert exc.value.code == 2
+    assert (
+        "--skip-overall needs an all-characters run; --character never computes the overall"
+        in capsys.readouterr().err
+    )
+
+
 def test_character_restricts_and_skips_overall(characters, tmp_path):
     out = tmp_path / "reports"
     manifest = run(characters, out, "--character", "Cliff")
