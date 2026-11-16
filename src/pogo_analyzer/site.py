@@ -101,6 +101,9 @@ display:grid;gap:18px}h1,h2,h3{font-family:var(--display);margin:0;letter-spacin
 h1{font-size:2rem}h2{font-size:1.45rem}h3{font-size:1.1rem}p{margin:0}a{color:var(--accent)}
 nav,.controls{display:flex;flex-wrap:wrap;gap:8px}nav a{font:600 .85rem var(--display);
 text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:4px}
+button.theme-toggle{width:32px;height:32px;
+margin-left:auto;border:1px solid var(--line);border-radius:50%;background:var(--panel);
+color:var(--ink);padding:6px;cursor:pointer}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);
 outline-offset:2px}.screen{background:var(--panel);border:1px solid var(--line);
 border-radius:8px;overflow:hidden}.screen-title{padding:12px 14px 8px}.sub,.moves{
@@ -410,16 +413,62 @@ def notes(data, coverage_view=None):
     return f'<footer class="notes">{body}</footer>'
 
 
+THEME_HEAD_JS = (
+    "try{var t=localStorage.getItem('pogo-theme');"
+    "if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}"
+)
+THEME_TOGGLE = (
+    '<button type="button" class="theme-toggle" hidden aria-label="Switch to dark theme">'
+    '<svg class="moon" viewBox="0 0 24 24" width="18" height="18" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" '
+    'aria-hidden="true">'
+    '<path d="M21 12.8A9 9 0 1 1 11.2 3 7.1 7.1 0 0 0 21 12.8Z"/></svg>'
+    '<svg class="sun" viewBox="0 0 24 24" width="18" height="18" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" '
+    'aria-hidden="true" style="display:none">'
+    '<circle cx="12" cy="12" r="4"/>'
+    '<path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.42 1.42'
+    'M17.65 17.65l1.42 1.42M19.07 4.93l-1.42 1.42M6.35 17.65l-1.42 1.42"/>'
+    "</svg></button>"
+)
+THEME_JS = """
+(function(){
+  var button=document.querySelector('.theme-toggle');
+  var root=document.documentElement;
+  var preference=window.matchMedia('(prefers-color-scheme: dark)');
+  var dark=root.dataset.theme ? root.dataset.theme==='dark' : preference.matches;
+  function update(){
+    button.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');
+    button.querySelector('.moon').style.display=dark?'none':'';
+    button.querySelector('.sun').style.display=dark?'':'none';
+  }
+  preference.addEventListener('change',function(event){
+    if(!root.dataset.theme){dark=event.matches;update()}
+  });
+  button.addEventListener('click',function(){
+    dark=!dark;
+    root.dataset.theme=dark?'dark':'light';
+    try{localStorage.setItem('pogo-theme',root.dataset.theme)}catch(e){}
+    update();
+  });
+  update();
+  button.hidden=false;
+})();
+"""
+
+
 def document(title, data, body, nav, *, script=False, coverage_view=None, legends=""):
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f"<script>{THEME_HEAD_JS}</script>\n"
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{e(title)}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<main>\n"
-        f'<nav aria-label="Pages">{nav}</nav>\n<div class="screen">'
+        f'<nav aria-label="Pages">{nav}{THEME_TOGGLE}</nav>\n<div class="screen">'
         f'<header class="screen-title"><h1>{e(title)}</h1></header>\n'
         f"{intro(data, legends)}\n"
         f'<div class="body">{body}</div>\n{notes(data, coverage_view)}\n</div>\n</main>\n'
         + (f"<script>{FILTER_JS}</script>\n" if script else "")
+        + f"<script>{THEME_JS}</script>\n"
         + "</body>\n</html>\n"
     )
 

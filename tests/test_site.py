@@ -70,6 +70,15 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
     overall = read(reports, "overall.json")
     # Check every page, including both unavailable page types, rather than one sample.
     for path, html in pages.items():
+        head_script = f"<script>{site.THEME_HEAD_JS}</script>"
+        assert html.index('<meta charset="utf-8">') < html.index(head_script)
+        assert html.index(head_script) < html.index("<style>") < html.index("</head>")
+        assert html.index("</head>") < html.index("<body>")
+        assert site.THEME_TOGGLE in html
+        assert '<button type="button" class="theme-toggle" hidden' in html
+        assert "localStorage.getItem('pogo-theme')" in site.THEME_HEAD_JS
+        assert "t==='light'||t==='dark'" in site.THEME_HEAD_JS
+        assert "localStorage.setItem('pogo-theme'" in html
         for label in (
             "every number is an estimate",
             escape(overall["validation_label"]),
