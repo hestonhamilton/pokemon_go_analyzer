@@ -814,3 +814,12 @@ def test_output_root_symlink_cannot_be_replaced(reports, tmp_path):
         site.build_site(reports, out)
     assert out.is_symlink()
     assert (outside / ".pogo-site").is_file()
+
+
+def test_phone_layout_rules(reports, tmp_path):
+    """Phone width: wide tables scroll inside their card instead of being clipped or
+    widening the page (grid min-width, chips breaking per letter, absolute sr-only labels)."""
+    html = build(reports, tmp_path / "site")["index.html"]
+    assert "grid-template-columns:minmax(0,1fr)" in html
+    assert ".wrap{overflow-x:auto;position:relative}" in html
+    assert "td .chip{white-space:nowrap;overflow-wrap:normal}" in html
