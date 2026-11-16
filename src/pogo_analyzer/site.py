@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
@@ -15,6 +16,27 @@ from pathlib import Path
 from .sim.rocket import rule_data
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+TYPES = (
+    "normal",
+    "fire",
+    "water",
+    "electric",
+    "grass",
+    "ice",
+    "fighting",
+    "poison",
+    "ground",
+    "flying",
+    "psychic",
+    "bug",
+    "rock",
+    "ghost",
+    "dragon",
+    "dark",
+    "steel",
+    "fairy",
+)
 
 PAUSE_NOTE = (
     "Rankings depend strongly on the modelled Rocket pause after each charged attack "
@@ -55,6 +77,18 @@ CSS = """
 :root{--bg:#eef0ec;--panel:#fbfbf8;--ink:#1d2321;--muted:#5d6762;--line:#d3d8d2;
 --accent:#1f5f8b;--win:#2f7d4f;--amber:#9a6200;--violet:#6a4c9c;
 --display:"Arial Narrow",sans-serif;--body:system-ui,sans-serif;--mono:ui-monospace,monospace}
+/* Values sampled from the Pokémon GO type icons. */
+:root{--ty-normal:#9098a0;--ty-fire:#fca84c;--ty-water:#4c90d4;--ty-electric:#f4d03c;--ty-grass:#60b854;--ty-ice:#74ccc0;--ty-fighting:#cc4068;--ty-poison:#a464c4;--ty-ground:#d49060;--ty-flying:#90a8dc;--ty-psychic:#f86c74;--ty-bug:#90c02c;--ty-rock:#d0c490;--ty-ghost:#5468ac;--ty-dragon:#0868c0;--ty-dark:#585064;--ty-steel:#50849c;--ty-fairy:#ec8ce4;}
+.ty{display:inline-flex;align-items:center;gap:4px;font:600 .76rem var(--body);padding:1px 8px;
+border-radius:999px;border:1px solid color-mix(in srgb,var(--ty) 55%,transparent);
+background:color-mix(in srgb,var(--ty) 18%,transparent);color:var(--ink);
+text-transform:capitalize;white-space:nowrap}
+.ty:has(img){padding-left:2px}.ty img{width:18px;height:18px}
+.tys{display:flex;flex-wrap:wrap;gap:4px}
+.ty-normal{--ty:var(--ty-normal)}.ty-fire{--ty:var(--ty-fire)}.ty-water{--ty:var(--ty-water)}.ty-electric{--ty:var(--ty-electric)}.ty-grass{--ty:var(--ty-grass)}.ty-ice{--ty:var(--ty-ice)}.ty-fighting{--ty:var(--ty-fighting)}.ty-poison{--ty:var(--ty-poison)}.ty-ground{--ty:var(--ty-ground)}.ty-flying{--ty:var(--ty-flying)}.ty-psychic{--ty:var(--ty-psychic)}.ty-bug{--ty:var(--ty-bug)}.ty-rock{--ty:var(--ty-rock)}.ty-ghost{--ty:var(--ty-ghost)}.ty-dragon{--ty:var(--ty-dragon)}.ty-dark{--ty:var(--ty-dark)}.ty-steel{--ty:var(--ty-steel)}.ty-fairy{--ty:var(--ty-fairy)}
+button.t:has(.ty),button.t:has(.ty)[aria-pressed=true]{padding:0;border:0;background:none}
+button[aria-pressed=true] .ty{outline:2px solid var(--ink);outline-offset:1px}
+h2 .ty{vertical-align:.2em}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
 --bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;
 --muted:#99a49e;--line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;
@@ -440,7 +474,14 @@ def levels(data, results):
     )
 
 
-def list_body(data, results, reason, extra="", *, overall=False):
+def type_chip(t, icons, *, prefix=""):
+    if t not in TYPES:
+        return e(t)
+    icon = f'<img src="{prefix}types/{t}.png" alt="" width="18" height="18">' if t in icons else ""
+    return f'<span class="ty ty-{t}">{icon}{e(t)}</span>'
+
+
+def list_body(data, results, reason, extra="", *, overall=False, icons=frozenset()):
     level_keys = levels(data, results)
     body = (
         extra
@@ -456,11 +497,12 @@ def list_body(data, results, reason, extra="", *, overall=False):
         if not rows:
             body += unavailable(reason or "no full results at this level") + "</section>"
             continue
-        types = sorted({t for row in rows for t in row.get("types", [])})
+        types = sorted({t for row in rows for t in row.get("types", []) if t != "none"})
         body += '<div class="controls" role="group" aria-label="Attacker types" hidden>'
         body += '<button class="t" data-filter="" aria-pressed="true">All types</button>'
         body += "".join(
-            f'<button class="t" data-filter="{e(t)}" aria-pressed="false">{e(t)}</button>'
+            f'<button class="t" data-filter="{e(t)}" aria-pressed="false">'
+            f"{type_chip(t, icons, prefix='../')}</button>"
             for t in types
         )
         body += (
@@ -489,9 +531,16 @@ def list_body(data, results, reason, extra="", *, overall=False):
                 f'<tr data-types="{e(json.dumps(row.get("types", [])))}" '
                 f'data-win="{e(row["win_rate"])}">'
             )
-            types_text = " / ".join(row.get("types", [])) or "types not recorded"
+            types_text = [t for t in row.get("types", []) if t != "none"]
             body += f"<td data-rank>{rank}</td><td>{counter_name(row)}</td>"
-            body += f"<td>{e(types_text)}</td>"
+            body += (
+                '<td><span class="tys">'
+                + (
+                    "".join(type_chip(t, icons, prefix="../") for t in types_text)
+                    or "types not recorded"
+                )
+                + "</span></td>"
+            )
             body += f'<td class="num">{win_rate(row, overall=overall)}</td>'
             ratio_text = percentage(ratio) if ratio is not None else "—"
             body += (
@@ -657,9 +706,22 @@ def counters_body(data, results, reason):
     return body
 
 
-def tile(title, href, data, results, reason, *, overall=False, extra="", coverage_view=None):
+def tile(
+    title,
+    href,
+    data,
+    results,
+    reason,
+    *,
+    overall=False,
+    extra="",
+    coverage_view=None,
+    type_name=None,
+    icons=frozenset(),
+):
     body = (
         f'<article class="tile{" overall" if overall else ""}"><h2>'
+        f"{type_chip(type_name, icons) + ' ' if type_name else ''}"
         f'<a href="{e(href)}">{e(title)}</a></h2>{extra}'
     )
     rows = ordered(results.get("40", []))[:3]
@@ -758,7 +820,10 @@ def check_destination(destination):
     files = recorded.get("files")
     if not isinstance(files, list) or not all(
         isinstance(name, str)
-        and re.fullmatch(r"(?:index|(?:list|counters)/[a-z0-9]+(?:-[a-z0-9]+)*)\.html", name)
+        and re.fullmatch(
+            r"(?:(?:index|(?:list|counters)/[a-z0-9]+(?:-[a-z0-9]+)*)\.html|types/[a-z]+\.png)",
+            name,
+        )
         for name in files
     ):
         raise ValueError(refusal)
@@ -784,7 +849,12 @@ def publish_pages(destination, pages):
         os.umask(umask)
         staged.chmod(0o777 & ~umask)
         for relative, body in pages.items():
-            atomic_text(staged / relative, body)
+            if isinstance(body, bytes):
+                path = staged / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(body)
+            else:
+                atomic_text(staged / relative, body)
         atomic_text(staged / ".pogo-site", json.dumps({"version": 1, "files": sorted(pages)}))
         # Recheck ownership immediately before moving anything out of --out.
         check_destination(destination)
@@ -809,7 +879,28 @@ def publish_pages(destination, pages):
         shutil.rmtree(old)
 
 
-def build_site(data_dir, out):
+def load_type_icons(directory):
+    icons = {}
+    if directory is None:
+        return icons
+    for name in TYPES:
+        try:
+            fd = os.open(
+                Path(directory) / f"{name}.png", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+            )
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+                    continue
+                content = stream.read(65537)
+                if len(content) <= 65536 and content.startswith(b"\x89PNG\r\n\x1a\n"):
+                    icons[name] = content
+        except OSError:
+            continue
+    return icons
+
+
+def build_site(data_dir, out, type_icons=None):
     if Path(out).is_symlink():
         raise ValueError("output symlink points outside --out")
     root, destination = Path(data_dir).resolve(), Path(out).resolve()
@@ -854,7 +945,9 @@ def build_site(data_dir, out):
             f"<p>This overall list was computed for battle date {e(stamp)} and is older than "
             "the per-type lists, which have changed since it was computed.</p>"
         )
-    pages = {}
+    icon_data = load_type_icons(type_icons)
+    icons = set(icon_data)
+    pages = {f"types/{name}.png": content for name, content in icon_data.items()}
     home = '<a href="../index.html">Home</a>'
     overall_nav = "".join(
         f'<a href="{view}.html">{title}</a>'
@@ -885,11 +978,22 @@ def build_site(data_dir, out):
         meta = metadata(data, entry)
         results = data.get("character", {}).get("finalists", {}) if not reason else {}
         slug, name = entry["slug"], entry["name"]
-        index_body += tile(name, f"list/{slug}.html", meta, results, reason, coverage_view=all_view)
+        index_body += tile(
+            name,
+            f"list/{slug}.html",
+            meta,
+            results,
+            reason,
+            coverage_view=all_view,
+            type_name=slug.split("-")[0]
+            if entry.get("rank") == "grunt" and slug.split("-")[0] in TYPES
+            else None,
+            icons=icons,
+        )
         pages[f"list/{slug}.html"] = document(
             f"{name} · top counters",
             meta,
-            list_body(meta, results, reason),
+            list_body(meta, results, reason, icons=icons),
             home + overall_nav + f'<a href="../counters/{e(slug)}.html">Counter details</a>',
             script=True,
             coverage_view=all_view,
@@ -915,6 +1019,7 @@ def build_site(data_dir, out):
                 overall_reason,
                 overall_notice + coverage(data),
                 overall=True,
+                icons=icons,
             ),
             home + overall_nav,
             script=True,
@@ -930,18 +1035,19 @@ def build_site(data_dir, out):
         coverage_view=all_view,
     )
     publish_pages(destination, pages)
-    return len(pages)
+    return len(pages) - len(icon_data)
 
 
 def add_parser(commands):
     sub = commands.add_parser("site", help="Render precompute reports as offline static HTML")
     sub.add_argument("--data", type=Path, required=True)
     sub.add_argument("--out", type=Path, required=True)
+    sub.add_argument("--type-icons", type=Path)
 
 
 def main_site(args, arg_parser):
     try:
-        build_site(args.data, args.out)
+        build_site(args.data, args.out, args.type_icons)
     except (ValueError, OSError, KeyError, TypeError) as exc:
         arg_parser.error(str(exc))
     return 0
