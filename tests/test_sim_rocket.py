@@ -705,3 +705,20 @@ def test_dates_before_rocket_battles_and_forward_extrapolation():
     assert any("extrapolated forward" in s for s in later.interpretations)
     static = simulate_rocket([mon()], [mon()], battle_date=None, max_turns=1)
     assert "extrapolated" not in static.flags
+
+
+@pytest.mark.parametrize(
+    "stamp,charge,faint", [("2026-10-01", 7, 7), ("2026-01-01", 8, 12), ("2025-11-01", 5, 7)]
+)
+def test_switch_in_pause_replaces_charge_pause(stamp, charge, faint):
+    # Owner in-game test, 16 Nov 2026 (verbatim): "The post charge move pause does not carry
+    # over between Pokemon, but there is the pause on new Pokemon switch in or player Pokemon
+    # swap." A charged attack that knocks out slot 1 leaves only the switch-in pause.
+    result = simulate_rocket(
+        [mon(charged=(C,), energy=20)], [mon(1), mon(100)], battle_date=stamp, max_turns=30
+    )
+    ko = next(t for t in result.timeline if t.replacements[1] == 2)
+    assert any(a.startswith("charged:hit:") for a in ko.core.actions[0])
+    assert ko.pause_through == ko.core.number + faint
+    # Before the owner test, the charge pause (t + 1 + charge) could outlast the switch-in.
+    assert (ko.core.number + 1 + charge > ko.core.number + faint) is (charge >= faint)
