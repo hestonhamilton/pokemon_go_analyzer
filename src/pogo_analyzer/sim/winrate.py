@@ -3,6 +3,7 @@
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from itertools import product
+from statistics import mean
 
 from .battle import Combatant
 from .rocket import DEFAULT_ROCKET_RULES, rules_dict, simulate_rocket
@@ -274,6 +275,10 @@ def grid(
                 "draws": draws,
                 "win_rate": wins / n,
                 "draw_rate": draws / n,
+                "mean_player_hp_fraction_left": mean(
+                    r["player_hp_fraction_left"] for r, _ in values
+                ),
+                "mean_turns": mean(r["turns"] for r, _ in values),
             }
         )
     return rows, aggregates
