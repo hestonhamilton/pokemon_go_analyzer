@@ -371,8 +371,8 @@ run serially. Values must be between 1 and the CPU affinity count (`os.sched_get
 falling back to `os.cpu_count()` where affinity is unavailable; precompute has no sim worker
 cap. `--nice` defaults to 10 and adds that amount to the process niceness before work;
 workers inherit it. `--nice 0` leaves priority unchanged. Progress goes only to stderr.
-A separate machine setup step runs frequent `--skip-overall` runs and a weekly full run
-with `--workers 12` at idle priority. This command installs no timer.
+A separate machine setup step runs a daily full run (overall included) with
+`--workers 12` at idle priority. This command installs no timer.
 The `sim` and `topn` defaults are unchanged.
 
 ## Static site (estimate)
