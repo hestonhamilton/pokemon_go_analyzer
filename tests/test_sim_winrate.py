@@ -12,6 +12,7 @@ from pogo_analyzer.sim.rocket import Evidence, RocketRules, simulate_rocket
 from pogo_analyzer.sim.winrate import (
     Option,
     battle_summary,
+    best_per_species,
     estimate,
     grid,
     lineups,
@@ -124,6 +125,32 @@ def test_sort_order():
     # Owner ruling: fewest turns first by default; HP left first is the alternative order.
     assert [r["id"] for r in sort_results(rows)] == ["win", "hurt", "fast", "slow"]
     assert [r["id"] for r in sort_results(rows, "hp")] == ["win", "fast", "slow", "hurt"]
+
+
+def test_sort_bands_win_rate_to_whole_percent():
+    rows = [
+        dict(id=name, speciesId=sp, win_rate=w, mean_player_hp_fraction_left=h, mean_turns=t)
+        for name, sp, w, h, t in (
+            ("palkia", "palkia", 0.982, 0.6, 48),
+            ("shadow", "palkia_shadow", 0.981, 0.5, 42),
+            ("lower", "x", 0.974, 0.9, 10),  # 97%: a band below, however fast
+            ("exact", "y", 0.9815, 0.5, 42),  # same band and margin: exact rate breaks it
+        )
+    ]
+    # Owner ruling: whole-percent bands, then fastest (or most HP left).
+    assert [r["id"] for r in sort_results(rows)] == ["exact", "shadow", "palkia", "lower"]
+    assert [r["id"] for r in sort_results(rows, "hp")] == ["palkia", "exact", "shadow", "lower"]
+
+
+def test_best_per_species_keeps_each_orders_best_moveset():
+    rows = [
+        dict(
+            id=name, speciesId="goodra", win_rate=1.0, mean_player_hp_fraction_left=h, mean_turns=t
+        )
+        for name, h, t in (("fast", 0.5, 20), ("bulky", 0.8, 30), ("neither", 0.4, 40))
+    ]
+    assert [r["id"] for r in best_per_species(rows)] == ["fast"]
+    assert [r["id"] for r in best_per_species(rows, "hp")] == ["bulky"]
 
 
 def test_enumeration_and_filter():

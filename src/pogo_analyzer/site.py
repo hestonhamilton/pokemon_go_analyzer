@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
+from .sim.winrate import SORT_KEYS
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -793,12 +794,27 @@ def unavailable(reason):
 ORDERS = (("speed", "Fastest"), ("hp", "Most HP left"))
 
 
-def ordered(rows, order="speed"):
-    def key(r):
-        hp, turns = -r.get("mean_player_hp_fraction_left", 0), r.get("mean_turns", 0)
-        return (-r["win_rate"], turns, hp) if order == "speed" else (-r["win_rate"], hp, turns)
+def ordered_all(rows, order="speed"):
+    """Every row in one order: whole-percent win bands, then speed or HP left."""
+    filled = [{"mean_player_hp_fraction_left": 0, "mean_turns": 0, **r, "_row": r} for r in rows]
+    return [r["_row"] for r in sorted(filled, key=SORT_KEYS[order])]
 
-    return sorted(rows, key=key)
+
+def ordered(rows, order="speed"):
+    """The list in one order; each species once, with its best moveset in that order."""
+    seen, kept = set(), []
+    for r in ordered_all(rows, order):
+        species = r.get("speciesId", id(r))
+        if species not in seen:
+            seen.add(species)
+            kept.append(r)
+    return kept
+
+
+def shown(rows):
+    """Every row a list shows in either order, in the default order (Battle details)."""
+    kept = {id(r) for order, _ in ORDERS for r in ordered(rows, order)}
+    return [r for r in ordered_all(rows) if id(r) in kept]
 
 
 def seconds(turns):
@@ -1091,7 +1107,7 @@ def counters_body(data, results, reason, *, sprites=None):
             f'<section id="level-{e(level)}" data-level="{e(level)}">'
             f'<h3 class="level-title">Level {e(level)}</h3>{settings(data, level)}'
         )
-        rows = ordered(results.get(level, []))
+        rows = shown(results.get(level, []))
         if not rows:
             if not reason:
                 body += unavailable("no full results at this level")
@@ -1220,8 +1236,9 @@ def grade_differences(rows):
 FAQ = (
     (
         "Why do so many counters show 100%?",
-        "Most grunts are weak, so many Pokémon win every simulated battle. Rows at the same % "
-        "are ordered by how fast they win, so the top of the list is the quickest clear. "
+        "Most grunts are weak, so many Pokémon win every simulated battle. Rows within the same "
+        "whole % are ordered by how fast they win, so the top of the list is the quickest clear "
+        "(a 98.1% that wins faster can sit above a 98.2%). "
         "Rather keep your Pokémon healthy between battles? Pick Most HP left above any list.",
     ),
     (
@@ -1229,6 +1246,12 @@ FAQ = (
         "After each charged attack, Rocket's Pokémon pauses briefly, and nobody has measured "
         "exactly how long. For these counters the win % changes a lot if that pause is a little "
         "longer or shorter, so bring a backup.",
+    ),
+    (
+        "Why are some surprising Pokémon so high?",
+        "Some counters fire a cheap charged attack again and again. Each one makes Rocket's "
+        "Pokémon pause, so it barely fights back. That depends on exact pause timing, so these "
+        "counters usually carry Timing-sensitive: bring a backup.",
     ),
     (
         "What's an Elite TM?",
@@ -1271,14 +1294,18 @@ def featured_counter(characters, *, level=DEFAULT_LEVEL):
 
 def how_steps(data, featured, sprites):
     k = data.get("params", {}).get("k")
-    best = f"The best {e(k)} at each level go through." if k else "The best go through."
+    best = (
+        f"The best {e(k)} Pokémon at each level, with their 2 best movesets, go through."
+        if k
+        else "The best go through."
+    )
     if featured:
         name, row, lineup = featured
         counter = sprites.render(row.get("speciesId", ""), size=36, cls="lsp")
-        first = sprites.render(lineup[0], size=36, cls="lsp") if lineup else ""
         rest = "".join(sprites.render(s, size=36, cls="lsp") for s in lineup)
         vs = '<span class="vs">vs</span>'
-        ills = (counter + vs + first, counter + vs + rest, percentage(row["win_rate"]))
+        sample = '<span class="vs">×32</span>'
+        ills = (counter + vs + rest + sample, counter + vs + rest, percentage(row["win_rate"]))
         story = (
             f"{e(heading(row.get('speciesId', '')))} beats {e(name)} "
             f"{e(percentage(row['win_rate']))} of the time."
@@ -1287,9 +1314,9 @@ def how_steps(data, featured, sprites):
         ills, story = ("", "", "%"), ""
     steps = (
         (
-            "Quick 1-on-1 check",
-            "Every Pokémon and moveset fights each Pokémon Rocket might send, one at a time. "
-            + best,
+            "Quick check",
+            "Every Pokémon and moveset plays 32 sample battles against real Rocket lineups, "
+            "keeping its HP, energy and shields from one opponent to the next. " + best,
         ),
         (
             "Full battles",
@@ -1298,7 +1325,8 @@ def how_steps(data, featured, sprites):
         ),
         (
             "Win %",
-            "The share of those battles your one Pokémon wins; ties go to the faster win. " + story,
+            "The share of those battles your one Pokémon wins; within the same whole %, the faster "
+            "win goes first. " + story,
         ),
     )
     body = '<ol class="steps">'
@@ -1486,7 +1514,7 @@ def how_technical(data, pause_legends, screen_notes, grade_rows):
             if pause_legends
             else "<p>Pause band not computed for this run.</p>"
         )
-        + "<h2>Quick 1-on-1 check (stage-1 grid)</h2>"
+        + "<h2>How finalists are picked (stage 1)</h2>"
         + "".join(f"<p>{e(note)}</p>" for note in screen_notes)
         + grade_differences(grade_rows)
         + "<h2>Grade vocabulary</h2><dl>"

@@ -179,12 +179,14 @@ def prepare_output(args):
                 }
             )
     eligible = [report for report in reports if "reason" not in report]
-    screen_battles = sum(len(candidates) * sum(report["slot_option_counts"]) for report in eligible)
+    screen_battles = len(candidates) * topn.SAMPLES * len(eligible)
     lineup_battles = sum(
-        args.k * len(levels) * prod(report["slot_option_counts"]) for report in eligible
+        # K species per order (two orders), each with up to MOVESETS movesets; ties can add more.
+        args.k * 2 * topn.MOVESETS * len(levels) * prod(report["slot_option_counts"])
+        for report in eligible
     )
     print(
-        f"estimate: planned stage-1 1v1 battles: {screen_battles}; "
+        f"estimate: planned stage-1 sample lineup battles: {screen_battles}; "
         f"maximum stage-2 lineup battles: {lineup_battles}. "
         "--all adds union completion battles.",
         file=sys.stderr,
