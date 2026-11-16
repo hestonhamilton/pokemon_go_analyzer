@@ -19,10 +19,46 @@ class Move:
     turns: float
     energy: int = 0
     energy_gain: int = 0
+    self_stages: tuple[int, int] = (0, 0)
+    opponent_stages: tuple[int, int] = (0, 0)
+    stage_chance: float = 1.0
 
     @classmethod
     def from_pvpoke(cls, item):
+        """Parse effects from PvPoke GameMaster.js 874-881, commit
+        426e5e9f39d3a027849698fb2f5edd9df6056cbf.
+        """
         # Ledger i: Trainer Battle metadata, not raid move stats.
+        self_stages = opponent_stages = (0, 0)
+        chance = 1.0
+        if item.get("buffs"):
+
+            def stages(key):
+                value = item.get(key)
+                if (
+                    not isinstance(value, (list, tuple))
+                    or len(value) != 2
+                    or any(type(delta) is not int or not -4 <= delta <= 4 for delta in value)
+                ):
+                    raise ValueError(f"{item['moveId']}: invalid {key}")
+                return tuple(value)
+
+            target = item.get("buffTarget")
+            if target == "self":
+                self_stages = stages("buffs")
+            elif target == "opponent":
+                opponent_stages = stages("buffs")
+            elif target == "both":
+                self_stages = stages("buffsSelf")
+                opponent_stages = stages("buffsOpponent")
+            else:
+                raise ValueError(f"{item['moveId']}: invalid buffTarget")
+            try:
+                chance = float(item["buffApplyChance"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"{item['moveId']}: invalid buffApplyChance") from exc
+            if not 0 < chance <= 1:
+                raise ValueError(f"{item['moveId']}: invalid buffApplyChance")
         return cls(
             item["moveId"],
             item["type"],
@@ -30,6 +66,9 @@ class Move:
             item["cooldown"] / 500,
             item["energy"],
             item["energyGain"],
+            self_stages,
+            opponent_stages,
+            chance,
         )
 
 

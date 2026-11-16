@@ -65,6 +65,72 @@ def test_move_turns_use_cooldown():
     )
 
 
+@pytest.mark.parametrize(
+    ("effect", "expected"),
+    [
+        ({}, ((0, 0), (0, 0), 1.0)),
+        ({"buffs": [0, -4], "buffTarget": "self", "buffApplyChance": "1"}, ((0, -4), (0, 0), 1.0)),
+        (
+            {"buffs": [0, -1], "buffTarget": "opponent", "buffApplyChance": "0.2"},
+            ((0, 0), (0, -1), 0.2),
+        ),
+        (
+            {
+                "buffs": [0, 1],
+                "buffTarget": "both",
+                "buffApplyChance": "1",
+                "buffsSelf": [0, 1],
+                "buffsOpponent": [0, -1],
+            },
+            ((0, 1), (0, -1), 1.0),
+        ),
+        ({"buffs": [1, 0], "buffTarget": "self", "buffApplyChance": ".1"}, ((1, 0), (0, 0), 0.1)),
+    ],
+)
+def test_move_stat_stages(effect, expected):
+    item = {
+        "moveId": "TEST",
+        "type": "water",
+        "power": 10,
+        "energy": 0,
+        "energyGain": 7,
+        "cooldown": 1500,
+        **effect,
+    }
+    move = Move.from_pvpoke(item)
+    assert (move.self_stages, move.opponent_stages, move.stage_chance) == expected
+
+
+@pytest.mark.parametrize(
+    "effect",
+    [
+        {"buffs": [0, 1], "buffTarget": "invalid", "buffApplyChance": "1"},
+        {"buffs": [0, 1], "buffTarget": "self"},
+        *(
+            {"buffs": [0, 1], "buffTarget": "self", "buffApplyChance": chance}
+            for chance in ("0", "1.1", "nan", "invalid")
+        ),
+        *(
+            {"buffs": buffs, "buffTarget": "self", "buffApplyChance": "1"}
+            for buffs in ([0], [0, 5], [True, 0], [0, 1.0])
+        ),
+        {"buffs": [0, 1], "buffTarget": "both", "buffApplyChance": "1", "buffsSelf": [0, 1]},
+    ],
+)
+def test_move_invalid_stat_stages(effect):
+    item = {
+        "moveId": "TEST",
+        "type": "water",
+        "power": 10,
+        "energy": 0,
+        "energyGain": 7,
+        "cooldown": 1500,
+        **effect,
+    }
+    with pytest.raises(ValueError, match="TEST"):
+        Move.from_pvpoke(item)
+
+
 def matchup(form="shadow", table="venonic-2023", rank="grunt"):
     attacker = dict(
         SPECIES["metagross"],
