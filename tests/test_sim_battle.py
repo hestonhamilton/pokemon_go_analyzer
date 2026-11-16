@@ -448,3 +448,72 @@ def test_shielded_opponent_debuff_and_chance_ignored():
     )
     assert "o" not in chance.ledger_rows
     assert chance.timeline[0].damage[1] > expected.damage
+
+
+@pytest.mark.parametrize(
+    "chance,first", [(0.1, 10), (0.125, 7), (0.2, 4), (0.3, 3), (0.5, 2), (1 / 3, 2)]
+)
+def test_chance_meter_schedule(chance, first):
+    from pogo_analyzer.sim.battle import _advance_meter, _initial_meters
+
+    base = fighter()
+    move = replace(base.charged[0], stage_chance=chance, opponent_stages=(0, -1))
+    meter = _initial_meters(replace(base, charged=(move,)))[0]
+    for use in range(1, first + 1):
+        meter, applies = _advance_meter(meter, chance)
+        assert applies is (use == first)
+
+
+@pytest.mark.parametrize("chance,first", [(0.5, 2), (0.2, 4)])
+def test_chance_charge_schedule_and_flag_off(monkeypatch, chance, first):
+    from pogo_analyzer.sim import battle
+
+    seen = []
+    original = battle.calculate_damage
+
+    def capture(*args, **kwargs):
+        if not kwargs["attacker_shadow"] and kwargs["charged"]:
+            seen.append(kwargs.get("attack_stage", 0))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(battle, "calculate_damage", capture)
+    charge = replace(fighter().charged[0], power=0, self_stages=(1, 0), stage_chance=chance)
+    player = replace(fighter(hp=1000, energy=100), charged=(charge,))
+    options = dict(player_policy=ChargedWhenReady(), max_turns=first * 2 + 1)
+    enabled = simulate(player, fighter(hp=1000), rules=Rules(stat_stages=True), **options)
+    assert seen[: first + 1] == [0] * first + [1]
+    assert "o" in enabled.ledger_rows
+    seen.clear()
+    disabled = simulate(player, fighter(hp=1000), **options)
+    plain = simulate(
+        replace(player, charged=(replace(charge, self_stages=(0, 0)),)), fighter(hp=1000), **options
+    )
+    assert disabled == plain
+    assert "o" not in disabled.ledger_rows
+
+
+def test_shielded_chance_charge_advances_meter():
+    class Shield:
+        def shield(self, own, opponent, move, turn):
+            return True
+
+    charge = replace(fighter().charged[0], power=0, self_stages=(1, 0), stage_chance=0.5)
+    result = simulate(
+        replace(fighter(hp=1000, energy=20), charged=(charge,)),
+        fighter(hp=1000),
+        player_policy=ChargedWhenReady(),
+        rocket_shield_policy=Shield(),
+        rules=Rules(stat_stages=True),
+        max_turns=3,
+    )
+    assert [row.damage[0] for row in result.timeline] == [1, 0, 1]
+    assert "o" in result.ledger_rows
+
+
+def test_fast_move_has_no_chance_meter():
+    """Pokemon.js 737-746 meters charged moves only; with modifier -1 a fast chance never fires."""
+    from pogo_analyzer.sim.battle import _initial_meters
+
+    base = fighter()
+    fast = replace(base.fast, stage_chance=0.5, opponent_stages=(0, -1))
+    assert _initial_meters(replace(base, fast=fast)) == {}

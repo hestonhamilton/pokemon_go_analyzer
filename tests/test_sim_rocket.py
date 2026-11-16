@@ -769,3 +769,43 @@ def test_stat_stages_carry_for_survivor_and_reset_for_replacement():
     )
     assert result.timeline[0].replacements == (None, 2)
     assert result.timeline[2].core.damage[0] == expected.damage
+
+
+def test_chance_meters_carry_for_survivor_and_reset_on_replacement(monkeypatch):
+    from pogo_analyzer.sim import battle
+
+    seen = []
+    original = battle.calculate_damage
+
+    def capture(*args, **kwargs):
+        seen.append((kwargs["attacker_shadow"], kwargs["charged"], kwargs["attack_stage"]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(battle, "calculate_damage", capture)
+    chance = replace(C, self_stages=(1, 0), stage_chance=0.5)
+    rules = RocketRules(
+        turn_rules=Rules(stat_stages=True),
+        pauses=False,
+        rocket_shields=False,
+        player_shield_policy="never",
+    )
+    player = mon(1000, fast=replace(F, energy_gain=20), charged=(chance,), energy=20)
+    result = simulate_rocket(
+        [player], [mon(1), mon(1000)], battle_date=None, rules=rules, max_turns=10
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert [stage for shadow, charged, stage in seen if not shadow and charged][:3] == [0, 0, 1]
+
+    seen.clear()
+    rocket = mon(1, charged=(chance,), energy=20, attack=101)
+    result = simulate_rocket(
+        [mon(1000)],
+        [rocket, replace(rocket, hp=1000)],
+        battle_date=None,
+        rules=rules,
+        max_turns=5,
+        player_policy=FastOnly(),
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert [stage for shadow, charged, stage in seen if shadow and charged] == [0, 0]
+    assert [stage for shadow, charged, stage in seen if shadow and not charged] == [0]

@@ -4,8 +4,8 @@ Ported from PvPoke (MIT, copyright 2019 pvpoke), commit
 426e5e9f39d3a027849698fb2f5edd9df6056cbf. Bare line numbers below cite
 src/js/battle/Battle.js; citations into other files name the file (for
 example Pokemon.js). Full notice: data/PVPoke-LICENSE.
-Guaranteed stat changes are supported with Rules(stat_stages=True); chance
-effects are not yet supported. Forms, switching, Rocket pauses, shield
+Stat changes use PvPoke's deterministic chance schedule with Rules(stat_stages=True);
+the game itself rolls (see docs/stat-stages-research.md). Forms, switching, Rocket pauses, shield
 inventories and timers are absent from this core.
 """
 
@@ -129,7 +129,7 @@ class Rules:
     t3 the Rocket's charge hits, t4 no inputs. This is an estimate of ledger j,
     not a measured Rocket timeline.
 
-    stat_stages: apply guaranteed stat changes, as PvPoke does by default.
+    stat_stages: apply stat changes on PvPoke's deterministic schedule.
     This will default to True after parity and the exact solo engine are done.
     """
 
@@ -170,6 +170,23 @@ class _Action:
     turn: int
     move: Move
     priority: int
+    move_index: int | None
+
+
+def _initial_meters(combatant: Combatant) -> dict[int | None, float]:
+    # Pokemon.js 737–746: charged moves only; 50% starts at zero, others at chance.
+    # A fast move has no meter, so with buffChanceModifier -1 its chance never fires
+    # (Battle.js 1397, 1408, 1419).
+    return {
+        index: 0.0 if move.stage_chance == 0.5 else move.stage_chance
+        for index, move in enumerate(combatant.charged)
+        if move.stage_chance < 1.0
+    }
+
+
+def _advance_meter(meter: float, chance: float) -> tuple[float, bool]:
+    updated = meter + chance
+    return updated, math.floor(meter) < math.floor(updated)
 
 
 class _BattleHooks:
@@ -255,6 +272,7 @@ def _simulate(
     hp = [p.hp for p in combatants]
     energy = [p.energy for p in combatants]
     stages = [[0, 0], [0, 0]]  # Per side: attack, defence.
+    meters = [_initial_meters(p) for p in combatants]
     cooldown = [0, 0]  # Pokemon.js 1924–1931, 1944–1947.
     faint_source = ["", ""]
     queue: list[_Action] = []
@@ -294,7 +312,7 @@ def _simulate(
             cooldown[i] += 1 if move.energy else int(move.turns)
             # 780–785, 434: charged first, then higher *unmodified* attack. Stable ties.
             priority = 10 + int(p.attack > combatants[1 - i].attack) if move.energy else 0
-            queue.append(_Action(i, turn, move, priority))
+            queue.append(_Action(i, turn, move, priority, choice))
             kind = "charged" if move.energy else "fast"
             stage = "queue" if move.energy and rules.ledger_j_next_turn_charged else "start"
             events[i].append(f"{kind}:{stage}:{move.id}")
@@ -383,7 +401,12 @@ def _simulate(
             else:
                 energy[i] = min(ENERGY_CAP, energy[i] + move.energy_gain)  # 1329–1340.
             hp[other] = max(0, hp[other] - damage)  # 1365.
-            if rules.stat_stages and move.stage_chance == 1.0:
+            apply_stages = rules.stat_stages and move.stage_chance == 1.0
+            if rules.stat_stages and move.stage_chance < 1.0 and action.move_index is not None:
+                meters[i][action.move_index], apply_stages = _advance_meter(
+                    meters[i][action.move_index], move.stage_chance
+                )
+            if apply_stages:
                 for side, deltas in ((i, move.self_stages), (other, move.opponent_stages)):
                     for stat, delta in enumerate(deltas):
                         new_stage = max(-4, min(4, stages[side][stat] + delta))
@@ -417,6 +440,7 @@ def _simulate(
                         )
                         hp[i], energy[i] = replacement.hp, replacement.energy
                         stages[i] = [0, 0]
+                        meters[i] = _initial_meters(replacement)
                         faint_source[i] = ""
         elif min(hp) <= 0:
             break
