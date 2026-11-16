@@ -169,8 +169,13 @@ document.querySelectorAll('[data-lineup-level]').forEach(s=>{
 s.hidden=s.dataset.lineupLevel!==level;
 });
 }
-buttons.forEach(b=>b.onclick=()=>show(b.dataset.showLevel));
-show(buttons[0].dataset.showLevel);
+buttons.forEach(b=>b.onclick=()=>{
+show(b.dataset.showLevel);
+try{localStorage.setItem('pogo-level',b.dataset.showLevel)}catch(e){}
+});
+let saved=null;
+try{saved=localStorage.getItem('pogo-level')}catch(e){}
+show(buttons.some(b=>b.dataset.showLevel===saved)?saved:buttons[0].dataset.showLevel);
 card.querySelector('.lv').hidden=false;
 card.querySelectorAll('.level-title').forEach(h=>h.hidden=true);
 });</script>

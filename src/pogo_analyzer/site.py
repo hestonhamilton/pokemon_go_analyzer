@@ -286,8 +286,13 @@ document.querySelectorAll('[data-lineup-level]').forEach(s=>{
 s.hidden=s.dataset.lineupLevel!==level;
 });
 }
-buttons.forEach(b=>b.onclick=()=>show(b.dataset.showLevel));
-show(buttons[0].dataset.showLevel);
+buttons.forEach(b=>b.onclick=()=>{
+show(b.dataset.showLevel);
+try{localStorage.setItem('pogo-level',b.dataset.showLevel)}catch(e){}
+});
+let saved=null;
+try{saved=localStorage.getItem('pogo-level')}catch(e){}
+show(buttons.some(b=>b.dataset.showLevel===saved)?saved:buttons[0].dataset.showLevel);
 card.querySelector('.lv').hidden=false;
 card.querySelectorAll('.level-title').forEach(h=>h.hidden=true);
 });"""
@@ -592,11 +597,28 @@ def tag(text, kind="", title=""):
     return f'<span class="tag {e(kind)}" title="{e(title)}">{e(text)}</span>'
 
 
-def content_tags(row, prefix=""):
+def timing_sensitive(row):
+    return row.get("pause_band", {}).get("sensitive") is True
+
+
+def all_timing_sensitive(rows):
+    return bool(rows) and all(timing_sensitive(r) for r in rows)
+
+
+def timing_line(prefix=""):
+    """Owner ruling: one line instead of a badge on every row when every row has it."""
+    return (
+        f'<p class="hint timing-all"><a class="tag warn" href="{e(prefix)}how.html#pause">'
+        "Timing-sensitive</a> All of these: the result changes with how long Rocket pauses "
+        "after a charged attack. Bring a backup.</p>"
+    )
+
+
+def content_tags(row, prefix="", *, timing=True):
     species = row.get("speciesId", "")
     shadow = tag("Shadow", "sh", SHADOW_TITLE)
     body = shadow if row.get("form") == "shadow" or species.endswith("_shadow") else ""
-    if row.get("pause_band", {}).get("sensitive") is True:
+    if timing and timing_sensitive(row):
         body += (
             f'<a class="tag warn" href="{e(prefix)}how.html#pause" '
             'title="Win rate swings with how long Rocket pauses after a charged attack">'
@@ -754,7 +776,8 @@ def notice(text):
 
 
 def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=False):
-    body = '<ol class="rows">'
+    every = all_timing_sensitive(rows)
+    body = (timing_line(prefix) if every else "") + '<ol class="rows">'
     for rank, row in enumerate(rows, 1):
         species = row.get("speciesId", "not recorded")
         types = [t for t in row.get("types", []) if t != "none"]
@@ -766,7 +789,8 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
             f'{sprites.render(species, prefix=prefix)}<div class="who">'
             f'<div class="nm">{e(heading(species))} <span class="tys">'
             + "".join(type_chip(t, icons, prefix=prefix, small=True) for t in types)
-            + f'</span>{content_tags(row, prefix)}</div><div class="mv">{moves(row)}</div>'
+            + f"</span>{content_tags(row, prefix, timing=not every)}</div>"
+            + f'<div class="mv">{moves(row)}</div>'
         )
         worst = (
             min(
@@ -1051,13 +1075,15 @@ def tile(
         f'<h3>{e(title)}</h3><span class="lead">{lead_sprites}</span></a>'
     )
     if rows:
+        every = all_timing_sensitive(rows[:3])
         body += (
-            '<ol class="top3">'
+            (timing_line() if every else "")
+            + '<ol class="top3">'
             + "".join(
                 "<li>"
                 + sprites.render(r.get("speciesId", "not recorded"), size=32)
                 + f"<span>{e(heading(r.get('speciesId', 'not recorded')))}"
-                + content_tags(r)
+                + content_tags(r, timing=not every)
                 + "</span>"
                 + f"<b>{e(percentage(r['win_rate']))}</b></li>"
                 for r in rows[:3]

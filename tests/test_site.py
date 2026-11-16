@@ -1837,3 +1837,48 @@ def test_battle_details_use_plain_words(reports, tmp_path):
         assert "Win chance vs this Pokémon" in text
         assert "<th>n</th>" not in html
     assert checked
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
+@pytest.mark.parametrize("stored,expected", [(None, "50"), ("40", "40"), ("99", "50")])
+def test_level_switch_remembers_choice_default_50(stored, expected):
+    # Owner ruling: remember the last chosen level per browser; level 50 is the default.
+    harness = r"""
+const store=new Map(STORED===null?[]:[['pogo-level',STORED]]);
+globalThis.localStorage={getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,v)};
+const buttons=['50','40'].map(level=>({dataset:{showLevel:level},pressed:'',
+ setAttribute(k,v){this.pressed=String(v);}}));
+const sections=['50','40'].map(level=>({dataset:{level},hidden:false}));
+const control={hidden:true};
+const card={querySelector(){return control;},querySelectorAll(s){
+ return s==='[data-show-level]'?buttons:s==='[data-level]'?sections:[];}};
+globalThis.document={querySelectorAll(s){return s==='[data-levels]'?[card]:[];}};
+SCRIPT
+const shown=sections.find(s=>!s.hidden).dataset.level;
+buttons[1].onclick();
+console.log(JSON.stringify({shown,saved:store.get('pogo-level')}));
+""".replace("STORED", json.dumps(stored)).replace("SCRIPT", site.LEVEL_JS)
+    result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout) == {"shown": expected, "saved": "40"}
+
+
+def test_timing_sensitive_one_line_when_every_row_has_it():
+    # Owner ruling: when every counter in a list is timing-sensitive, show one line instead
+    # of the badge on every row; a mixed list keeps per-row badges.
+    sensitive = {"pause_band": {"sensitive": True}}
+    rows = [
+        {
+            "speciesId": f"mon{i}",
+            "types": ["water"],
+            "win_rate": 0.5,
+            "fast_move": "A",
+            "charged_move": "B",
+            **sensitive,
+        }
+        for i in range(3)
+    ]
+    html = site.counter_rows(rows, site.Sprites())
+    assert html.count("Timing-sensitive</a>") == 1 and "timing-all" in html
+    rows[1]["pause_band"] = {"sensitive": False}
+    html = site.counter_rows(rows, site.Sprites())
+    assert html.count("Timing-sensitive</a>") == 2 and "timing-all" not in html
