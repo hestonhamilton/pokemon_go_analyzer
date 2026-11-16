@@ -153,6 +153,38 @@ border-radius:8px} .charhead .lsp{width:32px; height:32px} .sn{font-size:.9rem; 
 grid-template-columns:16px 36px minmax(0,1fr) 58px} .row .spr{width:36px; height:36px}
 .row .nm{font-size:.9rem} .row .score b{font-size:1.1rem} .row .mv{font-size:.75rem}
 .set{font-size:.75rem; margin-bottom:4px} .tough{font-size:.7rem} }
+.cc .timing-all{padding:8px 12px 0; margin:0}
+.lede{font-size:1.12rem; line-height:1.45; margin:0}
+.steps{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0;
+padding:0; list-style:none} .step{background:var(--bg); border:1px solid var(--line);
+border-radius:14px; padding:12px} .step .ill{min-height:56px; display:flex; align-items:center;
+justify-content:center; gap:4px; flex-wrap:wrap; margin-bottom:6px}
+.step .vs{font:900 .75rem var(--display); color:var(--muted)}
+.step .big{font:900 1.6rem var(--display); color:var(--win)}
+.step h3{font-size:1rem; margin:0 0 4px; display:flex; gap:8px; align-items:center}
+.step h3 .n{background:var(--rocket-red); color:#fff; border-radius:999px; width:22px;
+height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:.8rem;
+flex:none} .step p{margin:0; font-size:.88rem; color:var(--muted); line-height:1.35}
+.badges{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0}
+.badge{display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line);
+border-radius:12px; padding:10px; scroll-margin-top:12px} .badge .ex{flex:none; width:104px;
+display:flex; align-items:center; gap:4px; flex-wrap:wrap}
+.badge p{margin:0; font-size:.9rem; line-height:1.35} .badge:target{outline:2px solid
+var(--accent)} .pill{display:inline-block; background:var(--bg); border:1px solid var(--line);
+border-radius:999px; padding:1px 8px; font-size:.75rem; color:var(--muted); font-weight:700}
+.faq details{border-top:1px solid var(--line); padding:10px 0}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{font-weight:700; cursor:pointer; list-style:none; display:flex;
+justify-content:space-between; gap:10px} .faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+"; font:900 1.1rem var(--display); color:var(--accent)}
+.faq details[open] summary::after{content:"\2212"} .faq details p{margin:8px 0 0; line-height:1.45}
+table.kv{width:100%; border-collapse:collapse; font-size:.92rem; table-layout:fixed}
+table.kv th,table.kv td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--line);
+vertical-align:top; overflow-wrap:anywhere} table.kv th{color:var(--muted); width:36%}
+@media(max-width:699px){.steps{grid-template-columns:minmax(0,1fr)}
+.step{display:grid; grid-template-columns:76px minmax(0,1fr); gap:8px; align-items:center;
+padding:10px} .step .ill{margin:0} .step .ill img{width:26px; height:26px}
+.step .big{font-size:1.15rem} .badges{grid-template-columns:minmax(0,1fr)} .badge .ex{width:92px}}
 </style>
 </head>
 <body>
