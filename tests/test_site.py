@@ -71,6 +71,8 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
     assert not (tmp_path / "site/brand").exists()
     for path, html in pages.items():
         prefix = "../" if "/" in path else ""
+        ids = [a["id"] for _, a in Elements(html).elements if "id" in a]
+        assert len(ids) == len(set(ids)), (path, ids)
         assert "@font-face" not in html
         head_script = f"<script>{site.THEME_HEAD_JS}</script>"
         assert html.index('<meta charset="utf-8">') < html.index(head_script)
@@ -314,6 +316,114 @@ def test_how_gathers_validation_assumptions_sources_and_grades(reports, tmp_path
     assert "sensitivity check over assumed pause lengths" in html
 
 
+def test_pause_target_uses_row_band_data_and_grid_notes_have_one_home(reports, tmp_path):
+    entry = read(reports, "manifest.json")["characters"][0]
+
+    def mutate(data):
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row["pause_band"].update(
+                    turns=[4, 7, 9], threshold=0.125, threshold_note="custom <threshold> choice"
+                )
+                row["screen"]["grid_limitation"] = "Grid caveat: fixture ignores HP"
+                row["screen"]["note"] = "Fixture screen sensitivity check"
+
+    change(reports, entry["file"], mutate)
+    pages = build(reports, tmp_path / "site")
+    how = pages["how.html"]
+    pause = re.search(r'id="pause">(.*?)(?=<h2)', how, re.S).group(1)
+    assert "Pause band is a sensitivity check" in pause
+    assert "Timing-sensitive means a row's win rate moves more than 12.5 percentage points" in pause
+    assert "between 4 and 9 turns" in pause
+    assert "threshold: 12.5 percentage points (custom &lt;threshold&gt; choice)" in pause
+    assert "pause band not computed for the overall list" not in pause
+    for note in ("Grid caveat: fixture ignores HP", "Fixture screen sensitivity check"):
+        assert how.count(note) == 1
+        assert all(note not in html for path, html in pages.items() if path != "how.html")
+    counters = pages[f"counters/{entry['slug']}.html"]
+    assert "Pause band: 4–9 turns:" in counters
+    assert "Screen slot 1:" in counters
+
+
+@pytest.mark.parametrize("slug", ["pause", "elite-tm", "row-grades"])
+def test_character_method_anchors_cannot_collide(reports, tmp_path, slug):
+    change(reports, "manifest.json", lambda d: d["characters"][0].update(slug=slug))
+    pages = build(reports, tmp_path / "site")
+    assert f'id="c-{slug}"' in pages["how.html"]
+    for path, html in pages.items():
+        ids = [a["id"] for _, a in Elements(html).elements if "id" in a]
+        assert len(ids) == len(set(ids)), (path, ids)
+
+
+def uniform_row_grades(reports):
+    # The ordinary fixture intentionally has incomplete grunt pools and complete leader pools.
+    def mutate(data):
+        views = (
+            [data["character"]["finalists"]]
+            if "character" in data
+            else [data[view].get("results", {}) for view in ("all", "grunts", "leaders")]
+        )
+        for results in views:
+            for rows in results.values():
+                for row in rows:
+                    row.update(grade="estimate; usual fixture grade", pool_complete=True)
+
+    change(reports, "overall.json", mutate)
+    for entry in read(reports, "manifest.json")["characters"]:
+        change(reports, entry["file"], mutate)
+
+
+def test_no_rows_differ_from_usual_grade(reports, tmp_path):
+    uniform_row_grades(reports)
+    how = build(reports, tmp_path / "site")["how.html"]
+    assert "Rows that differ from the usual grade" in how
+    assert "<p>None: every published row carries the usual grade.</p>" in how
+
+
+@pytest.mark.parametrize("view", ["character", "all", "grunts", "leaders"])
+@pytest.mark.parametrize("difference", ["grade", "pool", "both"])
+def test_differing_rows_are_named_only_on_how(reports, tmp_path, view, difference):
+    uniform_row_grades(reports)
+    entry = read(reports, "manifest.json")["characters"][0]
+    filename = entry["file"] if view == "character" else "overall.json"
+    name = (
+        entry["name"]
+        if view == "character"
+        else {"all": "All Rocket", "grunts": "Grunts", "leaders": "Leaders"}[view]
+    )
+
+    def mutate(data):
+        results = data["character"]["finalists"] if view == "character" else data[view]["results"]
+        row = results["40"][0]
+        row["speciesId"] = "different_counter"
+        if difference in ("grade", "both"):
+            row["grade"] = "estimate; fixture <different> grade"
+        if difference in ("pool", "both"):
+            row["pool_complete"] = False
+
+    change(reports, filename, mutate)
+    pages = build(reports, tmp_path / "site")
+    how = pages["how.html"]
+    assert f"<li>{escape(name)} · level 40 · Different Counter:" in how
+    assert "None: every published row carries the usual grade." not in how
+    if difference in ("grade", "both"):
+        assert "estimate; fixture &lt;different&gt; grade" in how
+        assert all(
+            "fixture &lt;different&gt; grade" not in html
+            for path, html in pages.items()
+            if path != "how.html"
+        )
+    if difference in ("pool", "both"):
+        assert "pool incomplete" in how
+    # Unpublished rows must not contribute to the exception list or its baseline.
+    if view == "character":
+        change(reports, "manifest.json", lambda d: d["characters"][0].update(status="stale"))
+    else:
+        change(reports, "overall.json", lambda d: d.update(key="wrong"))
+    how = build(reports, tmp_path / "site")["how.html"]
+    assert "<p>None: every published row carries the usual grade.</p>" in how
+
+
 @pytest.mark.parametrize("count", [0, 1, 3])
 @pytest.mark.parametrize(
     "validated,label,failed",
@@ -359,6 +469,8 @@ def test_level_switch_markup_and_home_grids(reports, tmp_path):
     assert 'id="leaders"' in home and 'id="grunts"' in home
     assert "<h2>Best all-round</h2>" in home
     assert 'href="list/all.html">Full list' in home
+    assert 'href="list/grunts.html">Full grunt list →</a>' in home
+    assert 'href="list/leaders.html">Full leader list →</a>' in home
     assert 'class="cch"' in home and 'class="lead"' in home and 'class="top3"' in home
     assert '<span class="rk-badge">Leader</span>' in home
 
@@ -429,7 +541,7 @@ def test_footer_fetched_wording(value, expected):
     assert "fetched_at" not in html
 
 
-def test_hostile_data_is_escaped(reports, tmp_path):
+def hostile_reports(reports):
     hostile = '<script>alert("x")</script>'
     manifest = read(reports, "manifest.json")
     entry = manifest["characters"][0]
@@ -453,6 +565,11 @@ def test_hostile_data_is_escaped(reports, tmp_path):
 
     change(reports, entry["file"], mutate)
     change(reports, "manifest.json", lambda d: d["characters"][0].update(name=hostile))
+    return hostile, entry
+
+
+def test_hostile_data_is_escaped(reports, tmp_path):
+    hostile, entry = hostile_reports(reports)
     pages = build(reports, tmp_path / "site")
     for path in ("index.html", f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
         assert hostile not in pages[path]
@@ -472,10 +589,7 @@ def test_unvalidated_and_discrepancies_are_data_driven(reports, tmp_path):
     assert "open discrepancies: X9" in html
 
 
-@pytest.mark.parametrize(
-    "mode", ["key", "missing", "hidden", "name", "file_key", "manifest_key", "both_keys", "status"]
-)
-def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
+def stale_character_reports(reports, mode):
     manifest = read(reports, "manifest.json")
     entry = manifest["characters"][0]
     if mode == "key":
@@ -494,6 +608,14 @@ def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
             change(reports, "manifest.json", lambda d: d["characters"][0].pop("key"))
     else:
         change(reports, entry["file"], lambda d: d["character"].update(name="Wrong name"))
+    return entry
+
+
+@pytest.mark.parametrize(
+    "mode", ["key", "missing", "hidden", "name", "file_key", "manifest_key", "both_keys", "status"]
+)
+def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
+    entry = stale_character_reports(reports, mode)
     pages = build(reports, tmp_path / "site")
     html = pages[f"counters/{entry['slug']}.html"]
     assert "not calculated" in html
@@ -502,8 +624,7 @@ def test_stale_character_never_publishes_rows(reports, tmp_path, mode):
     assert "data-win=" not in pages[f"list/{entry['slug']}.html"]
 
 
-@pytest.mark.parametrize("mode", ["key", "status"])
-def test_stale_overall_is_visible(reports, tmp_path, mode):
+def stale_overall_reports(reports, mode):
     change(
         reports,
         "overall.json",
@@ -518,6 +639,11 @@ def test_stale_overall_is_visible(reports, tmp_path, mode):
         change(reports, "overall.json", lambda d: d.update(key="wrong"))
     else:
         change(reports, "manifest.json", lambda d: d["overall"].update(status="stale"))
+
+
+@pytest.mark.parametrize("mode", ["key", "status"])
+def test_stale_overall_is_visible(reports, tmp_path, mode):
+    stale_overall_reports(reports, mode)
     pages = build(reports, tmp_path / "site")
     for path in ("index.html", "list/all.html", "list/grunts.html", "list/leaders.html"):
         html = pages[path]
@@ -752,7 +878,8 @@ def test_sensitive_tag_and_pause_details(reports, tmp_path, sensitive):
     pages = build(reports, tmp_path / "site")
     for kind in ("list", "counters"):
         html = pages[f"{kind}/{entry['slug']}.html"]
-        assert (">Sensitive</a>" in html) is (sensitive is True)
+        assert (">Timing-sensitive</a>" in html) is (sensitive is True)
+        assert ">Sensitive</a>" not in html
         if sensitive:
             assert 'href="../how.html#pause"' in html
         assert "pause-sensitive" not in html
@@ -862,7 +989,61 @@ def test_noninteger_counts_keep_decimals_without_rounding_up_to_integer(value, e
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
-def test_filter_js_and_progressive_controls():
+def test_filter_js_and_progressive_controls(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    sections = []
+    for path, html in pages.items():
+        if not path.startswith("list/"):
+            continue
+        assert site.FILTER_JS in html, path
+        for level, body in re.findall(
+            r'<section id="level-([^"]+)" data-level="[^"]+">(.*?)</section>', html, re.S
+        ):
+            elements = Elements(body).elements
+            rows = [a for _, a in elements if "data-types" in a]
+            filters = [a["data-filter"] for _, a in elements if "data-filter" in a]
+            if not rows:
+                assert not filters
+                continue
+            assert level in ("40", "50")
+            assert '<div class="controls" role="group" aria-label="Attacker types" hidden>' in body
+            assert "<noscript>" in body
+            types = {t for row in rows for t in json.loads(row["data-types"]) if t in site.TYPES}
+            assert filters == ["", *sorted(types)], (path, level)
+            sections.append({"rows": rows, "filters": filters})
+    assert len(sections) >= 8  # Overall and character lists, at both levels.
+    actual_harness = r"""
+const specs=SPECS;
+const sections=specs.map(spec=>{
+ const rows=spec.rows.map(r=>({dataset:{types:r['data-types'],win:r['data-win']},
+  hidden:false,rank:{textContent:''},querySelector(){return this.rank;}}));
+ const controls={hidden:true},warning={hidden:true};
+ const s={rows,controls,warning,querySelector(){return warning;},
+  querySelectorAll(q){return q==='[data-filter]'?this.buttons:rows;}};
+ s.buttons=spec.filters.map(t=>({dataset:{filter:t},closest(){return s;},
+  setAttribute(k,v){this[k]=v;}}));
+ return s;
+});
+globalThis.document={querySelectorAll(q){return sections.flatMap(s=>
+ q==='.controls'?[s.controls]:s.buttons);}};
+SCRIPT
+const assert=require('node:assert/strict');
+for(const s of sections){
+ assert.equal(s.controls.hidden,false);
+ for(const b of [...s.buttons.slice(1),s.buttons[0]]){
+  const others=sections.filter(x=>x!==s).map(x=>x.rows.map(r=>[r.hidden,r.rank.textContent]));
+  b.onclick();
+  const visible=s.rows.filter(r=>b.dataset.filter===''||
+   JSON.parse(r.dataset.types).includes(b.dataset.filter));
+  assert.deepEqual(s.rows.filter(r=>!r.hidden),visible);
+  assert.deepEqual(visible.map(r=>r.rank.textContent),visible.map((r,i)=>i+1));
+  assert.equal(s.warning.hidden,visible.length===0||Number(visible[0].dataset.win)>=.5);
+  assert.deepEqual(s.buttons.map(x=>x['aria-pressed']),s.buttons.map(x=>x===b));
+  assert.deepEqual(sections.filter(x=>x!==s).map(x=>x.rows.map(r=>[r.hidden,r.rank.textContent])),others);
+ }
+}
+""".replace("SPECS", json.dumps(sections)).replace("SCRIPT", site.FILTER_JS)
+    subprocess.run(["node", "-e", actual_harness], check=True, capture_output=True, text=True)
     harness = r"""
 const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
  dataset:{types:JSON.stringify([t]),win:String(v)},hidden:false,rank:{textContent:''},
@@ -1066,7 +1247,9 @@ def test_phone_layout_rules(reports, tmp_path):
     assert height <= 844
 
 
-@pytest.mark.parametrize("rate,shown", [(0, True), (0.9499, True), (0.95, False), (1, False)])
+@pytest.mark.parametrize(
+    "rate,shown", [(0, True), (0.9496, True), (0.9499, True), (0.95, False), (1, False)]
+)
 def test_toughest_uses_lowest_conditional_rate_only_on_character_lists(rate, shown):
     row = {
         "speciesId": "counter",
@@ -1079,7 +1262,8 @@ def test_toughest_uses_lowest_conditional_rate_only_on_character_lists(rate, sho
     html = site.list_body({}, {"40": [row]}, "")
     assert ("Toughest:" in html) is shown
     if shown:
-        assert f"Hard ({escape(site.percentage(rate))} win)" in html
+        assert f"Hard ({int(rate * 1000) / 10:.1f}% win)" in html
+        assert "95.0% win" not in html
         assert "Easy (" not in html
     assert "Toughest:" not in site.list_body({}, {"40": [row]}, "", overall=True)
     assert "Toughest:" not in site.list_body({}, {"40": [{"win_rate": 0.8}]}, "")
@@ -1253,12 +1437,14 @@ def test_home_counter_limits_and_boss_badge():
 
 
 ESTIMATE_WORDS = re.compile(
-    r"\b(?:estimates?|est|unverified|extrapolated|parity-only|assumed|not yet checked)\b", re.I
+    r"\b(?:estimates?|est|unverified|extrapolated|parity-only|assumed|not yet checked|"
+    r"caveats?|ignores|model choice|sensitivity check)\b",
+    re.I,
 )
 
 
 class VisibleText(HTMLParser):
-    """Visible text outside the site-wide disclaimer bar, scripts and styles."""
+    """Visible text and title/aria-label values outside the disclaimer, scripts and styles."""
 
     def __init__(self, html):
         super().__init__()
@@ -1266,11 +1452,14 @@ class VisibleText(HTMLParser):
         self.feed(html)
 
     def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        classes = (attrs.get("class") or "").split()
+        if not self.skip and "disc" not in classes:
+            self.text.extend(attrs[key] for key in ("title", "aria-label") if attrs.get(key))
         if tag in ("br", "img", "meta", "link", "input"):
             return
         self.depth += 1
-        classes = (dict(attrs).get("class") or "").split()
-        if tag in ("script", "style", "title") or "disc" in classes:
+        if tag in ("script", "style") or "disc" in classes:
             self.skip.append(self.depth)
 
     def handle_endtag(self, tag):
@@ -1284,9 +1473,32 @@ class VisibleText(HTMLParser):
         (self.bar if self.skip else self.text).append(data)
 
 
-def test_estimate_idea_appears_once_per_page_in_the_bar(reports, tmp_path):
+@pytest.mark.parametrize(
+    "variant",
+    ["normal", "hostile", "overall-key", "overall-status"]
+    + [
+        f"character-{mode}"
+        for mode in (
+            "key",
+            "missing",
+            "hidden",
+            "name",
+            "file_key",
+            "manifest_key",
+            "both_keys",
+            "status",
+        )
+    ],
+)
+def test_estimate_idea_appears_once_per_page_in_the_bar(reports, tmp_path, variant):
     # Owner ruling: "this is an estimate / unverified / assumed" is said once per page, in the
     # site-wide bar linking to how.html. Only how.html explains it in full.
+    if variant == "hostile":
+        hostile_reports(reports)
+    elif variant.startswith("overall-"):
+        stale_overall_reports(reports, variant.removeprefix("overall-"))
+    elif variant.startswith("character-"):
+        stale_character_reports(reports, variant.removeprefix("character-"))
     pages = build(reports, tmp_path / "site")
     assert len(pages) > 3
     for name, html in pages.items():
@@ -1299,12 +1511,56 @@ def test_estimate_idea_appears_once_per_page_in_the_bar(reports, tmp_path):
         assert not found, (name, found)
 
 
+@pytest.mark.parametrize(
+    "word", ["caveat", "caveats", "ignores", "model choice", "sensitivity check"]
+)
+@pytest.mark.parametrize(
+    "template", ["<p>{}</p>", '<img title="{}">', '<button aria-label="{}"></button>']
+)
+def test_estimate_check_covers_visible_text_and_attributes(word, template):
+    assert ESTIMATE_WORDS.search(" ".join(VisibleText(template.format(word)).text))
+    bar = '<div class="disc"><span title="{}" aria-label="{}">{}</span></div>'
+    assert not ESTIMATE_WORDS.search(" ".join(VisibleText(bar.format(word, word, word)).text))
+    assert not ESTIMATE_WORDS.search("stale; not calculated; older than the per-type lists")
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "{",
+        "null",
+        "[]",
+        "{}",
+        '{"tree": null}',
+        '{"tree": {}}',
+        '{"tree": [null]}',
+        '{"tree": ["file"]}',
+        '{"tree": [{}]}',
+        '{"tree": [{"path": 42}]}',
+    ],
+)
+def test_malformed_sprite_tree_has_clean_cli_error(reports, cache, tmp_path, capsys, contents):
+    tree = tmp_path / "tree.json"
+    tree.write_text(contents)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(
+            ["site-sprites", "--data", str(reports), "--cache-dir", str(cache), "--tree", str(tree)]
+        )
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "usage:" in captured.err
+    assert "error: invalid sprite tree:" in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
     import hashlib
 
     species = {
         "palkia": 484,
         "palkia_origin": 484,
+        "giratina_origin": 487,
+        "darmanitan_standard": 555,
         "raichu": 26,
         "raichu_alolan": 26,
         "articuno": 144,
@@ -1333,6 +1589,11 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
     (cache / (hashlib.sha256(url.encode()).hexdigest() + ".json")).write_text(json.dumps(entry))
     names = [
         "pm484.fORIGIN.icon.png",
+        "pm487.icon.png",
+        "pm487.fALTERED.icon.png",
+        "pm487.fORIGIN.icon.png",
+        "pm555.fGALARIAN_STANDARD.icon.png",
+        "pm555.fSTANDARD.icon.png",
         "pm26.fALOLA.icon.png",
         "pm144.fGALARIAN.icon.png",
         "pm58.fHISUIAN.icon.png",
@@ -1369,7 +1630,9 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
     out = capsys.readouterr()
     assert out.out.splitlines() == [
         "articuno_galarian pm144.fGALARIAN.icon.png",
+        "darmanitan_standard pm555.fSTANDARD.icon.png",
         "forms pm3.fA.icon.png",
+        "giratina_origin pm487.fORIGIN.icon.png",
         "growlithe_hisuian pm58.fHISUIAN.icon.png",
         "normal pm2.fNORMAL.icon.png",
         "palkia_origin pm484.fORIGIN.icon.png",

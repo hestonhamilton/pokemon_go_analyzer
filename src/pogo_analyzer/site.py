@@ -8,7 +8,7 @@ import shutil
 import stat
 import sys
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from html import escape
@@ -50,12 +50,11 @@ PAUSE_NOTE = (
 def pause_band_legend(data):
     """Escaped legend HTML with a fixed ledger link and the rows' actual band span."""
     params = data.get("params", {})
-    threshold = params.get("pause_threshold", 0.15)
-    turns = [
-        turn
+    bands = [
+        row["pause_band"]
         for rows in data.get("character", {}).get("finalists", {}).values()
         for row in rows
-        for turn in row.get("pause_band", {}).get("turns", [])
+        if row.get("pause_band", {}).get("turns")
     ]
     ledger = (
         '<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
@@ -65,15 +64,21 @@ def pause_band_legend(data):
         "Pause band is a sensitivity check over assumed pause lengths, not a measured range "
         f"({ledger}); ranking uses the era value. "
     )
-    if params.get("pause_band") == [] or not turns:
+    if params.get("pause_band") == [] or not bands:
         return note + "band not computed for this run."
-    span = f"{e(min(turns))} and {e(max(turns))} turns"
-    points = format((Decimal(str(threshold)) * 100).normalize(), "f")
-    return (
-        note + f"pause-sensitive: the win rate moves more than {e(points)} percentage points "
-        f"between {span}; "
-        "threshold is a model choice."
-    )
+    descriptions = {}
+    for band in bands:
+        threshold = band.get("threshold", params.get("pause_threshold", 0.15))
+        points = format((Decimal(str(threshold)) * 100).normalize(), "f")
+        turns = band["turns"]
+        description = (
+            f"Timing-sensitive means a row's win rate moves more than {e(points)} percentage "
+            f"points between {e(min(turns))} and {e(max(turns))} turns; "
+            f"threshold: {e(points)} percentage points "
+            f"({e(band.get('threshold_note', 'model choice'))})."
+        )
+        descriptions[description] = None
+    return note + " ".join(descriptions)
 
 
 CSS = """
@@ -410,19 +415,13 @@ def trust_strip(data):
     return f'<div class="method-meta">{strip}</div>'
 
 
-def page_legends(data, *, overall=False, counters=False):
-    ranking = (
-        "Expand a counter for its details."
-        if counters
-        else "Type filters show counters of the selected attacker type."
-    )
-    pause = "pause band not computed for the overall list" if overall else pause_band_legend(data)
+def page_legends():
     return (
         '<p class="legend" id="elite-tm">Elite TM: the move can\'t be taught by a normal TM and '
         "needs an Elite TM, or was only available at a Community Day or event. PvPoke's elite "
-        "and legacy moves are both included. "
-        f"Ranked by win rate, HP left, then turns. {ranking}</p>"
-        f'<p class="legend">{pause}</p>'
+        "and legacy moves are both included. Ranked by win rate, HP left, then turns. "
+        "Type filters show counters of the selected attacker type. "
+        "Expand a counter for its details.</p>"
     )
 
 
@@ -431,7 +430,6 @@ def notes(data, coverage_view=None):
         ("Model notes", "limitations"),
         ("Rocket moveset pool", "moveset_pool_note"),
         ("Equal-weight model", "weighting_note"),
-        ("Screen caveat", "screen_note"),
         ("Validation", "validation_label"),
         ("Credits", "credits"),
     )
@@ -560,7 +558,8 @@ def content_tags(row, prefix=""):
     if row.get("pause_band", {}).get("sensitive") is True:
         body += (
             f'<a class="tag warn" href="{e(prefix)}how.html#pause" '
-            'title="Win rate swings with the Rocket pause length">Sensitive</a>'
+            'title="Win rate swings with how long Rocket pauses after a charged attack">'
+            "Timing-sensitive</a>"
         )
     return body
 
@@ -736,7 +735,7 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
                 '<span class="tough">Toughest: '
                 + sprites.render(worst["species"], prefix=prefix, size=22, cls="mini")
                 + f" {e(heading(worst['species']))} "
-                f"({e(percentage(worst['conditional_win_rate']))} win)</span>"
+                f"({floor(worst['conditional_win_rate'] * 1000) / 10:.1f}% win)</span>"
             )
         hp = row.get("mean_player_hp_fraction_left")
         kos = row.get("mean_rocket_knocked_out")
@@ -796,7 +795,7 @@ def list_body(
                 body += unavailable("no full results at this level")
             body += "</section>"
             continue
-        if overall and limit is None:
+        if limit is None:
             types = sorted({t for row in rows for t in row.get("types", []) if t in TYPES})
             body += '<div class="controls" role="group" aria-label="Attacker types" hidden>'
             body += '<button class="t" data-filter="" aria-pressed="true">All types</button>'
@@ -874,16 +873,13 @@ def counter_detail(row, data):
     band = row.get("pause_band")
     if band:
         body += (
-            "<p>Pause sensitivity: "
+            "<p>Pause band: "
             f"{e(band['turns'][0])}–{e(band['turns'][-1])} turns: "
             f"{estimate(band['min'], percent=True)}–{estimate(band['max'], percent=True)}</p>"
         )
     screen = row.get("screen", {})
     if screen:
         body += "<h3>Stage-1 screen · slot 1v1 win rates</h3>"
-        caveat = screen.get("grid_limitation", data.get("screen_note", "not recorded"))
-        body += f'<p class="warn">Grid caveat: {e(caveat)}</p>'
-        body += f'<p class="moves">{e(screen.get("note", data.get("screen_note", "")))}</p>'
         for slot, rate in enumerate(screen.get("slot_win_rates", []), 1):
             body += f"<p>Screen slot {slot}: {estimate(rate, percent=True)}</p>"
     body += "<h3>Full battle · conditional win rate per Rocket species in each slot</h3>"
@@ -1016,7 +1012,29 @@ def tile(
     return body + "</article>"
 
 
-def how_body(data):
+def grade_differences(rows):
+    """Describe exceptional published rows without adding tags to ranked lists."""
+    body = '<h2 id="row-grades">Rows that differ from the usual grade</h2>'
+    if rows:
+        usual_grade = Counter(row[3] for row in rows).most_common(1)[0][0]
+        usual_pool = Counter(row[4] for row in rows if row[3] == usual_grade).most_common(1)[0][0]
+        differences = []
+        for name, level, species, grade, pool in rows:
+            if grade == usual_grade and pool == usual_pool:
+                continue
+            pool_text = {True: "pool complete", False: "pool incomplete"}.get(
+                pool, "pool completeness not recorded"
+            )
+            differences.append(
+                f"<li>{e(name)} · level {e(level)} · {e(heading(species))}: "
+                f"{e(grade or 'grade not recorded')} · {pool_text}.</li>"
+            )
+        if differences:
+            return body + "<ul>" + "".join(differences) + "</ul>"
+    return body + "<p>None: every published row carries the usual grade.</p>"
+
+
+def how_body(data, *, pause_legends=(), screen_notes=(), grade_rows=()):
     body = (
         '<section class="card method"><h2>Validation and provenance</h2>'
         + trust_strip(data)
@@ -1029,8 +1047,13 @@ def how_body(data):
         + "<h2>Assumptions</h2>"
         + "".join(assumptions(data, level) for level in levels(data, {}))
         + f"<p>{e(data.get('filter_note', 'Filter note not recorded'))}</p>"
+        + "<h2>Reading the rows</h2>"
+        + page_legends()
         + '<h2 id="pause">Rocket pause and sensitivity</h2>'
-        + page_legends(data, overall=True)
+        + ("".join(pause_legends) or "<p>Pause band not computed for this run.</p>")
+        + "<h2>Stage-1 grid</h2>"
+        + "".join(f"<p>{e(note)}</p>" for note in screen_notes)
+        + grade_differences(grade_rows)
         + "<h2>Grade vocabulary</h2><dl>"
         "<dt>estimate</dt><dd>A simulator result, not a measurement of in-game battles.</dd>"
         "<dt>unverified</dt><dd>Not yet checked against in-game battles.</dd>"
@@ -1040,7 +1063,7 @@ def how_body(data):
     )
     for grade in data.get("grades", []):
         body += f"<p><b>{e(grade.get('id', ''))}.</b> {e(grade.get('meaning', ''))}</p>"
-    for key in ("grade_note", "slots_swept_note", "screen_note"):
+    for key in ("grade_note", "slots_swept_note"):
         if data.get(key):
             body += f"<p>{e(data[key])}</p>"
     for view in ("all", "grunts", "leaders"):
@@ -1287,12 +1310,33 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
         )
     )
     grids = {"leaders": [], "grunts": []}
-    method_body = (
-        '<header class="hero"><h1>'
-        + rocket_mark(brand_data)
-        + "How these numbers work</h1></header>"
-        + how_body(overall_meta)
-    )
+    method_sections, pause_legends, grade_rows = [], [], []
+    screen_notes = {}
+
+    def collect_rows(name, results, meta):
+        for rows in results.values():
+            for row in rows:
+                screen = row.get("screen", {})
+                for note in (screen.get("grid_limitation"), screen.get("note")):
+                    if note:
+                        screen_notes[note] = None
+        if meta.get("screen_note"):
+            screen_notes[meta["screen_note"]] = None
+        grade_rows.extend(
+            (
+                name,
+                level,
+                row.get("speciesId", "not recorded"),
+                row.get("grade"),
+                row.get("pool_complete"),
+            )
+            for level, rows in results.items()
+            for row in rows
+        )
+
+    for view, title in (("all", "All Rocket"), ("grunts", "Grunts"), ("leaders", "Leaders")):
+        results = overall.get(view, {}).get("results", {}) if not overall_reason else {}
+        collect_rows(title, results, overall_meta)
     # Process one character at a time: a real report can contain megabytes of calc cells.
     for entry in manifest["characters"]:
         data, reason = read_report(root, entry)
@@ -1339,6 +1383,7 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
             f"{name} · top counters",
             meta,
             header + body,
+            script=True,
             prefix="../",
             assets=brand_data,
         )
@@ -1352,13 +1397,14 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
             assets=brand_data,
         )
         # Preserve file-specific provenance, settings, pause bands and notes in the method page.
-        method_body += (
-            f'<section class="card method" id="{e(slug)}"><h2>{e(name)}</h2>'
+        collect_rows(name, results, meta)
+        pause_legends.append(f"<p><b>{e(name)}.</b> {pause_band_legend(meta)}</p>")
+        method_sections.append(
+            f'<section class="card method" id="c-{e(slug)}"><h2>{e(name)}</h2>'
             + (unavailable(reason) if reason else "")
             + trust_strip(meta)
             + provenance(meta)
             + "".join(assumptions(meta, level) for level in levels(meta, results))
-            + page_legends(meta, counters=True)
             + notes(meta, all_view)
             + "</section>"
         )
@@ -1384,7 +1430,9 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
         )
     for group, title in (("leaders", "Leaders"), ("grunts", "Grunts")):
         index_body += (
-            f'<h2 class="grp" id="{e(group)}">{e(title)}</h2><div class="grid">'
+            f'<h2 class="grp" id="{e(group)}">{e(title)}</h2>'
+            f'<a class="more-link" href="list/{e(group)}.html">Full '
+            f'{"grunt" if group == "grunts" else "leader"} list →</a><div class="grid">'
             + "".join(grids[group])
             + "</div>"
         )
@@ -1398,7 +1446,16 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
     pages["how.html"] = document(
         "How these numbers work",
         overall_meta,
-        method_body,
+        '<header class="hero"><h1>'
+        + rocket_mark(brand_data)
+        + "How these numbers work</h1></header>"
+        + how_body(
+            overall_meta,
+            pause_legends=pause_legends,
+            screen_notes=screen_notes,
+            grade_rows=grade_rows,
+        )
+        + "".join(method_sections),
         assets=brand_data,
     )
     pages.update(sprite_store.assets)
@@ -1440,8 +1497,18 @@ def sprite_files(data_dir, cache_dir, tree_path):
             raise ValueError("invalid species or dex number")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise ValueError(f"missing or invalid gamemaster cache entry: {exc}") from exc
-    tree = json.loads(Path(tree_path).read_text())
-    names = {item["path"] for item in tree["tree"] if isinstance(item.get("path"), str)}
+    try:
+        tree = json.loads(Path(tree_path).read_text())
+        if not isinstance(tree, dict) or not isinstance(tree.get("tree"), list):
+            raise ValueError("expected an object with a tree list")
+        if any(
+            not isinstance(item, dict) or not isinstance(item.get("path"), str)
+            for item in tree["tree"]
+        ):
+            raise ValueError("tree entries must be objects with string paths")
+        names = {item["path"] for item in tree["tree"]}
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"invalid sprite tree: {exc}") from exc
     names = {name for name in names if re.fullmatch(r"pm[0-9]+(?:\.f[A-Z0-9_]+)?\.icon\.png", name)}
     _, bases = render_site(data_dir)
     result, skipped = {}, []
@@ -1452,7 +1519,7 @@ def sprite_files(data_dir, cache_dir, tree_path):
             continue
         number = dex[base]
         parents = [s for s, n in dex.items() if n == number and base.startswith(s + "_")]
-        suffix = base[len(min(parents, key=len)) + 1 :] if parents else ""
+        suffix = base[len(min(parents, key=len)) + 1 :] if parents else base.partition("_")[2]
         prefix = f"pm{number}"
         candidates = []
         if suffix:

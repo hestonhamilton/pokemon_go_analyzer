@@ -384,6 +384,10 @@ uv run pogo-analyzer site --data reports --out public
 python -m http.server 8000 --directory public
 ```
 
+Type icons, sprites, Rocket R artwork and fonts live outside the repo, for example in
+a cache directory. A local `site-assets/` directory is also ignored for convenience.
+These assets are never committed and are never fetched by the tool.
+
 Use `--type-icons DIR` to add local type PNGs; icons are not shipped in the repo and are not fetched by the tool.
 Use `--sprites DIR` for local `<speciesId without _shadow>.png` sprites; sprites are not shipped or fetched by the tool.
 For deployment, `pogo-analyzer site-sprites --data reports --cache-dir CACHE --tree TREE.json`
@@ -406,29 +410,31 @@ are refused. When upgrading an older unmarked site, choose a new or empty `--out
 - `index.html`: a top-five Best all-round list, followed by Leaders and Grunts grids
   with lead-slot sprites and each character's top three counters.
 - `list/<slug>.html`: a compact Rocket header, possible Pokémon by slot, and ranked
-  counters with moves, type icons, content tags, win rate and a Toughest matchup when
-  its conditional win rate is under 95%. The Battle details link opens expandable results.
+  counters with attacker-type filter chips, moves, type icons, content tags and win rate.
+  A Toughest matchup appears when its conditional win rate is under 95%, floored to one
+  decimal place. The Battle details link opens expandable results.
 - `list/all.html`, `list/grunts.html`, `list/leaders.html`: ranked overall lists with
   attacker-type filter chips. HP left and Rocket KOs appear on desktop (700px and up).
 - `counters/<slug>.html`: native expandable battle details, including stage-1 screens,
   conditional species win rates and sample sizes (`n`, or “n not recorded”), pause
-  sensitivity ranges and numeric calc ranges over Rocket movesets.
+  band ranges and numeric calc ranges over Rocket movesets.
 - `how.html`: validation status and label, open discrepancies, assumptions per level,
-  pause notes and legends, grade vocabulary, rCPM/moveset/filter notes, battle dates and
-  rules periods, coverage, sources, credits, limitations and source fetch times. Shared
+  pause notes and legends, grade vocabulary and rows that differ from the usual grade,
+  rCPM/moveset/filter notes, battle dates and rules periods, coverage, sources, credits,
+  limitations and source fetch times. Shared
   metadata comes from the overall report or manifest; character sections preserve
   each report's own provenance and assumptions.
 
 Every page has one simulator-estimates disclaimer linking to `how.html`. Per-number
 estimate marks, repeated grade chips, trust strips, intro folds and footer notes are
-replaced by that bar and the method page. Shadow, Elite/Legacy move and Sensitive tags
-remain; Sensitive links to the explanation of the modelled Rocket pause. Warnings for
+replaced by that bar and the method page. Only Shadow, Elite TM and Timing-sensitive tags
+remain; Timing-sensitive links to the explanation of the modelled Rocket pause. Warnings for
 stale or unavailable reports stay on the affected pages. When a battle date is newer
-than the sources, one amber line warns that rules are assumed unchanged.
+than the sources, one amber line on `how.html` warns that rules are assumed unchanged.
 
 Level 40/50 buttons switch the counter sections and character lineups. Without
-JavaScript both levels show. Overall type filters update visible ranks; without
-JavaScript every row shows and filter controls stay hidden. Lists warn when the
+JavaScript both levels show. Character and overall type filters update visible ranks;
+without JavaScript every row shows and filter controls stay hidden. Lists warn when the
 current view's best counter wins fewer than half of battles. Settings lines use each
 report's level, IVs and shield policies. Missing sprites use lettered circles; missing
 optional type images keep accessible type symbols. Older reports with missing metrics
