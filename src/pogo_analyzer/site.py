@@ -202,7 +202,7 @@ background:linear-gradient(160deg,#1c2030 0 65%,color-mix(in srgb,var(--t1) 60%,
 border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:4px 8px}
 .lsp{background:radial-gradient(circle,rgba(160,110,220,.45) 0 55%,transparent 62%)}
 .lineup .lsp{background:radial-gradient(circle,rgba(233,228,245,.7) 0 55%,transparent 62%)}
-.lm{display:inline-flex; flex-direction:column; align-items:center; max-width:64px;
+.lm{display:inline-flex; flex-direction:column; align-items:center; width:64px; flex:none;
 vertical-align:top} .lname{font-size:.68rem; line-height:1.1; max-width:64px; text-align:center;
 overflow-wrap:anywhere}
 .top{flex-wrap:wrap} .top a{font-size:.85rem} .theme-toggle{cursor:pointer} a{color:var(--accent)}
