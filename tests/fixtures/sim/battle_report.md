@@ -42,7 +42,7 @@ There is no measured Rocket timeline here that decides between these modes.
 
 ## JavaScript parity
 
-Run `uv run python tools/parity/pvpoke_battle_parity.py` from the repository root.
+Run `uv run --frozen python tools/parity/pvpoke_battle_parity.py` from the repository root.
 Node is a tool dependency only. There are no runtime dependencies.
 
 The oracle evaluates the **entire** pinned `Battle.js`, `DamageCalculator.js`, `ActionLogic.js`,
@@ -53,9 +53,11 @@ not a hand trace or a second JavaScript implementation of the turn rules.
 
 The Pokemon adapter supplies already-calculated stats and initialized ordinary moves. It executes
 the verbatim `Pokemon.js` methods `reset`, `applyStatBuffs`, `getEffectiveStat`,
-`getStatBuffMultiplier` and `getStab`. `resetMoves` and `setBattle` are adapter no-ops: there is no
-species initialization or move selection to repeat. Form changes and special move tags are absent.
-Shields start at zero. The sole behavior override is `ActionLogic.decideAction`, replaced by the
+`getStatBuffMultiplier` and `getStab`. The adapter supplies `buffTarget`, `buffs`, `buffsSelf`, `buffsOpponent` and numeric
+`buffApplyChance` for moves with effects, following GameMaster.js 874–881. Its `resetMoves`
+initializes the charged-move chance meter as in Pokemon.js 737–746; `setBattle` is a no-op.
+There is no species initialization or move selection to repeat. Form changes and special move tags
+are absent. The 1v1 oracle starts with zero shields. The sole behavior override is `ActionLogic.decideAction`, replaced by the
 same two injected attack policies as Python. No PvPoke AI output is compared or ported.
 
 A passive callback is inserted immediately after `queuedActions.push(action)` at Battle.js 382
@@ -71,11 +73,21 @@ ties, surviving charged ties, double fast KOs and repeated energy overflow. The 
 F3 and F1 under both complete old tables. Random cases include fast/charged races, unfinished fast
 moves and 0/29/95/100 initial energy. Unit tests separately pin the ordering rules by hand.
 
-`Battle.js parity: 514 cases; 20817 turns; 0 mismatches (HP, energy, actions, damage)`
+With `Rules(stat_stages=True)`, seven named long battles exercise self and opponent effects,
+stacking, caps, both targets, and the 0.5, 0.2 and 0.1 deterministic meters. Another 100
+seeded battles draw effect shapes and chances from the game master; the opponent hits back with a 20-power fast move so defence and attack changes show in damage. With stat stages off, all 107 of these battles mismatch, so the cases detect the feature. The native 3v3 emulator
+also compares five team cases, including a self-debuff carried across replacements and an
+opponent debuff applied through a shield, with later charged damage checked. Team comparisons
+cover activation order, shields, and the first twelve charged outcomes per side. The emulator's
+`Battle.emulate` sets sandbox mode and disables the deterministic chance meter (Battle.js 674–677),
+so team cases use only guaranteed effects; chance effects use the default-mode 1v1 oracle.
+
+`Battle.js parity: 621 cases; 31517 turns; 0 mismatches (HP, energy, actions, damage)`
+
+`Battle.js 3v3 component parity: 5 cases; 0 mismatches (activation order, per-side shields, first twelve charged hit/shield outcomes)`
 
 The tool checks the SHA-256 of every pinned source file, fetched or cached, before running.
-The shield callback is covered by unit tests only: the oracle starts with zero shields, so it is
-not part of this parity result.
+The 1v1 oracle starts with zero shields; the team oracle exercises shield decisions and effects.
 
 ## F3: recorded Metagross remaining HP
 
@@ -161,8 +173,8 @@ Snubbull submits and registers its 1-turn fast move every turn: Tackle does 4, B
   describe supplied stat provenance. Row l is added when Rocket selects a charge, p when the
   player selects one (full minigame charge), and m when an injected shield is used.
   The selected `Rules` also travels with the result. Parity does not promote those evidence grades.
-- Only ordinary moves without effects or form changes are represented. Buffs, percent-max-HP
-  moves, Mega interactions and special tags such as `instant` or `ignoresFaint` are outside this
+- Ordinary moves and stat-stage effects are represented. Percent-max-HP
+  moves, form changes, Mega interactions and special tags such as `instant` or `ignoresFaint` are outside this
   loop. The Cramorant equal-attack exception at Battle.js 262–263 is a form-specific mechanic
   outside these ordinary combatants. No tag or form behavior is silently reconstructed from IDs.
 - Players are fixed at base priority zero, matching Pokemon.js 65. No custom sandbox priority,
