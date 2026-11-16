@@ -13,3 +13,6 @@ venv/*
 .venv/
 .cache/
 __pycache__/
+
+# Local site artwork and fonts
+site-assets/

@@ -4,90 +4,181 @@
 <meta charset="utf-8">
 <script>try{var t=localStorage.getItem('pogo-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rocket counters · top 3</title>
+<title>Rocket counters</title>
 <style>
-:root{--bg:#eef0ec;--panel:#fbfbf8;--ink:#1d2321;--muted:#5d6762;--line:#d3d8d2;
---accent:#1f5f8b;--win:#2f7d4f;--amber:#9a6200;--violet:#6a4c9c;
---display:"Arial Narrow",sans-serif;--body:system-ui,sans-serif;--mono:ui-monospace,monospace}
-/* Values sampled from the Pokémon GO type icons. */
-:root{--ty-normal:#9098a0;--ty-fire:#fca84c;--ty-water:#4c90d4;--ty-electric:#f4d03c;--ty-grass:#60b854;--ty-ice:#74ccc0;--ty-fighting:#cc4068;--ty-poison:#a464c4;--ty-ground:#d49060;--ty-flying:#90a8dc;--ty-psychic:#f86c74;--ty-bug:#90c02c;--ty-rock:#d0c490;--ty-ghost:#5468ac;--ty-dragon:#0868c0;--ty-dark:#585064;--ty-steel:#50849c;--ty-fairy:#ec8ce4;}
-.ty{display:inline-flex;align-items:center;gap:4px;font:600 .76rem var(--body);padding:1px 8px;
-border-radius:999px;border:1px solid color-mix(in srgb,var(--ty) 55%,transparent);
-background:color-mix(in srgb,var(--ty) 18%,transparent);color:var(--ink);
-text-transform:capitalize;white-space:nowrap}
-.ty:has(img){padding-left:2px}.ty img{width:18px;height:18px}
-.tys{display:flex;flex-wrap:wrap;gap:4px}
-.ty-normal{--ty:var(--ty-normal)}.ty-fire{--ty:var(--ty-fire)}.ty-water{--ty:var(--ty-water)}.ty-electric{--ty:var(--ty-electric)}.ty-grass{--ty:var(--ty-grass)}.ty-ice{--ty:var(--ty-ice)}.ty-fighting{--ty:var(--ty-fighting)}.ty-poison{--ty:var(--ty-poison)}.ty-ground{--ty:var(--ty-ground)}.ty-flying{--ty:var(--ty-flying)}.ty-psychic{--ty:var(--ty-psychic)}.ty-bug{--ty:var(--ty-bug)}.ty-rock{--ty:var(--ty-rock)}.ty-ghost{--ty:var(--ty-ghost)}.ty-dragon{--ty:var(--ty-dragon)}.ty-dark{--ty:var(--ty-dark)}.ty-steel{--ty:var(--ty-steel)}.ty-fairy{--ty:var(--ty-fairy)}
-button.t:has(.ty),button.t:has(.ty)[aria-pressed=true]{padding:0;border:0;background:none}
-button[aria-pressed=true] .ty{outline:2px solid var(--ink);outline-offset:1px}
-h2 .ty{vertical-align:.2em}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
---bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;
---muted:#99a49e;--line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;
---violet:#ad94dd;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;--muted:#99a49e;
---line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;--violet:#ad94dd;color-scheme:dark}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
-font:15px/1.5 var(--body)}main{max-width:1180px;margin:auto;padding:28px 16px 80px;
-display:grid;gap:18px}h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:.01em}
-h1{font-size:2rem}h2{font-size:1.45rem}h3{font-size:1.1rem}p{margin:0}a{color:var(--accent)}
-nav,.controls{display:flex;flex-wrap:wrap;gap:8px}nav a{font:600 .85rem var(--display);
-text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:4px}
-button.theme-toggle{width:32px;height:32px;
-margin-left:auto;border:1px solid var(--line);border-radius:50%;background:var(--panel);
-color:var(--ink);padding:6px;cursor:pointer}
+:root{--bg:#f1f2f5; --panel:#fff; --ink:#1d2230; --muted:#5d6475; --line:#dfe2ea; --accent:#c8282c;
+--win:#2f8f57; --amber:#9a6200; --violet:#6a4c9c; --nav-bg:#1c2030; --nav-ink:#e6e8ef;
+--rocket:#1c2030; --rocket-red:#e0302a; --display:Lato,system-ui,sans-serif;
+--body:Lato,system-ui,sans-serif; --mono:ui-monospace,monospace}
+/* Values sampled from the Pokémon GO type icons. */ :root{--ty-normal:#9098a0; --ty-fire:#fca84c;
+--ty-water:#4c90d4; --ty-electric:#f4d03c; --ty-grass:#60b854; --ty-ice:#74ccc0;
+--ty-fighting:#cc4068; --ty-poison:#a464c4; --ty-ground:#d49060; --ty-flying:#90a8dc;
+--ty-psychic:#f86c74; --ty-bug:#90c02c; --ty-rock:#d0c490; --ty-ghost:#5468ac; --ty-dragon:#0868c0;
+--ty-dark:#585064; --ty-steel:#50849c; --ty-fairy:#ec8ce4; } .ty{display:inline-flex;
+align-items:center; gap:4px; font:600 .76rem var(--body); padding:1px 8px; border-radius:999px;
+border:1px solid color-mix(in srgb,var(--ty) 55%,transparent);
+background:color-mix(in srgb,var(--ty) 18%,transparent); color:var(--ink);
+text-transform:capitalize; white-space:nowrap} .ty:has(img){padding-left:2px} .ty img{width:18px;
+height:18px} .tys{display:flex; flex-wrap:wrap; gap:4px} .ty-normal{--ty:var(--ty-normal)}
+.ty-fire{--ty:var(--ty-fire)} .ty-water{--ty:var(--ty-water)} .ty-electric{--ty:var(--ty-electric)}
+.ty-grass{--ty:var(--ty-grass)} .ty-ice{--ty:var(--ty-ice)} .ty-fighting{--ty:var(--ty-fighting)}
+.ty-poison{--ty:var(--ty-poison)} .ty-ground{--ty:var(--ty-ground)}
+.ty-flying{--ty:var(--ty-flying)} .ty-psychic{--ty:var(--ty-psychic)} .ty-bug{--ty:var(--ty-bug)}
+.ty-rock{--ty:var(--ty-rock)} .ty-ghost{--ty:var(--ty-ghost)} .ty-dragon{--ty:var(--ty-dragon)}
+.ty-dark{--ty:var(--ty-dark)} .ty-steel{--ty:var(--ty-steel)} .ty-fairy{--ty:var(--ty-fairy)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1118; --panel:#191c27;
+--ink:#e8e9ee; --muted:#9a9fb0; --line:#2b3042; --sprite-tint:45%;
+--accent:#ff8585; --win:#5cc086; --amber:#e3a646;
+--violet:#ad94dd; --nav-bg:#1c2030; --nav-ink:#e6e8ef; --rocket:#0a0b10; --rocket-red:#ff3b30;
+color-scheme:dark} } :root[data-theme="dark"]{--bg:#0f1118; --panel:#191c27; --ink:#e8e9ee;
+--muted:#9a9fb0; --line:#2b3042; --sprite-tint:45%;
+--accent:#ff8585; --win:#5cc086; --amber:#e3a646;
+--violet:#ad94dd; --nav-bg:#1c2030; --nav-ink:#e6e8ef; --rocket:#0a0b10; --rocket-red:#ff3b30;
+color-scheme:dark} *{box-sizing:border-box} body{margin:0; font:15px/1.45 var(--body);
+background:var(--bg); color:var(--ink)} a{color:inherit} main{max-width:1080px; margin:auto;
+padding:0 14px 60px} h1,h2,h3{margin:0; font-weight:900} p{margin:0} .top{display:flex;
+align-items:center; gap:8px; padding:10px 14px; max-width:1080px; margin:auto}
+.top a{text-decoration:none; font-weight:700; padding:6px 12px; border-radius:999px}
+.top .theme-toggle{margin-left:auto; width:32px; height:32px; border-radius:50%; border:0;
+display:grid; place-items:center} .disc{font-size:.82rem; padding:8px 14px; text-align:center}
+.disc a{font-weight:700} .rmark{height:.85em; vertical-align:-.05em; margin-right:.3em}
+.spr{border-radius:50%; flex:none} .ph{width:var(--sprite-size);height:var(--sprite-size);
+border-radius:50%;background:var(--line);display:inline-grid; place-items:center;
+color:var(--muted); font-size:.7rem} .mini{width:22px; height:22px; vertical-align:middle}
+.tag{font-size:.68rem; font-weight:700; border-radius:4px; padding:0 5px; vertical-align:2px;
+margin-left:4px} .tag.sh{background:#7b4fb0; color:#fff} .tag.el{background:#e9e3c8; color:#5a4b00}
+.tag.warn{background:#f6e2b8; color:#7a4c00} .rows{list-style:none; margin:0; padding:0}
+.row{display:grid; grid-template-columns:20px 44px minmax(0,1fr) 58px; gap:2px 10px;
+align-items:center} .row .spr{width:44px; height:44px} .row .rk{font-weight:900;
+color:var(--muted); text-align:right} .row .nm{font-weight:900} .row .mv{font-size:.8rem;
+color:var(--muted)} .row .tys{display:inline-flex; gap:3px; vertical-align:-3px}
+.row .tys .ty{padding:1px} .row .tys .ty img{width:16px; height:16px} .row .score{text-align:right;
+line-height:1.05} .row .score b{font-size:1.25rem; font-weight:900; display:block}
+.row .score span{font-size:.68rem; color:var(--muted)} .row .sec{grid-column:3/-1; display:none;
+gap:12px; font-size:.75rem; color:var(--muted)} .tough{display:block; font-size:.75rem;
+color:var(--muted); margin-top:2px} .set{font-size:.8rem; color:var(--muted); margin:2px 0 10px}
+.lv{display:flex; gap:4px} .lv button{font:700 .78rem var(--body); border-radius:999px;
+padding:4px 12px; border:1px solid var(--line); background:transparent; color:var(--ink)}
+.lv button[aria-pressed=true]{background:var(--ink); color:var(--bg)} .bar{display:flex;
+align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px}
+.lineup{display:grid; gap:6px} .slot{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.sn{font-weight:900; width:22px; text-align:center; font-size:1.1rem; opacity:.7} .lsp{width:44px;
+height:44px} .more{font-size:.8rem; opacity:.75} .grid{display:grid;
+grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px} .cc{display:block;
+text-decoration:none} .cch{text-decoration:none; display:flex; align-items:center; gap:8px}
+.cch h3{font-size:1rem;
+flex:1} .lead{display:flex} .lead .lsp{width:30px; height:30px; margin-left:-8px}
+.top3{list-style:none; margin:8px 0 0; padding:0; display:grid; gap:4px} .top3 li{display:grid;
+grid-template-columns:32px minmax(0,1fr) auto; gap:8px; align-items:center; font-size:.88rem}
+.top3 li>span{min-width:0; overflow-wrap:anywhere}
+.top3 b{font-weight:900} .grp{margin:22px 0 10px; font-size:1.2rem} .hint{font-size:.8rem;
+color:var(--muted)} .more-link{display:inline-block; margin-top:8px; font-weight:700;
+color:var(--accent)} .rk-badge{font-size:.7rem; font-weight:900; background:var(--rocket-red);
+color:#fff; border-radius:4px; padding:1px 6px; text-transform:uppercase}
+@media(min-width:700px){.row .sec{display:flex; grid-column:auto; flex-direction:column; gap:0;
+text-align:right; min-width:86px} .row{grid-template-columns:28px 48px minmax(0,1fr) 110px 70px}
+.row .spr{width:48px; height:48px} } .topwrap{background:#1c2030} .top a{color:#e6e8ef}
+.top a[aria-current="page"]{background:#e0302a; color:#fff} .top .theme-toggle{background:#2c3246;
+color:#fff} .disc{background:#2a2f42; color:#cfd3e0} .disc a{color:#fff}
+.hero{padding:26px 16px 22px; margin:0 -14px;
+background:radial-gradient(120% 140% at 0 0,#3a2030,#1c2030 60%); color:#fff}
+.hero h1{font-size:2rem} .hero p{color:#c9cdda} .card{background:var(--panel); border-radius:14px;
+padding:14px; margin-top:14px; border:1px solid var(--line)} .rows{margin-top:6px}
+.row{padding:8px 2px; border-bottom:1px solid var(--line)} .row:last-child{border:0}
+.row .score b{color:var(--ink)} .cc{background:var(--panel); border-radius:14px; overflow:hidden;
+border:1px solid var(--line)} .cch{background:linear-gradient(100deg,#1c2030 0 75%,#3a2a3a);
+color:#fff; padding:10px 12px} .cch .ty{color:#fff} .top3{padding:4px 12px 10px}
+.charhead{margin:0 -14px; padding:18px 16px; color:#fff;
+background:linear-gradient(160deg,#1c2030 0 65%,color-mix(in srgb,var(--t1) 60%,#1c2030))}
+.charhead .ct{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.charhead h1{font-size:1.8rem} .charhead .hint{color:#b9bdca; margin-bottom:6px}
+.charhead .ty{color:#fff} .slot{background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:4px 8px}
+.lsp{background:radial-gradient(circle,rgba(160,110,220,.45) 0 55%,transparent 62%)}
+.lineup .lsp{background:radial-gradient(circle,rgba(233,228,245,.7) 0 55%,transparent 62%)}
+.lm{display:inline-flex; flex-direction:column; align-items:center; max-width:64px;
+vertical-align:top} .lname{font-size:.68rem; line-height:1.1; max-width:64px; text-align:center;
+overflow-wrap:anywhere}
+.top{flex-wrap:wrap} .top a{font-size:.85rem} .theme-toggle{cursor:pointer} a{color:var(--accent)}
+.cc{color:inherit} main{min-width:0} .card h2{font-size:1.25rem} .who{min-width:0}
+.row{font-variant-numeric:tabular-nums} .nm,.mv,.tough{overflow-wrap:anywhere}
+.row .spr{background:radial-gradient(circle,
+color-mix(in srgb,var(--t1) var(--sprite-tint,40%),var(--panel)) 0 60%,transparent 61%)}
+.ty-icon{padding:1px!important; width:20px; height:20px; justify-content:center}
+.ty-icon .type-symbol{font-size:.7rem; line-height:16px} .tag{white-space:nowrap}
+.tag.warn{color:var(--amber); background:transparent; border:1px solid var(--amber);
+text-decoration:none} .notice{padding:5px 14px; font-size:.8rem; color:var(--amber);
+background:color-mix(in srgb,var(--amber) 10%,var(--panel)); border-block:1px solid var(--amber)}
+.controls{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0}
+button.t{font:700 .78rem var(--body); border:1px solid var(--line); border-radius:999px;
+background:var(--panel); color:var(--ink); padding:3px 8px; cursor:pointer}
+button.t:has(.ty),button.t:has(.ty)[aria-pressed=true]{padding:0; border:0; background:none}
+button[aria-pressed=true] .ty{outline:2px solid var(--ink); outline-offset:1px} .lv{flex-wrap:wrap}
+.level-title{font-size:.9rem; color:var(--muted); margin-top:10px} .rmark{display:inline-block;
+vertical-align:-.08em; margin-right:.35em} .rmark.letter{background:var(--rocket-red); color:#fff;
+font:900 .8em var(--display); padding:0 .28em; transform:skew(-10deg)} .rmark img{height:.9em;
+width:auto; display:block} .charhead .ct{flex-wrap:wrap} .charhead{--t1:var(--rocket)}
+.wrap{overflow-x:auto; position:relative} table{border-collapse:collapse; width:100%;
+font-size:.9rem} th,td{padding:6px 8px; border-bottom:1px solid var(--line); text-align:left}
+.num{text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+.moves,.legend,.assume,.notes{font-size:.82rem; color:var(--muted)} .method{display:grid; gap:12px;
+grid-template-columns:minmax(0,1fr); overflow-wrap:anywhere}
+.method h2{margin-top:8px} .method .notes{display:grid; gap:6px} .chip{display:inline-block;
+border:1px solid var(--line); border-radius:6px; padding:1px 6px} .warn{color:var(--amber)}
+.detail{padding:12px; background:var(--bg); display:grid; gap:12px} .metrics{display:grid;
+grid-template-columns:24px 2.4fr repeat(6,minmax(74px,1fr)); gap:8px; align-items:start;
+min-width:870px} .counter-head{font-size:.78rem; color:var(--muted)}
+details.counter{border-bottom:1px solid var(--line)} summary{cursor:pointer}
+summary.detail-row{padding:8px 0; display:flex; gap:6px; align-items:baseline; list-style:none}
+summary.detail-row::-webkit-details-marker{display:none}
+summary.detail-row::before{content:"\25B8"; width:12px; flex:none}
+details[open]>summary.detail-row::before{content:"\25BE"}
+.detail-row .metrics{flex:1} .detail-row .spr{vertical-align:middle}
+@media(max-width:699px){.metrics{min-width:0; grid-template-columns:22px minmax(0,1fr) auto}
+.metrics>:nth-child(n+4){display:none} .counter-head{padding-left:18px}}
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+clip:rect(0,0,0,0); white-space:nowrap; border:0}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);
-outline-offset:2px}.screen{background:var(--panel);border:1px solid var(--line);
-border-radius:8px;overflow:hidden}.screen-title{padding:12px 14px 8px}.sub,.moves{
-color:var(--muted);font-size:.84rem}.trust{display:flex;flex-wrap:wrap;gap:6px;
-padding:8px 14px;border-block:1px solid var(--line);background:var(--bg)}
-.chip{display:inline-block;font:500 .74rem var(--mono);border:1px solid var(--line);
-border-radius:3px;padding:1px 6px;background:var(--panel);overflow-wrap:anywhere}
-.chip.est{border-color:var(--ink);font-weight:600}.warn{color:var(--amber)}
-.chip.warn{border-color:var(--amber)}td .chip{white-space:nowrap;overflow-wrap:normal}
-.assume{padding:6px 14px;color:var(--muted);font-size:.86rem}
-.intro-info{padding:8px 14px 0;display:grid;gap:6px;justify-items:start}
-.intro-chips{display:flex;flex-wrap:wrap;gap:6px}
-.intro>summary{font-weight:600;padding:12px 14px;cursor:pointer}
-.intro-legends{padding:12px 14px;display:grid;gap:12px}
-.body{padding:12px 14px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
-.wrap{overflow-x:auto;position:relative}table{border-collapse:collapse;
-width:100%;font-variant-numeric:tabular-nums;font-size:.9rem}th,td{padding:6px 8px;
-border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font:600 .78rem
-var(--display);color:var(--muted);text-transform:uppercase;white-space:nowrap}
-.num{font-family:var(--mono);text-align:right;white-space:nowrap}.est-mark{font:500 .62rem
-var(--mono);color:var(--muted);vertical-align:super;margin-left:2px}.mon{font-weight:600}
-.pause-band{display:block;white-space:normal;font-size:.74rem}
-.notes{padding:10px 14px 14px;border-top:1px solid var(--line);display:grid;gap:5px;
-font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}.notes b{color:var(--ink)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
-.tile{border:1px solid var(--line);border-radius:6px;padding:10px;display:grid;gap:6px;
-align-content:start;min-width:0}.tile.overall{border:2px solid var(--accent)}
-.tile ol{margin:0;padding-left:1.2em}.tile li{font-size:.88rem}.tile .trust,.tile .notes{
-padding:6px}.legend{font-size:.78rem;color:var(--muted)}button.t{font:500 .78rem var(--mono);
-border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:3px 8px;
-border-radius:12px;cursor:pointer}button[aria-pressed=true]{background:var(--ink);
-color:var(--panel)}details.counter{border-bottom:1px solid var(--line)}summary{cursor:pointer}
-summary.row{display:list-item;padding:8px 0}.metrics{display:grid;
-grid-template-columns:32px 2.4fr repeat(6,minmax(74px,1fr)) 1.8fr;gap:8px;align-items:start;
-min-width:960px}.counter-head{font:600 .78rem var(--display);color:var(--muted);
-text-transform:uppercase}.detail{padding:12px;background:var(--bg);display:grid;gap:12px}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-clip:rect(0,0,0,0);white-space:nowrap;border:0}
-[hidden]{display:none!important}@media(max-width:640px){main{padding-inline:8px}}
+outline-offset:2px} [hidden]{display:none!important}
+.pct{margin:0 0 4px} details.tech{margin-top:14px} details.tech>summary{font-weight:700;
+padding:8px 0}
+.tyfilter{margin:2px 0 8px} .tyfilter>summary{cursor:pointer; font-weight:700; font-size:.85rem;
+color:var(--muted)} .tyfilter .controls{margin-top:8px} @media(max-width:699px){.top{gap:2px;
+padding:6px 10px} .top a{padding:6px 9px} .disc{padding:6px 14px} .charhead{padding:10px 14px}
+.charhead h1{font-size:1.3rem} .charhead .ct{gap:6px; margin-bottom:4px}
+.charhead .hint{margin-bottom:3px} .lineup{gap:3px} .slot{gap:4px; padding:2px 6px;
+border-radius:8px} .charhead .lsp{width:32px; height:32px} .sn{font-size:.9rem; width:16px}
+.card{padding:10px; margin-top:10px} .bar{gap:4px} .card h2{font-size:1.1rem}
+.lv button{padding:4px 8px} .row{gap:2px 6px; padding:7px 0;
+grid-template-columns:16px 36px minmax(0,1fr) 58px} .row .spr{width:36px; height:36px}
+.row .nm{font-size:.9rem} .row .score b{font-size:1.1rem} .row .mv{font-size:.75rem}
+.set{font-size:.75rem; margin-bottom:4px} .tough{font-size:.7rem} }
 </style>
 </head>
 <body>
-<main>
-<nav aria-label="Pages"><a href="list/all.html">All Rocket</a><a href="list/grunts.html">Grunts</a><a href="list/leaders.html">Leaders</a><button type="button" class="theme-toggle" hidden aria-label="Switch to dark theme"><svg class="moon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7.1 7.1 0 0 0 21 12.8Z"/></svg><svg class="sun" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M19.07 4.93l-1.42 1.42M6.35 17.65l-1.42 1.42"/></svg></button></nav>
-<div class="screen"><header class="screen-title"><h1>Rocket counters · top 3</h1></header>
-<div class="intro-info"><div class="intro-chips"><span class="chip est">every number is an estimate</span><span class="chip warn">2 open checks</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span></div><details class="intro" open><summary>How these numbers work</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><div class="assume">You: levels 40/50 (per section) · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div></details><script>if(matchMedia('(max-width:640px)').matches){
-document.currentScript.previousElementSibling.open=false;
-}</script>
-<div class="body"><p class="sub">Top 3 per character · level 40 · open a tile for the full list</p><div class="tiles"><article class="tile overall"><h2><a href="list/all.html">All Rocket</a></h2><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><ol><li><span class="mon" title="metagross">Metagross</span> <span class="moves" style="display:block"><span title="BULLET_PUNCH">Bullet Punch</span> · <span title="EARTHQUAKE">Earthquake</span></span> 100.0%<span class="est-mark" title="estimate">est</span><div><span class="chip est">estimate</span> <span class="chip warn">unverified (l)</span> <span class="chip warn">extrapolated forward</span> <span class="chip ">stats parity-only</span> <span class="chip warn">pool incomplete</span></div></li><li><span class="mon" title="kirlia">Kirlia</span> <span class="moves" style="display:block"><span title="CHARGE_BEAM">Charge Beam</span> · <span title="DISARMING_VOICE">Disarming Voice</span></span> 0.0%<span class="est-mark" title="estimate">est</span><div><span class="chip est">estimate</span> <span class="chip warn">unverified (l)</span> <span class="chip warn">extrapolated forward</span> <span class="chip ">stats parity-only</span> <span class="chip warn">pool incomplete</span></div></li></ol><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><details><summary>Assumptions, validation and sources</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><div class="assume">You: level 40 · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div><footer class="notes"><p><b>Model notes.</b> Every number is an estimate until the in-game checks are done. Rocket lineups and movesets are weighted equally because no appearance-rate source exists (model choice). Player ChargedWhenReady (first affordable move in supplied order) and first_two shields are model choices. Both sides start at full HP and zero energy. Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are unsupported. Battle date selects rules, not historical moves: cached moves and the explicit rCPM table are used. Purified IVs must already include their gain.</p><p><b>Rocket moveset pool.</b> Rocket moveset pool: model. Event-info lists species, not moves. All PvPoke species fastMoves and chargedMoves are hypothetical possibilities, including moves it marks legacy or elite; no source here establishes which Rocket Pokemon carry. No extra shadow Frustration is added: neither source settles that addition. Its inclusion in each pool is reported from PvPoke&#x27;s chargedMoves verbatim. Conditional damage grades do not validate move availability.</p><p><b>Equal-weight model.</b> Equal weight per character is a model choice; no encounter-rate source exists. Characters without a full result are excluded, never counted as zero.</p><p><b>Screen caveat.</b> Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. The grid ignores carried-over shields and HP between slots. Screen numbers are not lineup win rates. Ties at the K cut break by species id alphabetically.</p><p><b>Validation.</b> Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</p><p><b>Credits.</b> Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research (Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json).</p><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><p>Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</p><p>Dates before 2019-07-22 are rejected.</p><p><b>Source.</b> PvPoke · MIT · https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json · fetched 14 Nov 2026, 00:00 UTC</p><p><b>Source.</b> WatWowMap event-info · MIT · https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json · fetched 14 Nov 2026, 00:00 UTC</p></footer></details></article><article class="tile"><h2><span class="ty ty-fairy">fairy</span> <a href="list/fairy-grunt-female.html">Fairy grunt (female)</a></h2><ol><li><span class="mon" title="kirlia">Kirlia</span> <span class="moves" style="display:block"><span title="CHARGE_BEAM">Charge Beam</span> · <span title="DISARMING_VOICE">Disarming Voice</span></span> 0.0%<span class="est-mark" title="estimate">est</span><div><span class="chip est">estimate</span> <span class="chip warn">unverified (l)</span> <span class="chip warn">extrapolated forward</span> <span class="chip ">stats parity-only</span> <span class="chip warn">pool incomplete</span></div></li></ol><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><details><summary>Assumptions, validation and sources</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><div class="assume">You: level 40 · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div><footer class="notes"><p><b>Model notes.</b> Every number is an estimate until the in-game checks are done. Rocket lineups and movesets are weighted equally because no appearance-rate source exists (model choice). Player ChargedWhenReady (first affordable move in supplied order) and first_two shields are model choices. Both sides start at full HP and zero energy. Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are unsupported. Battle date selects rules, not historical moves: cached moves and the explicit rCPM table are used. Purified IVs must already include their gain.</p><p><b>Rocket moveset pool.</b> Rocket moveset pool: model. Event-info lists species, not moves. All PvPoke species fastMoves and chargedMoves are hypothetical possibilities, including moves it marks legacy or elite; no source here establishes which Rocket Pokemon carry. No extra shadow Frustration is added: neither source settles that addition. Its inclusion in each pool is reported from PvPoke&#x27;s chargedMoves verbatim. Conditional damage grades do not validate move availability.</p><p><b>Equal-weight model.</b> Equal weight per character is a model choice; no encounter-rate source exists. Characters without a full result are excluded, never counted as zero.</p><p><b>Screen caveat.</b> Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. The grid ignores carried-over shields and HP between slots. Screen numbers are not lineup win rates. Ties at the K cut break by species id alphabetically.</p><p><b>Validation.</b> Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</p><p><b>Credits.</b> Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research (Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json).</p><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><p>Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</p><p>Dates before 2019-07-22 are rejected.</p><p><b>Source.</b> PvPoke · MIT · https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json · fetched 14 Nov 2026, 00:00 UTC</p><p><b>Source.</b> WatWowMap event-info · MIT · https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json · fetched 14 Nov 2026, 00:00 UTC</p></footer></details></article><article class="tile"><h2><a href="list/cliff.html">Cliff</a></h2><ol><li><span class="mon" title="metagross">Metagross</span> <span class="moves" style="display:block"><span title="BULLET_PUNCH">Bullet Punch</span> · <span title="EARTHQUAKE">Earthquake</span></span> 100.0%<span class="est-mark" title="estimate">est</span><div><span class="chip est">estimate</span> <span class="chip warn">unverified (l)</span> <span class="chip warn">extrapolated forward</span> <span class="chip ">stats parity-only</span></div></li></ol><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><details><summary>Assumptions, validation and sources</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><div class="assume">You: level 40 · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div><footer class="notes"><p><b>Model notes.</b> Every number is an estimate until the in-game checks are done. Rocket lineups and movesets are weighted equally because no appearance-rate source exists (model choice). Player ChargedWhenReady (first affordable move in supplied order) and first_two shields are model choices. Both sides start at full HP and zero energy. Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are unsupported. Battle date selects rules, not historical moves: cached moves and the explicit rCPM table are used. Purified IVs must already include their gain.</p><p><b>Rocket moveset pool.</b> Rocket moveset pool: model. Event-info lists species, not moves. All PvPoke species fastMoves and chargedMoves are hypothetical possibilities, including moves it marks legacy or elite; no source here establishes which Rocket Pokemon carry. No extra shadow Frustration is added: neither source settles that addition. Its inclusion in each pool is reported from PvPoke&#x27;s chargedMoves verbatim. Conditional damage grades do not validate move availability.</p><p><b>Equal-weight model.</b> Equal weight per character is a model choice; no encounter-rate source exists. Characters without a full result are excluded, never counted as zero.</p><p><b>Screen caveat.</b> Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. The grid ignores carried-over shields and HP between slots. Screen numbers are not lineup win rates. Ties at the K cut break by species id alphabetically.</p><p><b>Validation.</b> Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</p><p><b>Credits.</b> Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research (Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json).</p><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><p>Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</p><p>Dates before 2019-07-22 are rejected.</p><p><b>Source.</b> PvPoke · MIT · https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json · fetched 14 Nov 2026, 00:00 UTC</p><p><b>Source.</b> WatWowMap event-info · MIT · https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json · fetched 14 Nov 2026, 00:00 UTC</p></footer></details></article><article class="tile"><h2><a href="list/empty-grunt-female.html">Empty grunt (female)</a></h2><p><span class="chip warn">not calculated</span> not calculated: at least one slot has no resolved options</p><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><details><summary>Assumptions, validation and sources</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span><div class="assume">You: level 40 · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div><footer class="notes"><p><b>Model notes.</b> Every number is an estimate until the in-game checks are done. Rocket lineups and movesets are weighted equally because no appearance-rate source exists (model choice). Player ChargedWhenReady (first affordable move in supplied order) and first_two shields are model choices. Both sides start at full HP and zero energy. Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are unsupported. Battle date selects rules, not historical moves: cached moves and the explicit rCPM table are used. Purified IVs must already include their gain.</p><p><b>Rocket moveset pool.</b> Rocket moveset pool: model. Event-info lists species, not moves. All PvPoke species fastMoves and chargedMoves are hypothetical possibilities, including moves it marks legacy or elite; no source here establishes which Rocket Pokemon carry. No extra shadow Frustration is added: neither source settles that addition. Its inclusion in each pool is reported from PvPoke&#x27;s chargedMoves verbatim. Conditional damage grades do not validate move availability.</p><p><b>Equal-weight model.</b> Equal weight per character is a model choice; no encounter-rate source exists. Characters without a full result are excluded, never counted as zero.</p><p><b>Screen caveat.</b> Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. The grid ignores carried-over shields and HP between slots. Screen numbers are not lineup win rates. Ties at the K cut break by species id alphabetically.</p><p><b>Validation.</b> Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</p><p><b>Credits.</b> Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research (Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json).</p><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><p>Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</p><p>Dates before 2019-07-22 are rejected.</p><p><b>Source.</b> PvPoke · MIT · https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json · fetched 14 Nov 2026, 00:00 UTC</p><p><b>Source.</b> WatWowMap event-info · MIT · https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json · fetched 14 Nov 2026, 00:00 UTC</p></footer></details></article></div></div>
-<footer class="notes"><p><b>Model notes.</b> Every number is an estimate until the in-game checks are done. Rocket lineups and movesets are weighted equally because no appearance-rate source exists (model choice). Player ChargedWhenReady (first affordable move in supplied order) and first_two shields are model choices. Both sides start at full HP and zero energy. Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are unsupported. Battle date selects rules, not historical moves: cached moves and the explicit rCPM table are used. Purified IVs must already include their gain.</p><p><b>Rocket moveset pool.</b> Rocket moveset pool: model. Event-info lists species, not moves. All PvPoke species fastMoves and chargedMoves are hypothetical possibilities, including moves it marks legacy or elite; no source here establishes which Rocket Pokemon carry. No extra shadow Frustration is added: neither source settles that addition. Its inclusion in each pool is reported from PvPoke&#x27;s chargedMoves verbatim. Conditional damage grades do not validate move availability.</p><p><b>Equal-weight model.</b> Equal weight per character is a model choice; no encounter-rate source exists. Characters without a full result are excluded, never counted as zero.</p><p><b>Screen caveat.</b> Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. The grid ignores carried-over shields and HP between slots. Screen numbers are not lineup win rates. Ties at the K cut break by species id alphabetically.</p><p><b>Validation.</b> Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</p><p><b>Credits.</b> Lineups: WatWowMap event-info (MIT). Species, types and moves, and the damage formula, type chart and player CP multipliers ported from it: PvPoke (MIT, copyright 2019 pvpoke). Rocket stat formula and Rocket CP multiplier tables: r/TheSilphRoad community research (Venonic, fugerappi, Flyfunner; sources in src/pogo_analyzer/sim/data/rcpm.json).</p><p>covers 2 of 3 characters; missing: Empty grunt (female)</p><span class="chip ">equal weights: model choice</span><p>Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</p><p>Dates before 2019-07-22 are rejected.</p><p><b>Source.</b> PvPoke · MIT · https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json · fetched 14 Nov 2026, 00:00 UTC</p><p><b>Source.</b> WatWowMap event-info · MIT · https://raw.githubusercontent.com/WatWowMap/event-info/main/grunts/formatted.json · fetched 14 Nov 2026, 00:00 UTC</p></footer>
-</div>
-</main>
+<div class="topwrap"><nav class="top" aria-label="Pages"><a href="index.html" aria-current="page">Home</a><a href="list/all.html">All</a><a href="index.html#grunts">Grunts</a><a href="index.html#leaders">Leaders</a><button type="button" class="theme-toggle" hidden aria-label="Switch to dark theme"><svg class="moon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7.1 7.1 0 0 0 21 12.8Z"/></svg><svg class="sun" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M19.07 4.93l-1.42 1.42M6.35 17.65l-1.42 1.42"/></svg></button></nav></div>
+<div class="disc"><b>Simulator estimates.</b> Not yet checked against in-game battles. <a href="how.html">How these numbers work</a> · Data: 14 Nov 2026</div>
+<main><section class="hero"><h1><span class="rmark letter" aria-hidden="true">R</span>Rocket counters</h1><p>The best Pokémon to beat each Team GO Rocket grunt and leader, from a battle simulator.</p></section><section class="card" data-levels><div class="bar"><h2>Best all-round</h2><div class="lv" role="group" aria-label="Counter level" hidden><button type="button" data-show-level="50" aria-pressed="true">Level 50</button><button type="button" data-show-level="40" aria-pressed="false">Level 40</button></div></div><p class="hint pct">% = chance your counter beats their whole lineup on its own.</p><section id="level-50" data-level="50"><h3 class="level-title">Level 50</h3><p class="set">Your counter: level 50 · 15/15/15 · you shield the first two charged attacks · Rocket shields as in game</p><ol class="rows"><li class="row" style="--t1:var(--ty-steel)" data-types="[&quot;steel&quot;, &quot;psychic&quot;]" data-win="1.0"><span class="rk" data-rank>1</span><span class="spr ph" aria-hidden="true" style="--sprite-size:44px">ME</span><div class="who"><div class="nm">Metagross <span class="tys"><span class="ty ty-steel ty-icon" title="steel" aria-label="steel"><span class="type-symbol" aria-hidden="true">S</span></span><span class="ty ty-psychic ty-icon" title="psychic" aria-label="psychic"><span class="type-symbol" aria-hidden="true">P</span></span></span></div><div class="mv"><span title="BULLET_PUNCH">Bullet Punch</span> · <span title="EARTHQUAKE">Earthquake</span></div></div><div class="sec"><span>63% HP left</span><span>3.0 KOs</span></div><div class="score"><b>100.0%</b><span>win</span></div></li><li class="row" style="--t1:var(--ty-psychic)" data-types="[&quot;psychic&quot;, &quot;fairy&quot;]" data-win="0.0"><span class="rk" data-rank>2</span><span class="spr ph" aria-hidden="true" style="--sprite-size:44px">KI</span><div class="who"><div class="nm">Kirlia <span class="tys"><span class="ty ty-psychic ty-icon" title="psychic" aria-label="psychic"><span class="type-symbol" aria-hidden="true">P</span></span><span class="ty ty-fairy ty-icon" title="fairy" aria-label="fairy"><span class="type-symbol" aria-hidden="true">F</span></span></span></div><div class="mv"><span title="CHARGE_BEAM">Charge Beam</span> · <span title="DISARMING_VOICE">Disarming Voice</span></div></div><div class="sec"><span>0% HP left</span><span>1.0 KOs</span></div><div class="score"><b>0.0%</b><span>win</span></div></li></ol><p class="notice" data-best-warning hidden>best counter loses most battles</p></section><section id="level-40" data-level="40"><h3 class="level-title">Level 40</h3><p class="set">Your counter: level 40 · 15/15/15 · you shield the first two charged attacks · Rocket shields as in game</p><ol class="rows"><li class="row" style="--t1:var(--ty-steel)" data-types="[&quot;steel&quot;, &quot;psychic&quot;]" data-win="1.0"><span class="rk" data-rank>1</span><span class="spr ph" aria-hidden="true" style="--sprite-size:44px">ME</span><div class="who"><div class="nm">Metagross <span class="tys"><span class="ty ty-steel ty-icon" title="steel" aria-label="steel"><span class="type-symbol" aria-hidden="true">S</span></span><span class="ty ty-psychic ty-icon" title="psychic" aria-label="psychic"><span class="type-symbol" aria-hidden="true">P</span></span></span></div><div class="mv"><span title="BULLET_PUNCH">Bullet Punch</span> · <span title="EARTHQUAKE">Earthquake</span></div></div><div class="sec"><span>60% HP left</span><span>3.0 KOs</span></div><div class="score"><b>100.0%</b><span>win</span></div></li><li class="row" style="--t1:var(--ty-psychic)" data-types="[&quot;psychic&quot;, &quot;fairy&quot;]" data-win="0.0"><span class="rk" data-rank>2</span><span class="spr ph" aria-hidden="true" style="--sprite-size:44px">KI</span><div class="who"><div class="nm">Kirlia <span class="tys"><span class="ty ty-psychic ty-icon" title="psychic" aria-label="psychic"><span class="type-symbol" aria-hidden="true">P</span></span><span class="ty ty-fairy ty-icon" title="fairy" aria-label="fairy"><span class="type-symbol" aria-hidden="true">F</span></span></span></div><div class="mv"><span title="CHARGE_BEAM">Charge Beam</span> · <span title="DISARMING_VOICE">Disarming Voice</span></div></div><div class="sec"><span>0% HP left</span><span>0.5 KOs</span></div><div class="score"><b>0.0%</b><span>win</span></div></li></ol><p class="notice" data-best-warning hidden>best counter loses most battles</p></section><a class="more-link" href="list/all.html">Full list →</a></section><h2 class="grp" id="leaders">Leaders</h2><a class="more-link" href="list/leaders.html">Best against any leader →</a><div class="grid"><article class="cc"><a class="cch" href="list/cliff.html"><span class="rk-badge">Leader</span><h3>Cliff</h3><span class="lead"><span class="lsp ph" aria-hidden="true" style="--sprite-size:30px">SN</span></span></a><ol class="top3"><li><span class="spr ph" aria-hidden="true" style="--sprite-size:32px">ME</span><span>Metagross</span><b>100.0%</b></li></ol></article></div><h2 class="grp" id="grunts">Grunts</h2><a class="more-link" href="list/grunts.html">Best against any grunt →</a><div class="grid"><article class="cc"><a class="cch" href="list/empty-grunt-female.html"><span class="rk-badge">Grunt</span><h3>Empty grunt (female)</h3><span class="lead"></span></a><p class="notice">not calculated: at least one slot has no resolved options</p></article><article class="cc"><a class="cch" href="list/fairy-grunt-female.html"><span class="ty ty-fairy ty-icon" title="fairy" aria-label="fairy"><span class="type-symbol" aria-hidden="true">F</span></span><h3>Fairy grunt (female)</h3><span class="lead"><span class="lsp ph" aria-hidden="true" style="--sprite-size:30px">SN</span></span></a><ol class="top3"><li><span class="spr ph" aria-hidden="true" style="--sprite-size:32px">KI</span><span>Kirlia</span><b>0.0%</b></li></ol></article></div></main>
+<script>
+document.querySelectorAll('[data-levels]').forEach(card=>{
+const buttons=[...card.querySelectorAll('[data-show-level]')];
+function show(level){
+buttons.forEach(b=>b.setAttribute('aria-pressed',b.dataset.showLevel===level));
+card.querySelectorAll('[data-level]').forEach(s=>s.hidden=s.dataset.level!==level);
+document.querySelectorAll('[data-lineup-level]').forEach(s=>{
+s.hidden=s.dataset.lineupLevel!==level;
+});
+}
+buttons.forEach(b=>b.onclick=()=>{
+show(b.dataset.showLevel);
+try{localStorage.setItem('pogo-level',b.dataset.showLevel)}catch(e){}
+});
+let saved=null;
+try{saved=localStorage.getItem('pogo-level')}catch(e){}
+show(buttons.some(b=>b.dataset.showLevel===saved)?saved:buttons[0].dataset.showLevel);
+card.querySelector('.lv').hidden=false;
+card.querySelectorAll('.level-title').forEach(h=>h.hidden=true);
+});</script>
 <script>
 (function(){
   var button=document.querySelector('.theme-toggle');
