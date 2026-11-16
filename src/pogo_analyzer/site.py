@@ -1415,6 +1415,10 @@ def build_site(data_dir, out, type_icons=None, brand_assets=None, sprites=None):
     return sum(name.endswith(".html") for name in pages)
 
 
+# Owner ruling: the form people mean when a species has no plain sprite file.
+DEFAULT_SPRITE_FORMS = {"zygarde": "FIFTY_PERCENT"}
+
+
 def sprite_files(data_dir, cache_dir, tree_path):
     """Resolve the bases requested by the renderer against cached source and tree data."""
     manifest = json.loads((Path(data_dir) / "manifest.json").read_text())
@@ -1453,7 +1457,10 @@ def sprite_files(data_dir, cache_dir, tree_path):
         candidates = []
         if suffix:
             candidates.append(f"{prefix}.f{aliases.get(suffix, suffix.upper())}.icon.png")
-        candidates.extend((f"{prefix}.icon.png", f"{prefix}.fNORMAL.icon.png"))
+        candidates.append(f"{prefix}.icon.png")
+        if base in DEFAULT_SPRITE_FORMS:
+            candidates.append(f"{prefix}.f{DEFAULT_SPRITE_FORMS[base]}.icon.png")
+        candidates.append(f"{prefix}.fNORMAL.icon.png")
         candidates.extend(sorted(name for name in names if name.startswith(prefix + ".f")))
         choice = next((name for name in candidates if name in names), None)
         if choice:

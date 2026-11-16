@@ -1318,6 +1318,7 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
         "forms": 3,
         "missing": 4,
         "bad\nbase": 5,
+        "zygarde": 718,
     }
     cache = tmp_path / "sprite-cache" / "sources"
     cache.mkdir(parents=True)
@@ -1343,6 +1344,8 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
         "pm4.s.icon.png",
         "pm4.c1.icon.png",
         "pm5.icon.png\nmalicious",
+        "pm718.fCOMPLETE.icon.png",
+        "pm718.fFIFTY_PERCENT.icon.png",
     ]
     tree = tmp_path / "tree.json"
     tree.write_text(json.dumps({"tree": [{"path": name} for name in names]}))
@@ -1373,6 +1376,8 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
         "plain pm1.icon.png",
         "raichu_alolan pm26.fALOLA.icon.png",
         "wooper_paldean pm194.fPALDEA.icon.png",
+        # Owner ruling: Zygarde defaults to its 50% form, not the alphabetical first.
+        "zygarde pm718.fFIFTY_PERCENT.icon.png",
     ]
     assert "missing" in out.err and "unknown" in out.err and "bad\\nbase" in out.err
     (cache / (hashlib.sha256(url.encode()).hexdigest() + ".json")).unlink()
