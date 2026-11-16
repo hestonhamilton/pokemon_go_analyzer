@@ -110,7 +110,7 @@ class _Engine:
         if not supports(team, pools, rules):
             raise ValueError("unsupported solo engine team, pools or rules")
         if rank not in ("grunt", "leader", "giovanni"):
-            raise ValueError("invalid rank")
+            raise ValueError("rank must be grunt, leader or giovanni")
         self.team, self.player, self.pools = tuple(team), team[0], tuple(tuple(p) for p in pools)
         self.rank, self.battle_date, self.rules = rank, battle_date, rules
         self.data = rule_data()

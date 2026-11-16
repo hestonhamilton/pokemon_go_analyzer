@@ -255,3 +255,89 @@ def test_full_result_and_pause_band(builds, monkeypatch):
 
 def test_bounded_damage_cache():
     assert 0 < solo._damage_cached.cache_info().maxsize <= 32768
+
+
+FUZZ_TYPES = ["normal", "fire", "water", "grass", "steel", "fairy", "dragon", "ghost"]
+
+
+def _fuzz_mon(rng, rocket):
+    def fast():
+        return Move(
+            "F",
+            rng.choice(FUZZ_TYPES),
+            rng.choice([0, 1, 3, 5, 10]),
+            rng.choice([1, 2, 3, 4, 5]),
+            energy_gain=rng.choice([0, 3, 8, 12]),
+        )
+
+    def charged():
+        return Move(
+            "C" + str(rng.randrange(9)),
+            rng.choice(FUZZ_TYPES),
+            rng.choice([10, 40, 90, 150]),
+            1,
+            energy=rng.choice([35, 45, 50, 100]),
+        )
+
+    count = rng.choice([0, 1] if rocket else [0, 1, 2])
+    return Combatant(
+        rng.choice([90, 100, 100, 120.5]),
+        rng.choice([80, 100, 130]),
+        rng.choice([1, 5, 30, 80, 200]),
+        tuple(rng.sample(FUZZ_TYPES, rng.choice([1, 2]))),
+        fast(),
+        tuple(charged() for _ in range(count)),
+        shadow=(not rocket) and rng.random() < 0.3,
+        energy=rng.choice([0, 0, 35, 100]),
+    )
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_fuzz_random_pools_whole_aggregate(seed, monkeypatch):
+    """Random players and 1-3 option pools with duplicate combatants, so equal boundary
+    states are also reached through distinct prefixes. Whole-dict ==, errors by message."""
+    rng = random.Random(seed)
+    dates = [*DATES, None]
+    hits = 0
+    for _ in range(100):
+        team = (_fuzz_mon(rng, False),)
+        base = [_fuzz_mon(rng, True) for _ in range(4)]
+        pools = tuple(
+            tuple(
+                winrate.Option(str(rng.randrange(3)), rng.choice(base))
+                for _ in range(rng.choice([1, 2, 3]))
+            )
+            for _ in range(3)
+        )
+        rank = rng.choice(["grunt", "leader", "giovanni"])
+        stamp = rng.choice(dates)
+        rules = replace(DEFAULT_ROCKET_RULES, pause_turns_override=rng.choice([None, 1, 3, 20]))
+        kwargs = dict(rank=rank, battle_date=stamp, rules=rules)
+        try:
+            expected = winrate.aggregate(team, winrate.trials(team, pools, **kwargs))
+        except ValueError as exc:
+            expected = ("error", str(exc))
+        engine = solo._Engine(team, pools, **kwargs)
+        simulated = [0]
+        inner = engine._segment
+
+        def counted(state, option, inner=inner, simulated=simulated):
+            simulated[0] += 1
+            return inner(state, option)
+
+        engine._segment = counted
+        requested = [0]
+        outer = engine.segment
+
+        def requests(state, option, outer=outer, requested=requested):
+            requested[0] += 1
+            return outer(state, option)
+
+        engine.segment = requests
+        try:
+            actual = engine.aggregate()
+        except ValueError as exc:
+            actual = ("error", str(exc))
+        assert actual == expected, (rank, stamp, rules.pause_turns_override, team, pools)
+        hits += requested[0] - simulated[0]
+    assert hits > 0

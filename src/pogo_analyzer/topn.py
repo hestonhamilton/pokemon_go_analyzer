@@ -241,7 +241,12 @@ def full_result(
     trial_runner=None,
     rules=DEFAULT_ROCKET_RULES,
 ):
-    """Exact solo aggregation where supported, otherwise the reference simulator."""
+    """Exact solo aggregation where supported, otherwise the reference simulator.
+
+    When solo.supports() accepts the input and battle is simulate_rocket, the solo engine
+    runs and a supplied trial_runner is skipped; only its execution field is filled in.
+    Tests that stub or count trials must force the reference path.
+    """
     team = candidate.team
     execution = {}
     if battle is simulate_rocket and solo.supports(team, pools, rules):
