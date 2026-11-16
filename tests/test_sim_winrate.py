@@ -121,7 +121,9 @@ def test_sort_order():
             ("fast", 0.5, 0.8, 20),
         )
     ]
-    assert [r["id"] for r in sort_results(rows)] == ["win", "fast", "slow", "hurt"]
+    # Owner ruling: fewest turns first by default; HP left first is the alternative order.
+    assert [r["id"] for r in sort_results(rows)] == ["win", "hurt", "fast", "slow"]
+    assert [r["id"] for r in sort_results(rows, "hp")] == ["win", "fast", "slow", "hurt"]
 
 
 def test_enumeration_and_filter():

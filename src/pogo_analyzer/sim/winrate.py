@@ -9,7 +9,15 @@ from .battle import Combatant
 from .rocket import DEFAULT_ROCKET_RULES, rules_dict, simulate_rocket
 
 GRID_NOTE = "ignores carried-over shields and HP between slots"
-SORT_NOTE = "win_rate descending, mean player HP fraction left descending, mean turns ascending"
+SORT_NOTE = (
+    "win_rate descending, mean turns ascending (fastest), mean player HP fraction left "
+    "descending; the site can also show HP left before turns"
+)
+# Owner ruling: speed first by default; HP first is the alternative order on the site.
+SORT_KEYS = {
+    "speed": lambda r: (-r["win_rate"], r["mean_turns"], -r["mean_player_hp_fraction_left"]),
+    "hp": lambda r: (-r["win_rate"], -r["mean_player_hp_fraction_left"], r["mean_turns"]),
+}
 
 
 @dataclass(frozen=True)
@@ -215,10 +223,8 @@ def estimate(team, pools, *, rank, battle_date, rules=DEFAULT_ROCKET_RULES, batt
     )
 
 
-def sort_results(rows):
-    return sorted(
-        rows, key=lambda r: (-r["win_rate"], -r["mean_player_hp_fraction_left"], r["mean_turns"])
-    )
+def sort_results(rows, order="speed"):
+    return sorted(rows, key=SORT_KEYS[order])
 
 
 def grid(

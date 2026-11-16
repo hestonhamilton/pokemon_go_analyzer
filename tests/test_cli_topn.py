@@ -93,7 +93,10 @@ def test_cli_k_limits_stage_two(cache, capsys, monkeypatch, k):
 
     monkeypatch.setattr(solo, "aggregate", counted)
     data = output(cache, capsys, ["--k", str(k)])
-    assert len(finalists(data)) == 2 * k
+    # Union of the speed-first and HP-first top K per level (two levels).
+    for character in data["characters"]:
+        for rows in character["finalists"].values():
+            assert k <= len(rows) <= 2 * k
     assert len(calls) == 3 * len(finalists(data))  # Era result plus two sensitivity passes.
     assert data["params"]["k"] == k
     assert data["params"]["levels"] == [40, 50]
@@ -274,7 +277,7 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
             assert row["screen"]["grid_limitation"] == winrate.GRID_NOTE
 
 
-def test_full_sort_uses_win_rate_hp_then_turns(cache, monkeypatch):
+def test_full_sort_uses_win_rate_turns_then_hp(cache, monkeypatch):
     monkeypatch.setattr(solo, "supports", lambda *a: False)
     # Distinct synthetic source identities keep all four builds through screening.
     builds = [
@@ -297,7 +300,10 @@ def test_full_sort_uses_win_rate_hp_then_turns(cache, monkeypatch):
     ranked = topn.rank_character(
         builds, pools, k=4, rank="grunt", battle_date="2026-11-14", trial_runner=trial_runner
     )
-    assert [r["speciesId"] for r in ranked[40]] == ["s3", "s2", "s1", "s0"]
+    # Owner ruling: speed first (fewest turns), then HP left.
+    assert [r["speciesId"] for r in ranked[40]] == ["s3", "s1", "s2", "s0"]
+    by_hp = winrate.sort_results(ranked[40], "hp")
+    assert [r["speciesId"] for r in by_hp] == ["s3", "s2", "s1", "s0"]
 
 
 @pytest.mark.parametrize(
@@ -688,7 +694,7 @@ def test_overall_equal_character_weight_sort_and_weakest_grade(cache):
         "text": "covers 2 of 3 characters; missing: missing",
     }
     rows = view["results"]["40"]
-    assert [r["speciesId"] for r in rows] == ["s3", "s2", "s1", "s0"]
+    assert [r["speciesId"] for r in rows] == ["s3", "s1", "s2", "s0"]
     assert [r["win_rate"] for r in rows] == [0.5, 0.5, 0.5, 0]
     for row in rows:
         assert sim_cli._grade(row, row["stats_grade"])["grade"] == (
@@ -867,7 +873,7 @@ def margin_grid(margins):
     return grid
 
 
-def test_screen_breaks_saturated_ties_by_hp_left_then_turns(cache):
+def test_screen_breaks_saturated_ties_by_turns_then_hp_left(cache):
     builds = [
         topn.Candidate(name, c.attacker, c.move_flags)
         for name, c in zip(("aa", "bb", "cc", "dd"), candidates(cache)[:4], strict=True)
@@ -875,9 +881,11 @@ def test_screen_breaks_saturated_ties_by_hp_left_then_turns(cache):
     grid = margin_grid({"aa": (0.2, 10), "bb": (0.9, 30), "cc": (0.9, 12), "dd": (0.5, 5)})
     grid.builds = builds
     screened = topn.screen_candidates(builds, [], rank="grunt", battle_date="2026-11-14", grid=grid)
-    assert [c.species_id for c, _ in screened] == ["cc", "bb", "dd", "aa"]
-    assert screened[0][1]["hp_left"] == 0.9
-    assert screened[0][1]["turns"] == 12
+    assert [c.species_id for c, _ in screened] == ["dd", "aa", "cc", "bb"]
+    by_hp = sorted(screened, key=lambda item: topn.screen_margin(item[1], "hp"))
+    assert [c.species_id for c, _ in by_hp] == ["cc", "bb", "dd", "aa"]
+    assert screened[0][1]["hp_left"] == 0.5
+    assert screened[0][1]["turns"] == 5
 
 
 def test_k_cut_keeps_exact_margin_ties_only(cache, monkeypatch):
@@ -905,7 +913,8 @@ def test_k_cut_keeps_exact_margin_ties_only(cache, monkeypatch):
         grid=grid,
         trial_runner=trial_runner,
     )
-    assert sorted(finalists) == ["bb", "cc"]
+    # K=1: dd is fastest; bb and cc tie exactly on HP left and turns, so both are kept.
+    assert sorted(finalists) == ["bb", "cc", "dd"]
 
 
 def test_grid_aggregates_report_mean_hp_left_and_turns(cache):
@@ -919,3 +928,37 @@ def test_grid_aggregates_report_mean_hp_left_and_turns(cache):
             sum(r["player_hp_fraction_left"] for r in mine) / len(mine)
         )
         assert group["mean_turns"] == pytest.approx(sum(r["turns"] for r in mine) / len(mine))
+
+
+def test_top_k_union_covers_both_orders_per_level(cache):
+    base = candidates(cache)[:1][0]
+
+    def build(name, level):
+        return topn.Candidate(name, base.attacker, base.move_flags), level
+
+    def screen(score, hp, turns):
+        return {"score": score, "hp_left": hp, "turns": turns}
+
+    items = []
+    for level in (40, 50):
+        for name, values in (
+            ("fast", (1.0, 0.3, 5)),
+            ("tank", (1.0, 0.9, 30)),
+            ("mid", (1.0, 0.6, 15)),
+            ("weak", (0.5, 0.9, 5)),
+        ):
+            candidate, _ = build(name, level)
+            candidate = topn.Candidate(
+                name,
+                ({**base.attacker[0], "level": level}, *base.attacker[1:]),
+                base.move_flags,
+            )
+            items.append((candidate, screen(*values)))
+    kept = topn.top_k_union(items, 1)
+    assert [(c.species_id, c.key[1]) for c, _ in kept] == [
+        ("fast", 40),
+        ("tank", 40),
+        ("fast", 50),
+        ("tank", 50),
+    ]
+    assert len(topn.top_k_union(items, 2)) == 6  # fast, mid, tank per level

@@ -15,8 +15,9 @@ SCREEN_NOTE = (
     "Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. "
     "The grid ignores carried-over shields and HP between slots. "
     "Screen numbers are not lineup win rates."
-    " Ties on win rate break by mean HP left, then fewer turns (win margin); builds still"
-    " level with the K-th on all three are all kept."
+    " Ties on win rate break by fewer turns, then mean HP left (fastest first); the moveset"
+    " kept per species is the fastest. Finalists are the union of the top K in that order"
+    " and the top K by HP left, then fewer turns; builds level with either K-th are kept."
 )
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
@@ -206,10 +207,30 @@ def _slot_mean(groups, field):
     return mean(values) if values and None not in values else None
 
 
-def screen_margin(screen):
-    """Win rate, then mean HP left, then fewer turns: PvPoke rating / Pokebattler TTW idea."""
-    hp, turns = screen.get("hp_left"), screen.get("turns")
-    return -screen["score"], -(hp or 0), turns or 0
+def screen_margin(screen, order="speed"):
+    """Win rate, then the margin: fewer turns first (Pokebattler Time to Win) by default, or
+    more HP left first (PvPoke Battle Rating's HP term) for the site's alternative order."""
+    hp, turns = -(screen.get("hp_left") or 0), screen.get("turns") or 0
+    return (-screen["score"], turns, hp) if order == "speed" else (-screen["score"], hp, turns)
+
+
+def top_k_union(screened, k, orders=("speed", "hp")):
+    """Per level, the top K in each order plus exact ties with each K-th, in input order."""
+    keep = set()
+    for order in orders:
+        counts, cut = {}, {}
+        ranked = sorted(
+            enumerate(screened), key=lambda item: (screen_margin(item[1][1], order), item[0])
+        )
+        for index, (candidate, screen) in ranked:
+            level = candidate.key[1]
+            margin = screen_margin(screen, order)
+            if counts.get(level, 0) >= k and margin != cut[level]:
+                continue
+            counts[level] = counts.get(level, 0) + 1
+            cut[level] = margin
+            keep.add(index)
+    return [item for index, item in enumerate(screened) if index in keep]
 
 
 def screen_candidates(
@@ -319,15 +340,8 @@ def rank_character(
         pool_complete=pool_complete,
         mapper=mapper,
     )
-    counts, cut = {}, {}
-    finalists = []
-    for candidate, screen in screened:
-        level = candidate.key[1]
-        if counts.get(level, 0) >= k and screen_margin(screen) != cut[level]:
-            continue
-        counts[level] = counts.get(level, 0) + 1
-        cut[level] = screen_margin(screen)
-        finalists.append((candidate, screen))
+    finalists = top_k_union(screened, k)
+    counts = {candidate.key[1]: True for candidate, _ in finalists}
     rows = full_results(
         [c for c, _ in finalists],
         pools,
