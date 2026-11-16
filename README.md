@@ -385,6 +385,7 @@ python -m http.server 8000 --directory public
 ```
 
 Use `--type-icons DIR` to add local type PNGs; icons are not shipped in the repo and are not fetched by the tool.
+Use `--sprites DIR` for local `<speciesId without _shadow>.png` sprites; sprites are not shipped or fetched by the tool.
 Use `--brand-assets DIR` for `rocket-r.png` and OFL Lato fonts `lato-{400,700,900}.woff2`;
 these assets are not shipped or fetched by the tool. Missing assets use a letter R and system fonts.
 
@@ -398,65 +399,51 @@ Use a dedicated output directory: `.pogo-site` records the files produced by the
 Existing nonempty directories without a valid marker, or containing unrelated files,
 are refused. When upgrading an older unmarked site, choose a new or empty `--out` path.
 
-- `index.html`: level-40 top-three tiles for All Rocket and every manifest character.
-- `list/<slug>.html` and `list/all.html`, `list/grunts.html`, `list/leaders.html`:
-  ranked lists with level sections, attacker-type filter chips, win rate, percentage
-  of the current view's best counter, Rocket KOs, HP left and headline grades.
-- `counters/<slug>.html`: ranked counters with native expandable rows containing the
-  stage-1 screen and its own grade, conditional species win rates per Rocket slot with
-  their sample sizes (`n`, or “n not recorded”) and headline grades in the caption,
-  and one calc summary row per slot/species. Each calc column shows the range over
-  Rocket movesets and its weakest contributing cell grade. If the grade order is unknown,
-  every distinct contributing grade is shown in sorted order.
+- `index.html`: a top-five Best all-round list, followed by Leaders and Grunts grids
+  with lead-slot sprites and each character's top three counters.
+- `list/<slug>.html`: a compact Rocket header, possible Pokémon by slot, and ranked
+  counters with moves, type icons, content tags, win rate and a Toughest matchup when
+  its conditional win rate is under 95%. The Battle details link opens expandable results.
+- `list/all.html`, `list/grunts.html`, `list/leaders.html`: ranked overall lists with
+  attacker-type filter chips. HP left and Rocket KOs appear on desktop (700px and up).
+- `counters/<slug>.html`: native expandable battle details, including stage-1 screens,
+  conditional species win rates and sample sizes (`n`, or “n not recorded”), pause
+  sensitivity ranges and numeric calc ranges over Rocket movesets.
+- `how.html`: validation status and label, open discrepancies, assumptions per level,
+  pause notes and legends, grade vocabulary, rCPM/moveset/filter notes, battle dates and
+  rules periods, coverage, sources, credits, limitations and source fetch times. Shared
+  metadata comes from the overall report or manifest; character sections preserve
+  each report's own provenance and assumptions.
 
-“How these numbers work” holds the trust strip, assumptions and page legends.
-It starts closed on phones and open on desktop. Without JavaScript it stays open.
-Estimate, validation warnings and the open-check count stay visible above it.
-A plain-language date line gives the battle date, its source and the battle rules period.
+Every page has one simulator-estimates disclaimer linking to `how.html`. Per-number
+estimate marks, repeated grade chips, trust strips, intro folds and footer notes are
+replaced by that bar and the method page. Shadow, Elite/Legacy move and Sensitive tags
+remain; Sensitive links to the explanation of the modelled Rocket pause. Warnings for
+stale or unavailable reports stay on the affected pages. When a battle date is newer
+than the sources, one amber line warns that rules are assumed unchanged.
 
-All pages work without JavaScript. A short inline script filters list rows by attacker
-type and updates rank and percentage of best; without it, every row remains visible
-and filter controls stay hidden. Lists warn when the current view's best counter has
-a win rate below 50%.
-Both levels 40 and 50 have sections, with an explicit reason when not calculated.
-Elite/legacy moves are badged with a legend; shadow forms are marked. New precompute
-reports include attacker types and overall mean Rocket KOs. Older reports that lack
-these fields show “types not recorded” or “not recorded” rather than guessing.
-
-Per-character list and counters pages show the pause band beside each win rate, for
-example `97.0% est (6–8 turns: 87.0%–100.0% est)`. A `pause-sensitive` warning chip
-marks a range greater than the run's threshold (default 0.15, a model choice); the legend names ledger row k
-and explains that ranking uses the era value. Older reports and runs with
-`--pause-band none` show “band not computed”. Overall lists state “pause band not
-computed for the overall list”. Computing the default band adds about two stage-2
-passes per character during `topn` or `precompute`; site rendering runs no battles.
-
-The trust strip, assumptions line and notes show the complete validation label,
-UNVALIDATED when appropriate, open discrepancy IDs from validation data, estimate
-marks on simulator numbers, pool completeness and extrapolation grades, rCPM and
-moveset-pool notes, equal-weight model assumptions, player charging/shield policies,
-levels 40/50 (per section), IVs, trainer level, Mega and move filters, credits and every
-source's fetch time. Every notes footer includes coverage and missing characters, or
-“coverage not recorded”. Missing grades are marked “grade not recorded”; validation is
-UNVALIDATED unless explicitly recorded as true.
-Screen numbers carry the grid caveat. Every page explains the model's sensitivity to
-the assumed Rocket pause after charged attacks (ledger row k).
+Level 40/50 buttons switch the counter sections and character lineups. Without
+JavaScript both levels show. Overall type filters update visible ranks; without
+JavaScript every row shows and filter controls stay hidden. Lists warn when the
+current view's best counter wins fewer than half of battles. Settings lines use each
+report's level, IVs and shield policies. Missing sprites use lettered circles; missing
+optional type images keep accessible type symbols. Older reports with missing metrics
+show “not recorded” rather than guessing.
 
 Percentages that would round to 100.0% or 0.0% show “>99.9%” or “<0.1%” when
 the underlying rate is strictly between zero and one; exact endpoints retain 0.0%
-and 100.0%. Non-integer counts keep two decimals, flooring near an integer when
-rounding up would imply a full KO. These percentage rules also apply to “% of best”.
+and 100.0%. Non-integer detail counts keep two decimals, flooring near an integer when
+rounding up would imply a full KO.
 
 The renderer checks report keys against the manifest, ignores unlisted files and
 dotfiles, and shows missing or unavailable reports with a reason. Key mismatches and
 stale character entries never publish rows. A manifest-marked stale overall with a
-matching key stays visible with a `stale` warning chip and its computed-for battle date.
-Each file's own `computed_for_battle_date`, date source and
-`valid_for` era are displayed, including on home tiles; the manifest's current run date
-does not replace a reused file's date. Dates before 2019-07-22 are rejected.
+matching key stays visible with an amber warning and its computed-for battle date.
+Each file's own date, date source and era are preserved on `how.html`; the manifest's
+current run date does not replace a reused file's date. Dates before 2019-07-22 are rejected.
 
 The landing-page golden is refreshed deliberately with
-`POGO_UPDATE_SITE_GOLDEN=1 uv run pytest -q tests/test_site.py::test_index_golden`;
+`POGO_UPDATE_SITE_GOLDEN=1 nice -n19 uv run --frozen pytest -q -p no:xdist tests/test_site.py`;
 review `tests/fixtures/site/expected_index.html` after changing the renderer.
 
 ## Development checks

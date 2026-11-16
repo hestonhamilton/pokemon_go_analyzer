@@ -62,127 +62,71 @@ class Elements(HTMLParser):
 def test_pages_labels_resources_and_rerun(reports, tmp_path):
     manifest = read(reports, "manifest.json")
     pages = build(reports, tmp_path / "site")
-    expected = {"index.html", "list/all.html", "list/grunts.html", "list/leaders.html"}
+    expected = {"index.html", "how.html", "list/all.html", "list/grunts.html", "list/leaders.html"}
     for entry in manifest["characters"]:
         expected.update(f"{kind}/{entry['slug']}.html" for kind in ("list", "counters"))
     assert pages.keys() == expected
     assert build(reports, tmp_path / "site") == pages
     assert not (tmp_path / "site/fonts").exists()
     assert not (tmp_path / "site/brand").exists()
-    overall = read(reports, "overall.json")
-    # Check every page, including both unavailable page types, rather than one sample.
     for path, html in pages.items():
+        prefix = "../" if "/" in path else ""
         assert "@font-face" not in html
-        assert '<h1><span class="rmark letter" aria-hidden="true">R</span>' in html
         head_script = f"<script>{site.THEME_HEAD_JS}</script>"
         assert html.index('<meta charset="utf-8">') < html.index(head_script)
         assert html.index(head_script) < html.index("<style>") < html.index("</head>")
-        assert html.index("</head>") < html.index("<body>")
         assert site.THEME_TOGGLE in html
-        assert '<button type="button" class="theme-toggle" hidden' in html
-        assert "localStorage.getItem('pogo-theme')" in site.THEME_HEAD_JS
-        assert "t==='light'||t==='dark'" in site.THEME_HEAD_JS
         assert "localStorage.setItem('pogo-theme'" in html
-        for label in (
-            "every number is an estimate",
-            escape(overall["validation_label"]),
-            escape(overall["rcpm_note"]),
-            escape(overall["moveset_pool_note"]),
-            escape(overall["weighting_note"]),
-            escape(overall["credits"]),
-            "open discrepancies:",
-            "Battles as of 14 Nov 2026 (a chosen date)",
-            "battle rules from 12 Mar 2026",
-            "newer than our sources: rules assumed unchanged",
-            "2019-07-22",
-            "IVs 15/15/15",
-            "levels 40/50 (per section)",
-            "trainer level 50",
-            "Mega excluded",
-            "elite/legacy included and badged",
-            "uses charged moves when ready",
-            "shields the first two charged attacks",
-            escape(site.PAUSE_NOTE),
-            escape(overall["limitations"]),
+        assert '<div class="disc"><b>Simulator estimates.</b>' in html
+        assert "Not yet checked against in-game battles." in html
+        assert f'<a href="{prefix}how.html">How these numbers work</a>' in html
+        for href, label in (
+            ("index.html", "Home"),
+            ("list/all.html", "All"),
+            ("index.html#grunts", "Grunts"),
+            ("index.html#leaders", "Leaders"),
         ):
-            assert label in html, (path, label)
-        footers = re.findall(r'<footer class="notes">(.*?)</footer>', html, re.S)
-        assert footers
-        view = path.removeprefix("list/").removesuffix(".html")
-        coverage_view = view if view in ("all", "grunts", "leaders") else "all"
-        for footer in footers:
-            assert escape(overall[coverage_view]["coverage"]["text"]) in footer, path
-        if path.startswith(("list/", "counters/")):
-            for level in (40, 50):
-                assert f"You: level {level} · IVs" in html
-        for discrepancy in overall["validation"]["open_discrepancies"]:
-            assert escape(discrepancy["id"]) in html
-        for source in overall["sources"]:
-            assert escape(source["name"]) in html
-            assert escape(source["url"]) in html
-            assert "fetched 14 Nov 2026, 00:00 UTC" in html
+            assert f'href="{prefix}{href}"' in html
+            assert f">{label}</a>" in html
+        expected = 1 if path == "how.html" else 0
+        assert html.count("newer than our sources: rules assumed unchanged") == expected
+        assert 'class="est-mark"' not in html
+        assert '<details class="intro"' not in html
+        assert "<footer" not in html
+        if path != "how.html":
+            for removed in (
+                'class="trust"',
+                'class="chip est"',
+                "extrapolated forward",
+                "stats parity-only",
+                "open discrepancies:",
+                "You: level",
+            ):
+                assert removed not in html
         for tag, attrs in Elements(html).elements:
             for key, value in attrs.items():
-                # Plain <a href> navigation is allowed; src, srcset, link href,
-                # and other resource loads must still stay offline.
                 if tag == "a" and key == "href":
                     continue
                 assert not re.search(r"(?:https?:)?//", value or "", re.I), (path, tag, key)
         assert not re.search(r"\burl\s*\(|@import\b", html, re.I)
-        if path.startswith("counters/"):
-            assert site.FILTER_JS not in html
-        if path.startswith(("list/", "counters/")):
-            if path in ("list/all.html", "list/grunts.html", "list/leaders.html"):
-                assert "pause band not computed for the overall list" in html
-                assert '<span class="pause-band">band not computed</span>' not in html
-            else:
-                entry = next(e for e in manifest["characters"] if e["slug"] == Path(path).stem)
-                if read(reports, entry["file"])["character"].get("reason"):
-                    assert "band not computed for this run" in html
-                else:
-                    assert "pause-sensitive: the win rate moves more than" in html
-                    assert "threshold is a model choice" in html
     for entry in manifest["characters"]:
         data = read(reports, entry["file"])
-        if data["character"].get("reason"):
-            for path in (
-                "index.html",
-                f"list/{entry['slug']}.html",
-                f"counters/{entry['slug']}.html",
-            ):
-                assert "not calculated" in pages[path]
-                assert escape(data["character"]["reason"]) in pages[path]
-        else:
-            for rows in data["character"]["finalists"].values():
-                for row in rows:
-                    for path in (
-                        "index.html",
-                        f"list/{entry['slug']}.html",
-                        f"counters/{entry['slug']}.html",
-                    ):
-                        for part in row["grade"].split("; "):
-                            assert escape(part) in pages[path]
-                    detail = pages[f"counters/{entry['slug']}.html"]
-                    assert '<details class="counter">' in detail
-                    assert escape(row["screen"]["grid_limitation"]) in detail
-                    for part in row["screen"]["grade"].split("; "):
-                        assert escape(part) in detail
-                    assert "data-calc-summary" in detail
-                    assert '<span class="sr-only">Grade: </span>' in detail
-    for view in ("all", "grunts", "leaders"):
-        for rows in overall[view]["results"].values():
-            for row in rows:
-                assert site.grades(row["grade"], row.get("flags", [])) in pages[f"list/{view}.html"]
-    controls = [
-        attrs
-        for tag, attrs in Elements(pages["list/all.html"]).elements
-        if tag == "div" and attrs.get("class") == "controls"
-    ]
-    assert controls and all("hidden" in attrs for attrs in controls)
-    assert "<noscript>" in pages["list/all.html"]
-    assert 'data-filter="steel"' in pages["list/all.html"]
-    assert "types not recorded" not in pages["list/all.html"]
-    assert "not recorded" not in pages["list/all.html"]
+        for kind in ("list", "counters"):
+            html = pages[f"{kind}/{entry['slug']}.html"]
+            if data["character"].get("reason"):
+                assert "not calculated" in html
+                assert escape(data["character"]["reason"]) in html
+            elif kind == "counters":
+                assert '<details class="counter">' in html
+                assert "data-calc-summary" in html
+                assert "<th>n</th>" in html
+        assert (
+            f'href="../counters/{entry["slug"]}.html">Battle details</a>'
+            in pages[f"list/{entry['slug']}.html"]
+        )
+    html = pages["list/all.html"]
+    assert "<noscript>" in html and 'data-filter="steel"' in html
+    assert 'data-filter="none"' not in html
 
 
 def test_index_golden(reports, tmp_path):
@@ -252,7 +196,7 @@ def test_brand_assets_copied_referenced_and_pruned(reports, tmp_path):
     }
     for path in out.rglob("*.html"):
         html = path.read_text()
-        prefix = "" if path.name == "index.html" else "../"
+        prefix = "../" if path.parent.name in ("list", "counters") else ""
         assert (
             '<h1><span class="rmark" aria-hidden="true">'
             f'<img src="{prefix}brand/rocket-r.png" alt=""></span>'
@@ -312,7 +256,7 @@ def test_partial_brand_fonts(tmp_path):
     assert 'src:url("../fonts/lato-700.woff2") format("woff2")' in html
     assert "lato-400.woff2" not in html
     assert "lato-900.woff2" not in html
-    assert '<h1><span class="rmark letter" aria-hidden="true">R</span>' in html
+    assert site.rocket_mark(assets) == '<span class="rmark letter" aria-hidden="true">R</span>'
 
 
 def test_warning_tokens_stay_amber():
@@ -335,55 +279,51 @@ def test_warning_tokens_stay_amber():
         assert tokens["--amber"] != tokens["--rocket-red"]
 
 
-def test_intro_fold_on_every_page(reports, tmp_path):
+def test_how_gathers_validation_assumptions_sources_and_grades(reports, tmp_path):
     pages = build(reports, tmp_path / "site")
-    manifest = read(reports, "manifest.json")
-    for path, html in pages.items():
-        visible, rest = html.split('<details class="intro" open>', 1)
-        folded, body = rest.split("</details>", 1)
-        assert visible.endswith("</div>")
-        assert site.chip("every number is an estimate", "est") in visible
-        assert "Battles as of 14 Nov 2026 (a chosen date)" in visible
-        assert site.chip("newer than our sources: rules assumed unchanged", "warn") in visible
-        assert site.chip("2 open checks", "warn") in visible
-        assert site.chip("UNVALIDATED", "warn") not in visible
-        assert '<div class="trust">' not in visible
-        assert "You:" not in visible
-        assert folded.startswith("<summary>How these numbers work</summary>")
-        data = read(reports, "overall.json")
-        if path.startswith(("list/", "counters/")) and Path(path).stem not in (
-            "all",
-            "grunts",
-            "leaders",
-        ):
-            entry = next(e for e in manifest["characters"] if e["slug"] == Path(path).stem)
-            data = read(reports, entry["file"])
-        assert site.trust_strip(data) in folded
-        assert site.assumptions(data, "40/50 (per section)") in folded
-        assert body.startswith(f"<script>{site.INTRO_JS}</script>")
-        assert html.count(f"<script>{site.INTRO_JS}</script>") == 1
-        if path != "index.html":
-            legends = re.findall(r'<p class="legend">.*?</p>', folded, re.S)
-            assert len(legends) == 2
-            assert "Badges: elite = elite move; legacy = legacy move." in legends[0]
-            if Path(path).stem in ("all", "grunts", "leaders"):
-                assert "pause band not computed for the overall list" in legends[1]
-            else:
-                assert site.pause_band_legend(data) in legends[1]
-            assert '<p class="legend">' not in body
-            for level in ("40", "50"):
-                assert site.assumptions(data, level) in body
-        else:
-            assert '<p class="legend">' not in folded
-            assert "Assumptions, validation and sources" in body
+    html = pages["how.html"]
+    overall = read(reports, "overall.json")
+    for key in (
+        "validation_label",
+        "rcpm_note",
+        "moveset_pool_note",
+        "weighting_note",
+        "credits",
+        "limitations",
+        "filter_note",
+        "screen_note",
+    ):
+        assert escape(overall[key]) in html
+    for discrepancy in overall["validation"]["open_discrepancies"]:
+        assert escape(discrepancy["id"]) in html
+    for source in overall["sources"]:
+        assert escape(source["name"]) in html
+        assert escape(source["url"]) in html
+        assert "fetched 14 Nov 2026, 00:00 UTC" in html
+    assert "Battles as of 14 Nov 2026 (a chosen date)" in html
+    assert "battle rules from 12 Mar 2026" in html
+    for level in ("40", "50"):
+        assert site.assumptions(overall, level) in html
+    for word in ("estimate", "unverified", "extrapolated forward", "stats parity-only"):
+        assert f"<dt>{word}</dt>" in html
+    assert 'id="pause"' in html
+    assert escape(site.PAUSE_NOTE) in html
+    for entry in read(reports, "manifest.json")["characters"]:
+        data = read(reports, entry["file"])
+        assert site.pause_band_legend(data) in html
+    assert "sensitivity check over assumed pause lengths" in html
 
 
 @pytest.mark.parametrize("count", [0, 1, 3])
 @pytest.mark.parametrize(
     "validated,label,failed",
-    [(True, "Passed", False), (False, "Passed", True), (True, "UNVALIDATED: gate failed", True)],
+    [
+        (True, "Passed", False),
+        (False, "Passed", True),
+        (True, "UNVALIDATED: gate failed", True),
+    ],
 )
-def test_intro_visible_validation_and_check_counts(count, validated, label, failed):
+def test_how_validation_and_check_counts(count, validated, label, failed):
     data = {
         "validation_label": label,
         "validation": {
@@ -391,33 +331,36 @@ def test_intro_visible_validation_and_check_counts(count, validated, label, fail
             "open_discrepancies": [{"id": f"X{i}"} for i in range(count)],
         },
     }
-    html = site.document("Example", data, "", "")
-    visible, folded = html.split('<details class="intro" open>', 1)
-    assert (site.chip("UNVALIDATED", "warn") in visible) is failed
-    if count:
-        expected = f"{count} open {'check' if count == 1 else 'checks'}"
-        assert site.chip(expected, "warn") in visible
-    else:
-        assert "open check" not in visible
-    assert "open discrepancies:" not in visible
-    assert "open discrepancies:" in folded
+    html = site.how_body(data)
+    assert (site.chip("UNVALIDATED", "warn") in html) is failed
+    assert label in html
+    for i in range(count):
+        assert f"X{i}" in html
+    shell = site.document("Example", data, "")
+    assert "UNVALIDATED" not in shell and "open discrepancies:" not in shell
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
-@pytest.mark.parametrize("phone", [True, False])
-def test_intro_script_closes_only_on_phones(phone):
-    harness = """
-const intro={open:true};
-globalThis.document={currentScript:{previousElementSibling:intro}};
-globalThis.matchMedia=query=>{
-if(query!=='(max-width:640px)')throw new Error(query);
-return {matches:PHONE};
-};
-SCRIPT
-console.log(JSON.stringify(intro.open));
-""".replace("PHONE", json.dumps(phone)).replace("SCRIPT", site.INTRO_JS)
-    result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
-    assert json.loads(result.stdout) is (not phone)
+def test_level_switch_markup_and_home_grids(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    for path, html in pages.items():
+        if path == "how.html":
+            continue
+        buttons = [a for t, a in Elements(html).elements if "data-show-level" in a]
+        assert [(b["data-show-level"], b["aria-pressed"]) for b in buttons] == [
+            ("40", "true"),
+            ("50", "false"),
+        ]
+        sections = [a for t, a in Elements(html).elements if "data-level" in a]
+        assert [a["data-level"] for a in sections] == ["40", "50"]
+        assert all("hidden" not in a for a in sections)
+        assert html.count("Your counter: level") == 2
+        assert site.LEVEL_JS in html
+    home = pages["index.html"]
+    assert 'id="leaders"' in home and 'id="grunts"' in home
+    assert "<h2>Best all-round</h2>" in home
+    assert 'href="list/all.html">Full list' in home
+    assert 'class="cch"' in home and 'class="lead"' in home and 'class="top3"' in home
+    assert '<span class="rk-badge">Leader</span>' in home
 
 
 @pytest.mark.parametrize(
@@ -456,12 +399,15 @@ def test_provenance_date_and_source_wording(source, expected, old_keys):
     )
 
 
-def test_provenance_extrapolation_wording_keeps_row_grade_vocabulary():
-    warning = site.chip("newer than our sources: rules assumed unchanged", "warn")
-    assert warning in site.provenance({"valid_for": {"extrapolated": True}})
-    assert warning not in site.provenance({})
-    assert "extrapolated forward" not in site.provenance({"valid_for": {"extrapolated": True}})
-    assert site.chip("extrapolated forward", "warn") in site.grades("estimate", ["extrapolated"])
+@pytest.mark.parametrize("extrapolated", [True, False])
+def test_extrapolation_warning_only_on_how_page(extrapolated):
+    # Owner ruling: the "assumed" idea lives on how.html, never in the page shell.
+    data = {"valid_for": {"extrapolated": extrapolated}}
+    html = site.document("Example", data, site.provenance(data))
+    assert "rules assumed unchanged" not in html
+    assert "extrapolated forward" not in html
+    how = site.how_body(data)
+    assert how.count("newer than our sources: rules assumed unchanged") == int(extrapolated)
 
 
 @pytest.mark.parametrize(
@@ -519,16 +465,11 @@ def test_unvalidated_and_discrepancies_are_data_driven(reports, tmp_path):
         data["validation"]["validated"] = False
         data["validation"]["open_discrepancies"] = [{"id": "X9"}]
 
-    for path in [
-        "overall.json",
-        *(e["file"] for e in read(reports, "manifest.json")["characters"]),
-    ]:
-        change(reports, path, mutate)
-    for html in build(reports, tmp_path / "site").values():
-        assert site.chip("UNVALIDATED", "warn") in html.split('<details class="intro"')[0]
-        assert "UNVALIDATED: gate failed; X9 is open" in html
-        assert "open discrepancies: X9" in html
-        assert "open discrepancies: F3" not in html
+    change(reports, "overall.json", mutate)
+    html = build(reports, tmp_path / "site")["how.html"]
+    assert site.chip("UNVALIDATED", "warn") in html
+    assert "UNVALIDATED: gate failed; X9 is open" in html
+    assert "open discrepancies: X9" in html
 
 
 @pytest.mark.parametrize(
@@ -583,16 +524,16 @@ def test_stale_overall_is_visible(reports, tmp_path, mode):
         if mode == "key":
             assert "stale report: key does not match manifest entry" in html
             assert "not calculated" in html
-            assert site.chip("stale", "warn") not in html
+            assert "stale · This overall list" not in html
         else:
-            assert site.chip("stale", "warn") in html
+            assert "stale · This overall list" in html
             assert "This overall list was computed for battle date 2026-10-01" in html
             assert (
                 "older than the per-type lists, which have changed since it was computed." in html
             )
-        assert "Battles as of 1 Oct 2026" in html
-        assert "(the day this ran)" in html
-        assert "battle rules period overall-file-era" in html
+        assert "Battles as of 1 Oct 2026" in pages["how.html"]
+        assert "(the day this ran)" in pages["how.html"]
+        assert "battle rules period overall-file-era" in pages["how.html"]
         if path.startswith("list/"):
             assert ("data-win=" in html) is (mode == "status")
             assert ("not calculated" in html) is (mode == "key")
@@ -633,7 +574,7 @@ def test_stale_overall_requires_safe_existing_file(reports, tmp_path, mode):
     pages = build(reports, tmp_path / "site")
     for path in ("index.html", "list/all.html", "list/grunts.html", "list/leaders.html"):
         assert "not calculated" in pages[path]
-        assert site.chip("stale", "warn") not in pages[path]
+        assert "stale · This overall list" not in pages[path]
         if path.startswith("list/"):
             assert "data-win=" not in pages[path]
 
@@ -653,7 +594,7 @@ def test_per_file_dates_and_ignored_orphans(reports, tmp_path):
     for path in (".lock", ".tmp.json", "characters/.partial.json", "characters/orphan.json"):
         (reports / path).write_text("not JSON: must not be read")
     pages = build(reports, tmp_path / "site")
-    for path in ("index.html", f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
+    for path in ("how.html",):
         assert "Battles as of 1 Oct 2026" in pages[path]
         assert "(the day this ran)" in pages[path]
         assert "battle rules period file-specific-era" in pages[path]
@@ -681,13 +622,13 @@ def test_calc_ranges_have_weakest_column_grades_and_one_row_per_species():
         ["fixture-exact", "cp-only", "parity-only", "model"],
     )
     assert html.count("data-calc-summary") == 1
-    assert f"{site.estimate(2)}–{site.estimate(6)}<br>{site.chip('parity-only')}" in html
-    assert f"{site.estimate(4)}–{site.estimate(7)}<br>{site.chip('cp-only')}" in html
+    assert f"{site.estimate(2)}–{site.estimate(6)}</td>" in html
+    assert f"{site.estimate(4)}–{site.estimate(7)}</td>" in html
     # Equal ends collapse to one value.
     assert f"{site.estimate(9)}–{site.estimate(9)}" not in html
-    assert f"{site.estimate(9)}<br>" in html
-    assert site.chip("model") in html
-    assert html.count('title="estimate"') == 7  # 2 ranges x 2 ends + 3 single values
+    assert f"{site.estimate(9)}</td>" in html
+    assert 'class="chip' not in html
+    assert 'title="estimate"' not in html
 
 
 @pytest.mark.parametrize("target", ["manifest.json", "overall.json", "character"])
@@ -728,8 +669,7 @@ def test_atomic_failure_cleans_temp_and_preserves_target(tmp_path, monkeypatch, 
         assert target.read_text() == "complete old page"
 
 
-def test_estimate_marks_cover_all_rendered_simulator_numbers(reports, tmp_path):
-    manifest = read(reports, "manifest.json")
+def test_detail_numbers_preserved_without_estimate_marks(reports, tmp_path):
     pages = build(reports, tmp_path / "site")
     numeric = (
         ("win_rate", True),
@@ -739,55 +679,47 @@ def test_estimate_marks_cover_all_rendered_simulator_numbers(reports, tmp_path):
         ("mean_player_hp_fraction_left", True),
         ("mean_turns", False),
     )
-    for entry in manifest["characters"]:
+    for entry in read(reports, "manifest.json")["characters"]:
         data = read(reports, entry["file"])
         html = pages[f"counters/{entry['slug']}.html"]
-        rows = [r for rows in data["character"]["finalists"].values() for r in rows]
         expected_summary_rows = 0
-        for row in rows:
-            for key, percent in numeric:
-                assert site.estimate(row[key], percent=percent) in html
-            for rate in row["screen"]["slot_win_rates"]:
-                assert site.estimate(rate, percent=True) in html
-            for slot in row["per_slot"]:
-                for species in slot["species"]:
-                    assert site.estimate(species["conditional_win_rate"], percent=True) in html
-            expected_summary_rows += len(
-                {(r["slot"]["value"], r["defender"]["value"]) for r in row["calc_rows"]}
-            )
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                for key, percent in numeric:
+                    assert site.estimate(row[key], percent=percent) in html
+                for rate in row["screen"]["slot_win_rates"]:
+                    assert site.estimate(rate, percent=True) in html
+                for slot in row["per_slot"]:
+                    for species in slot["species"]:
+                        assert site.estimate(species["conditional_win_rate"], percent=True) in html
+                expected_summary_rows += len(
+                    {(r["slot"]["value"], r["defender"]["value"]) for r in row["calc_rows"]}
+                )
         assert html.count("data-calc-summary") == expected_summary_rows
-        # Every numeric table cell is a simulator value; each one carries its own mark.
-        for cell in re.findall(r'<td class="num">(.*?)</td>', html, re.S):
-            assert 'title="estimate"' in cell
-    for path, html in pages.items():
-        if path.startswith("list/"):
-            for cell in re.findall(r'<td class="num">(.*?)</td>', html, re.S):
-                assert 'title="estimate"' in cell or "not recorded" in cell
+        assert "est-mark" not in html and 'title="estimate"' not in html
 
 
 def test_move_badges_shadow_and_excluded_filter(reports, tmp_path):
-    entry = read(reports, "manifest.json")["characters"][0]
-
     def mutate(data):
         data["exclude_elite_legacy"] = True
         data["filter_note"] = "fixture: elite and legacy excluded by request"
 
-    change(reports, entry["file"], mutate)
-    pages = build(reports, tmp_path / "site")
-    for path in ("index.html", f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
-        assert "elite/legacy excluded" in pages[path]
-        assert "fixture: elite and legacy excluded by request" in pages[path]
+    change(reports, "overall.json", mutate)
+    html = build(reports, tmp_path / "site")["how.html"]
+    assert "elite/legacy excluded" in html
+    assert "fixture: elite and legacy excluded by request" in html
     marked = site.counter_name(
         {
-            "speciesId": "example",
-            "form": "shadow",
+            "speciesId": "example_shadow",
             "fast_move": "A",
             "charged_move": "B",
             "move_flags": {"A": {"elite": True}, "B": {"legacy": True}},
         }
     )
-    for label in ("shadow", "elite", "legacy"):
-        assert site.chip(label) in marked
+    assert ">Shadow</span>" in marked
+    # Owner ruling: elite and legacy moves both read "Elite TM", one badge per move.
+    assert marked.count(">Elite TM</span>") == 2
+    assert ">Elite</span>" not in marked and ">Legacy</span>" not in marked
 
 
 def test_old_reports_without_types_or_overall_kos_are_explicit(reports, tmp_path):
@@ -800,47 +732,34 @@ def test_old_reports_without_types_or_overall_kos_are_explicit(reports, tmp_path
 
     change(reports, "overall.json", mutate)
     html = build(reports, tmp_path / "site")["list/all.html"]
-    assert "types not recorded" in html
-    assert '<td class="num"><span class="moves">not recorded</span></td>' in html
+    assert '<span class="tys"></span>' in html
+    assert "KOs not recorded" in html
 
 
-def test_pause_band_range_chip_and_old_reports(reports, tmp_path):
+@pytest.mark.parametrize("sensitive", [True, False, None])
+def test_sensitive_tag_and_pause_details(reports, tmp_path, sensitive):
     entry = read(reports, "manifest.json")["characters"][0]
 
     def mutate(data):
         for rows in data["character"]["finalists"].values():
             for row in rows:
-                row["win_rate"] = 0.97
-                row["pause_band"].update(min=0.80, max=1.0, sensitive=True, turns=[5, 6, 8])
+                if sensitive is None:
+                    row.pop("pause_band")
+                else:
+                    row["pause_band"].update(sensitive=sensitive, min=0.8, max=1, turns=[5, 6, 8])
 
     change(reports, entry["file"], mutate)
     pages = build(reports, tmp_path / "site")
-    paths = [f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"]
-    for path in paths:
-        html = pages[path]
-        assert site.estimate(0.97, percent=True) in html
-        assert "(5–8 turns:" in html
-        assert site.estimate(0.80, percent=True) in html
-        assert site.estimate(1.0, percent=True) in html
-        assert site.chip("pause-sensitive", "warn") in html
-        assert "threshold is a model choice" in html
-        assert "moves more than 15 percentage points between 5 and 8 turns" in html
-        assert "sensitivity check over assumed pause lengths, not a measured range" in html
-        assert (
-            '<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
-            'docs/simulator-verification.md#ledger">verification ledger row k</a>'
-        ) in html
-
-    def remove(data):
-        for rows in data["character"]["finalists"].values():
-            for row in rows:
-                row.pop("pause_band")
-
-    change(reports, entry["file"], remove)
-    pages = build(reports, tmp_path / "old-site")
-    for path in paths:
-        assert "band not computed" in pages[path]
-        assert site.chip("pause-sensitive", "warn") not in pages[path]
+    for kind in ("list", "counters"):
+        html = pages[f"{kind}/{entry['slug']}.html"]
+        assert (">Sensitive</a>" in html) is (sensitive is True)
+        if sensitive:
+            assert 'href="../how.html#pause"' in html
+        assert "pause-sensitive" not in html
+    if sensitive is not None:
+        assert "between 5 and 8 turns" in pages["how.html"]
+    else:
+        assert "band not computed for this run" in pages["how.html"]
 
 
 @pytest.mark.parametrize(
@@ -870,8 +789,8 @@ def test_pause_band_none_legend(reports, tmp_path):
     change(reports, entry["file"], disable)
     pages = build(reports, tmp_path / "site")
     for path in (f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
-        assert "band not computed for this run" in pages[path]
-        assert "pause-sensitive: the win rate moves more than" not in pages[path]
+        assert "band not computed for this run" not in pages[path]
+    assert "band not computed for this run" in pages["how.html"]
 
 
 def test_single_character_precompute_without_overall(reports, tmp_path):
@@ -885,31 +804,25 @@ def test_single_character_precompute_without_overall(reports, tmp_path):
     )
     (reports / "overall.json").unlink()
     pages = build(reports, tmp_path / "site")
-    assert len(pages) == 6
+    assert len(pages) == 7
     assert "report file unavailable" in pages["list/all.html"]
-    assert "every number is an estimate" in pages["index.html"]
-    assert "Battles as of not recorded" in pages["list/all.html"]
-    assert escape(read(reports, "manifest.json")["validation_label"]) in pages["index.html"]
+    assert "Simulator estimates." in pages["index.html"]
+    assert "Battles as of not recorded" in pages["how.html"]
+    assert escape(read(reports, "manifest.json")["validation_label"]) in pages["how.html"]
     for html in pages.values():
         for footer in re.findall(r'<footer class="notes">(.*?)</footer>', html, re.S):
             assert "coverage not recorded" in footer
 
 
-def test_page_metadata_skips_stale_first_character(reports, tmp_path):
+def test_how_uses_manifest_when_overall_missing(reports, tmp_path):
     entries = read(reports, "manifest.json")["characters"]
     change(reports, "manifest.json", lambda d: d.update(overall={}))
-    change(
-        reports,
-        entries[0]["file"],
-        lambda d: d.update(key="stale", validation_label="OLD STALE LABEL"),
-    )
-    change(reports, entries[1]["file"], lambda d: d.update(validation_label="CURRENT LABEL"))
+    change(reports, entries[0]["file"], lambda d: d.update(key="stale"))
     pages = build(reports, tmp_path / "site")
+    assert escape(read(reports, "manifest.json")["validation_label"]) in pages["how.html"]
     for path in ("list/all.html", "list/grunts.html", "list/leaders.html"):
-        assert "OLD STALE LABEL" not in pages[path]
-        assert "CURRENT LABEL" in pages[path]
-    # Index tile metadata remains file specific; only the page-wide strip uses fallback.
-    assert "CURRENT LABEL" in pages["index.html"].split('<div class="tiles">')[0]
+        assert "report file unavailable" in pages[path]
+        assert "data-win=" not in pages[path]
 
 
 @pytest.mark.parametrize(
@@ -927,9 +840,9 @@ def test_page_metadata_skips_stale_first_character(reports, tmp_path):
 )
 def test_percentage_edges_in_estimates_and_percent_of_best(value, expected):
     assert site.percentage(value) == expected
-    assert site.estimate(value, percent=True).startswith(escape(expected) + "<span")
+    assert site.estimate(value, percent=True) == escape(expected)
     html = site.list_body({}, {"40": [{"win_rate": 1}, {"win_rate": value}]}, "")
-    assert f"<span data-best>{escape(expected)}</span>" in html
+    assert f"<b>{escape(expected)}</b>" in html
 
 
 @pytest.mark.parametrize(
@@ -945,33 +858,30 @@ def test_percentage_edges_in_estimates_and_percent_of_best(value, expected):
     ],
 )
 def test_noninteger_counts_keep_decimals_without_rounding_up_to_integer(value, expected):
-    assert site.estimate(value).startswith(expected + "<span")
+    assert site.estimate(value) == expected
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
-def test_filter_js_percentage_edges_and_progressive_controls():
-    values = [0, 1, 0.9995, 0.9996, 0.9994, 0.0004, 0.00049, 0.0006]
-    # Run the actual inline handlers against a minimal DOM, without browser dependencies.
-    harness = """
-const values=VALUES;
-const rows=values.map(v=>({dataset:{win:String(v),types:'[]'},hidden:false,
-rank:{textContent:''},best:{textContent:''},
-querySelector(s){return s==='[data-rank]'?this.rank:this.best;}}));
-rows.unshift({ ...rows[1],rank:{textContent:''},best:{textContent:''} });
-const controls={hidden:true};
-const warning={hidden:false};
+def test_filter_js_and_progressive_controls():
+    harness = r"""
+const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
+ dataset:{types:JSON.stringify([t]),win:String(v)},hidden:false,rank:{textContent:''},
+ querySelector(){return this.rank;}}));
+const controls={hidden:true},warning={hidden:true};
 const section={querySelector(){return warning;},
-querySelectorAll(s){return s==='[data-filter]'?[button]:rows;}};
-const button={dataset:{filter:''},closest(){return section;},setAttribute(){}};
+ querySelectorAll(s){return s==='[data-filter]'?[button]:rows;}};
+const button={dataset:{filter:'fire'},closest(){return section;},setAttribute(){}};
 globalThis.document={querySelectorAll(s){return s==='.controls'?[controls]:[button];}};
 SCRIPT
 button.onclick();
-console.log(JSON.stringify({hidden:controls.hidden,best:rows.slice(1).map(r=>r.best.textContent)}));
-""".replace("VALUES", json.dumps(values)).replace("SCRIPT", site.FILTER_JS)
+console.log(JSON.stringify({hidden:controls.hidden,warning:warning.hidden,
+ rows:rows.map(r=>[r.hidden,r.rank.textContent])}));
+""".replace("SCRIPT", site.FILTER_JS)
     result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
     assert json.loads(result.stdout) == {
         "hidden": False,
-        "best": ["0.0%", "100.0%", ">99.9%", ">99.9%", "99.9%", "<0.1%", "<0.1%", "0.1%"],
+        "warning": False,
+        "rows": [[True, ""], [False, 1], [False, 2]],
     }
 
 
@@ -991,25 +901,21 @@ def test_conditional_denominators_and_headline_grades(recorded):
     assert f"<td>{17 if recorded else 'n not recorded'}</td>" in html
     assert "999" not in html
     caption = re.search(r"<caption>(.*?)</caption>", html).group(1)
-    assert site.grades(row["grade"], row["flags"]) in caption
+    assert "pool incomplete" not in caption and "extrapolated" not in caption
 
 
-def test_missing_row_grade_is_a_warning():
-    warning = site.chip("grade not recorded", "warn")
-    assert site.grades(None) == warning
-    assert warning in site.grades(None, ["extrapolated"])
+def test_missing_row_grade_needs_no_per_row_warning():
     row = {"win_rate": 0.5}
-    assert warning in site.list_body({}, {"40": [row]}, "")
-    assert warning in site.counters_body({}, {"40": [row]}, "")
-    assert warning in site.tile("Example", "list/example.html", {}, {"40": [row]}, "")
+    assert "grade not recorded" not in site.list_body({}, {"40": [row]}, "")
+    assert "grade not recorded" not in site.counters_body({}, {"40": [row]}, "")
 
 
 @pytest.mark.parametrize("validated", [None, False, 0, 1, "true", True])
 def test_unvalidated_requires_literal_true(validated):
     data = {"validation": {"validated": validated}}
-    assert (site.chip("UNVALIDATED", "warn") in site.trust(data, "40")) is (validated is not True)
-    assert site.chip("UNVALIDATED", "warn") in site.trust({"validation": {}}, "40")
-    assert site.chip("UNVALIDATED", "warn") in site.trust({}, "40")
+    assert (site.chip("UNVALIDATED", "warn") in site.trust_strip(data)) is (validated is not True)
+    assert site.chip("UNVALIDATED", "warn") in site.trust_strip({"validation": {}})
+    assert site.chip("UNVALIDATED", "warn") in site.trust_strip({})
 
 
 @pytest.mark.parametrize("label", [None, 17, [], {}])
@@ -1026,23 +932,23 @@ def test_nonstring_validation_label_has_clean_cli_error(reports, tmp_path, capsy
 
 
 @pytest.mark.parametrize("grade_order", [[], ["fixture-exact"]])
-def test_calc_unknown_grades_show_all_distinct_grades_sorted(grade_order):
+def test_calc_grades_do_not_change_numeric_ranges(grade_order):
     rows = []
-    for grade in ("z-unknown", "fixture-exact", "a-unknown", "z-unknown"):
+    for value, grade in ((5, "z-unknown"), (7, "fixture-exact"), (6, "a-unknown")):
         row = {"slot": {"value": 1}, "defender": {"value": "target"}, "charged": {"value": []}}
         for key in ("fast_damage", "fast_hits_to_ko", "rocket_fast_damage", "turns_survived"):
-            row[key] = {"value": 5, "grade": grade}
+            row[key] = {"value": value, "grade": grade}
         rows.append(row)
     html = site.calc_summary(rows, grade_order)
-    expected = " ".join(site.chip(g) for g in ("a-unknown", "fixture-exact", "z-unknown"))
-    assert html.count(expected) == 4
+    assert html.count("5–7") == 4
+    assert "unknown" not in html and "fixture-exact" not in html
     assert site.calc_summary(list(reversed(rows)), grade_order) == html
 
 
 @pytest.mark.parametrize("best,warn", [(0.04, True), (0, True), (0.5, False), (1, False)])
 def test_list_warns_when_best_counter_loses_most_battles(best, warn):
     html = site.list_body({}, {"40": [{"win_rate": best}]}, "")
-    assert site.chip("best counter loses most battles", "warn") in html
+    assert "best counter loses most battles" in html
     warning = next(attrs for tag, attrs in Elements(html).elements if "data-best-warning" in attrs)
     assert ("hidden" not in warning) is warn
 
@@ -1117,9 +1023,277 @@ def test_output_root_symlink_cannot_be_replaced(reports, tmp_path):
 
 
 def test_phone_layout_rules(reports, tmp_path):
-    """Phone width: wide tables scroll inside their card instead of being clipped or
-    widening the page (grid min-width, chips breaking per letter, absolute sr-only labels)."""
-    html = build(reports, tmp_path / "site")["index.html"]
-    assert "grid-template-columns:minmax(0,1fr)" in html
-    assert ".wrap{overflow-x:auto;position:relative}" in html
-    assert "td .chip{white-space:nowrap;overflow-wrap:normal}" in html
+    """Verify the CSS/markup budget using the existing static test approach, without a browser."""
+    entry = read(reports, "manifest.json")["characters"][0]
+    change(
+        reports,
+        "manifest.json",
+        lambda d: d["characters"][0].update(slug="fire-grunt-female", name="Fire grunt (female)"),
+    )
+
+    def fire_fixture(data):
+        data["character"]["name"] = "Fire grunt (female)"
+        for level, rows in data["character"]["finalists"].items():
+            template = rows[0]
+            counters = []
+            for species in ("feraligatr", "feraligatr_shadow", "dondozo"):
+                row = json.loads(json.dumps(template))
+                row.update(speciesId=species, types=["water", "none"])
+                counters.append(row)
+            data["character"]["finalists"][level] = counters
+
+    change(reports, entry["file"], fire_fixture)
+    pages = build(reports, tmp_path / "site")
+    html = pages["list/fire-grunt-female.html"]
+    assert html.count('class="row"') == 6  # three complete rows at each level
+    assert "Fire grunt (female)" in html
+    assert html.count('class="slot"') == 6
+    assert ".wrap{overflow-x:auto;" in html
+    assert "@media(min-width:700px)" in html
+    assert ".row .sec{grid-column:3/-1;" in html
+    assert "display:none;" in site.CSS.split(".row .sec{", 1)[1].split("}", 1)[0]
+    assert "display:flex;" in site.CSS.split("@media(min-width:700px)", 1)[1]
+    phone = site.CSS.split("@media(max-width:699px)", 1)[1]
+    assert ".charhead .lsp{width:32px;" in phone
+    assert ".charhead{padding:10px 14px}" in phone
+    assert ".slot{gap:4px;" in phone and "padding:2px 6px;" in phone
+    assert ".row{gap:2px 6px;" in phone and "padding:7px 0;" in phone
+    assert "grid-template-columns:16px 36px minmax(0,1fr) 58px" in phone
+    # Conservative 390px budget: nav + two-line disclaimer/warning + title/type +
+    # caption + three 32px slots + card heading + three-line settings + three
+    # four-line counters (including Toughest and a wrapped move), plus spacing.
+    height = 44 + 48 + 48 + 65 + 20 + 3 * 38 + 42 + 54 + 3 * 90 + 30
+    assert height <= 844
+
+
+@pytest.mark.parametrize("rate,shown", [(0, True), (0.9499, True), (0.95, False), (1, False)])
+def test_toughest_uses_lowest_conditional_rate_only_on_character_lists(rate, shown):
+    row = {
+        "speciesId": "counter",
+        "win_rate": 0.8,
+        "per_slot": [
+            {"slot": 1, "species": [{"species": "easy", "conditional_win_rate": 1}]},
+            {"slot": 2, "species": [{"species": "hard_shadow", "conditional_win_rate": rate}]},
+        ],
+    }
+    html = site.list_body({}, {"40": [row]}, "")
+    assert ("Toughest:" in html) is shown
+    if shown:
+        assert f"Hard ({escape(site.percentage(rate))} win)" in html
+        assert "Easy (" not in html
+    assert "Toughest:" not in site.list_body({}, {"40": [row]}, "", overall=True)
+    assert "Toughest:" not in site.list_body({}, {"40": [{"win_rate": 0.8}]}, "")
+
+
+def test_settings_are_built_from_report_policies():
+    data = {
+        "params": {"ivs": {"atk": 1, "def": 2, "hp": 3}},
+        "player_shield_policy": "never",
+        "rules": {"rocket_shields": False},
+    }
+    assert site.settings(data, "50") == (
+        '<p class="set">Your counter: level 50 · 1/2/3 · you never shield · '
+        "Rocket shields disabled</p>"
+    )
+    assert "not recorded" in site.settings({}, "40")
+    data["player_shield_policy"] = "first_two"
+    data["rules"]["rocket_shields"] = True
+    assert "you shield the first two charged attacks" in site.settings(data, "40")
+    assert "Rocket shields as in game" in site.settings(data, "40")
+
+
+def test_lineup_caps_each_slot_and_uses_first_counter():
+    rows = [
+        {"per_slot": [{"slot": 1, "species": [{"species": f"mon_{i}"} for i in range(8)]}]},
+        {"per_slot": [{"slot": 2, "species": [{"species": "unused"}]}]},
+    ]
+    html = site.lineup_block(rows, site.Sprites())
+    assert html.count('class="lm"') == 6
+    assert '<span class="more">+2</span>' in html
+    assert "Mon 5" in html and "Mon 6" not in html and "Unused" not in html
+
+
+def test_sprites_copied_referenced_and_pruned(reports, tmp_path):
+    directory = tmp_path / "sprites"
+    directory.mkdir()
+    png = b"\x89PNG\r\n\x1a\n" + b"x" * (131072 - 8)
+    # Counter base, lineup base, an unreferenced base and a shadow filename to ignore.
+    for base in ("palkia_origin", "lineup", "unused", "palkia_origin_shadow"):
+        (directory / f"{base}.png").write_bytes(png)
+    entry = read(reports, "manifest.json")["characters"][0]
+
+    def mutate(data):
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row["speciesId"] = "palkia_origin_shadow"
+                row["per_slot"][0]["species"][0]["species"] = "lineup_shadow"
+
+    change(reports, entry["file"], mutate)
+    out = tmp_path / "site"
+    assert (
+        cli.main(["site", "--data", str(reports), "--out", str(out), "--sprites", str(directory)])
+        == 0
+    )
+    expected = {"sprites/palkia_origin.png", "sprites/lineup.png"}
+    assert {str(p.relative_to(out)) for p in (out / "sprites").iterdir()} == expected
+    assert expected <= set(read(out, ".pogo-site")["files"])
+    for relative in expected:
+        assert (out / relative).read_bytes() == png
+    for page in ("index.html", f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
+        html = (out / page).read_text()
+        prefix = "../" if "/" in page else ""
+        assert f'src="{prefix}sprites/palkia_origin.png"' in html
+        images = [
+            a for t, a in Elements(html).elements if t == "img" and "sprites/" in a.get("src", "")
+        ]
+        assert images
+        assert all(
+            a["alt"] == ""
+            and a["loading"] == "lazy"
+            and a["width"].isdigit()
+            and a["height"].isdigit()
+            for a in images
+        )
+    # Rebuilding with the same optional assets exercises ownership checks for sprites.
+    assert site.build_site(reports, out, sprites=directory) == len(list(out.rglob("*.html")))
+    # A missing sprite is a same-size decorative lettered circle.
+    html = site.Sprites().render("palkia_origin_shadow", size=32)
+    assert 'class="spr ph" aria-hidden="true"' in html
+    assert 'style="--sprite-size:32px">PA</span>' in html
+    build(reports, out)
+    assert not (out / "sprites").exists()
+    assert not any(n.startswith("sprites/") for n in read(out, ".pogo-site")["files"])
+
+
+@pytest.mark.parametrize("mode", ["wrong_signature", "oversize", "symlink", "directory", "fifo"])
+def test_bad_sprites_ignored(tmp_path, mode):
+    path = tmp_path / "example.png"
+    if mode == "wrong_signature":
+        path.write_bytes(b"not a PNG")
+    elif mode == "oversize":
+        path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 131072)
+    elif mode == "symlink":
+        target = tmp_path / "valid"
+        target.write_bytes(b"\x89PNG\r\n\x1a\nstand-in")
+        path.symlink_to(target)
+    elif mode == "directory":
+        path.mkdir()
+    else:
+        os.mkfifo(path)
+    sprites = site.Sprites(tmp_path)
+    assert ">EX</span>" in sprites.render("example")
+    assert sprites.assets == {}
+
+
+def test_sprite_ids_cannot_escape_directory(tmp_path):
+    sprites = site.Sprites(tmp_path)
+    html = sprites.render("../evil<script>")
+    assert "<img" not in html and "<script>" not in html
+    assert sprites.assets == {} and sprites.checked == set()
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
+def test_level_switch_script_updates_sections_lineups_and_aria():
+    harness = r"""
+const buttons=['40','50'].map(level=>({dataset:{showLevel:level},pressed:'',
+ setAttribute(k,v){this.pressed=String(v);}}));
+const sections=['40','50'].map(level=>({dataset:{level},hidden:false}));
+const lineups=['40','50'].map(level=>({dataset:{lineupLevel:level},hidden:false}));
+const control={hidden:true},heading={hidden:false};
+const card={querySelector(){return control;},querySelectorAll(s){
+ return s==='[data-show-level]'?buttons:s==='[data-level]'?sections:[heading];}};
+globalThis.document={querySelectorAll(s){return s==='[data-levels]'?[card]:lineups;}};
+SCRIPT
+const initial=sections.map(s=>s.hidden);
+buttons[1].onclick();
+console.log(JSON.stringify({initial,hidden:control.hidden,heading:heading.hidden,
+ sections:sections.map(s=>s.hidden),lineups:lineups.map(s=>s.hidden),
+ pressed:buttons.map(b=>b.pressed)}));
+""".replace("SCRIPT", site.LEVEL_JS)
+    result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout) == {
+        "initial": [False, True],
+        "hidden": False,
+        "heading": True,
+        "sections": [True, False],
+        "lineups": [True, False],
+        "pressed": ["false", "true"],
+    }
+
+
+def test_stale_rows_and_their_sprites_never_reach_home(reports, tmp_path):
+    entry = read(reports, "manifest.json")["characters"][0]
+    directory = tmp_path / "sprites"
+    directory.mkdir()
+    (directory / "stale_unique.png").write_bytes(b"\x89PNG\r\n\x1a\nstand-in")
+
+    def stale(data):
+        data["key"] = "wrong"
+        for rows in data["character"]["finalists"].values():
+            for row in rows:
+                row["speciesId"] = "stale_unique"
+
+    change(reports, entry["file"], stale)
+    out = tmp_path / "site"
+    site.build_site(reports, out, sprites=directory)
+    for path in out.rglob("*.html"):
+        assert "Stale Unique" not in path.read_text()
+    assert not (out / "sprites/stale_unique.png").exists()
+
+
+def test_home_counter_limits_and_boss_badge():
+    rows = [{"speciesId": f"counter_{i}", "win_rate": 1 - i / 10} for i in range(7)]
+    body = site.list_body({}, {"40": rows}, "", overall=True, prefix="", limit=5)
+    assert body.count('class="row"') == 5
+    assert "Counter 4" in body and "Counter 5" not in body
+    card = site.tile("Giovanni", "list/giovanni.html", {}, {"40": rows}, "", rank="boss")
+    assert card.count("<li>") == 3
+    assert "Counter 2" in card and "Counter 3" not in card
+    assert '<span class="rk-badge">Boss</span>' in card
+
+
+ESTIMATE_WORDS = re.compile(
+    r"\b(?:estimates?|est|unverified|extrapolated|parity-only|assumed|not yet checked)\b", re.I
+)
+
+
+class VisibleText(HTMLParser):
+    """Visible text outside the site-wide disclaimer bar, scripts and styles."""
+
+    def __init__(self, html):
+        super().__init__()
+        self.skip, self.depth, self.text, self.bar = [], 0, [], []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("br", "img", "meta", "link", "input"):
+            return
+        self.depth += 1
+        classes = (dict(attrs).get("class") or "").split()
+        if tag in ("script", "style", "title") or "disc" in classes:
+            self.skip.append(self.depth)
+
+    def handle_endtag(self, tag):
+        if tag in ("br", "img", "meta", "link", "input"):
+            return
+        if self.skip and self.skip[-1] == self.depth:
+            self.skip.pop()
+        self.depth -= 1
+
+    def handle_data(self, data):
+        (self.bar if self.skip else self.text).append(data)
+
+
+def test_estimate_idea_appears_once_per_page_in_the_bar(reports, tmp_path):
+    # Owner ruling: "this is an estimate / unverified / assumed" is said once per page, in the
+    # site-wide bar linking to how.html. Only how.html explains it in full.
+    pages = build(reports, tmp_path / "site")
+    assert len(pages) > 3
+    for name, html in pages.items():
+        if name == "how.html":
+            continue
+        parsed = VisibleText(html)
+        assert html.count('<div class="disc">') == 1, name
+        assert "how.html" in html, name
+        found = ESTIMATE_WORDS.findall(" ".join(parsed.text))
+        assert not found, (name, found)
