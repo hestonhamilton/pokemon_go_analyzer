@@ -46,8 +46,8 @@ PAUSE_NOTE = (
     "(verification ledger row k); its trigger is an owner observation and not measured."
 )
 PAUSE_PLAIN = (
-    "Timing-sensitive means the result changes a lot depending on how long Rocket pauses "
-    "after a charged attack — bring a backup."
+    "The result changes a lot depending on how long Rocket pauses after a charged attack. "
+    "Bring a backup."
 )
 # The technical explanation is shown once on how.html; characters list only their numbers.
 PAUSE_TECH = (
@@ -259,6 +259,38 @@ border-radius:8px} .charhead .lsp{width:32px; height:32px} .sn{font-size:.9rem; 
 grid-template-columns:16px 36px minmax(0,1fr) 58px} .row .spr{width:36px; height:36px}
 .row .nm{font-size:.9rem} .row .score b{font-size:1.1rem} .row .mv{font-size:.75rem}
 .set{font-size:.75rem; margin-bottom:4px} .tough{font-size:.7rem} }
+.cc .timing-all{padding:8px 12px 0; margin:0}
+.lede{font-size:1.12rem; line-height:1.45; margin:0}
+.steps{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0;
+padding:0; list-style:none} .step{background:var(--bg); border:1px solid var(--line);
+border-radius:14px; padding:12px} .step .ill{min-height:56px; display:flex; align-items:center;
+justify-content:center; gap:4px; flex-wrap:wrap; margin-bottom:6px}
+.step .vs{font:900 .75rem var(--display); color:var(--muted)}
+.step .big{font:900 1.6rem var(--display); color:var(--win)}
+.step h3{font-size:1rem; margin:0 0 4px; display:flex; gap:8px; align-items:center}
+.step h3 .n{background:var(--rocket-red); color:#fff; border-radius:999px; width:22px;
+height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:.8rem;
+flex:none} .step p{margin:0; font-size:.88rem; color:var(--muted); line-height:1.35}
+.badges{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0}
+.badge{display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line);
+border-radius:12px; padding:10px; scroll-margin-top:12px} .badge .ex{flex:none; width:104px;
+display:flex; align-items:center; gap:4px; flex-wrap:wrap}
+.badge p{margin:0; font-size:.9rem; line-height:1.35} .badge:target{outline:2px solid
+var(--accent)} .pill{display:inline-block; background:var(--bg); border:1px solid var(--line);
+border-radius:999px; padding:1px 8px; font-size:.75rem; color:var(--muted); font-weight:700}
+.faq details{border-top:1px solid var(--line); padding:10px 0}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq summary{font-weight:700; cursor:pointer; list-style:none; display:flex;
+justify-content:space-between; gap:10px} .faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+"; font:900 1.1rem var(--display); color:var(--accent)}
+.faq details[open] summary::after{content:"\\2212"} .faq details p{margin:8px 0 0; line-height:1.45}
+table.kv{width:100%; border-collapse:collapse; font-size:.92rem; table-layout:fixed}
+table.kv th,table.kv td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--line);
+vertical-align:top; overflow-wrap:anywhere} table.kv th{color:var(--muted); width:36%}
+@media(max-width:699px){.steps{grid-template-columns:minmax(0,1fr)}
+.step{display:grid; grid-template-columns:76px minmax(0,1fr); gap:8px; align-items:center;
+padding:10px} .step .ill{margin:0} .step .ill img{width:26px; height:26px}
+.step .big{font-size:1.15rem} .badges{grid-template-columns:minmax(0,1fr)} .badge .ex{width:92px}}
 """
 # Filtering only hides server-rendered rows. Without JS all rows and levels remain available.
 FILTER_JS = """
@@ -1117,30 +1149,249 @@ def grade_differences(rows):
     return body + "<p>None: every published row carries the usual grade.</p>"
 
 
-def how_summary(data):
-    """At most six plain lines; the badge anchors live here so links land on plain words."""
+FAQ = (
+    (
+        "Why do so many counters show 100%?",
+        "Most grunts are weak, so many Pokémon win every simulated battle. Rows at the same % "
+        "are ordered by HP left, then by how fast they win, so the top of the list is still "
+        "the cleanest win.",
+    ),
+    (
+        "What does Timing-sensitive mean for me?",
+        "After each charged attack, Rocket's Pokémon pauses briefly, and nobody has measured "
+        "exactly how long. For these counters the win % changes a lot if that pause is a little "
+        "longer or shorter, so bring a backup.",
+    ),
+    (
+        "What's an Elite TM?",
+        "Some moves can't be learned with a normal Charged TM: they came from a Community Day "
+        "or an event. To teach one now you need an Elite TM.",
+    ),
+    (
+        "Should I look at level 50 or 40?",
+        "Level 50 if your Pokémon is, or can be, powered up with XL Candy; level 40 otherwise. "
+        "The site remembers your choice.",
+    ),
+    (
+        "Has this been checked in the game?",
+        "Not yet. The simulator has been checked against measured battles (see the technical "
+        "notes below), but these rankings still need in-game checks.",
+    ),
+    (
+        "Why isn't my favourite counter here?",
+        "Mega Evolutions, moves that raise or lower stats and switching mid-battle aren't "
+        "simulated, and each list shows a Pokémon's single best moveset.",
+    ),
+)
+
+
+def featured_counter(characters, *, level=DEFAULT_LEVEL):
+    """The story for the scoring steps: one real character, its lineup and its #1 counter."""
+    usable = [
+        (name, rows)
+        for name, results in characters
+        for rows in [ordered(results.get(level) or next(iter(results.values()), []))]
+        if rows
+    ]
+    usable.sort(key=lambda item: item[0] != "Giovanni")
+    if not usable:
+        return None
+    name, rows = usable[0]
+    lineup = [s for _, species in lineup_species(rows) for s in species[:1]]
+    return name, rows[0], lineup
+
+
+def how_steps(data, featured, sprites):
+    k = data.get("params", {}).get("k")
+    best = f"The best {e(k)} at each level go through." if k else "The best go through."
+    if featured:
+        name, row, lineup = featured
+        counter = sprites.render(row.get("speciesId", ""), size=36, cls="lsp")
+        first = sprites.render(lineup[0], size=36, cls="lsp") if lineup else ""
+        rest = "".join(sprites.render(s, size=36, cls="lsp") for s in lineup)
+        vs = '<span class="vs">vs</span>'
+        ills = (counter + vs + first, counter + vs + rest, percentage(row["win_rate"]))
+        story = (
+            f"{e(heading(row.get('speciesId', '')))} beats {e(name)} "
+            f"{e(percentage(row['win_rate']))} of the time."
+        )
+    else:
+        ills, story = ("", "", "%"), ""
+    steps = (
+        (
+            "Quick 1-on-1 check",
+            "Every Pokémon and moveset fights each Pokémon Rocket might send, one at a time. "
+            + best,
+        ),
+        (
+            "Full battles",
+            "Each finalist fights every lineup Rocket can bring, alone, start to finish, with "
+            "every move Rocket's Pokémon could know.",
+        ),
+        (
+            "Win %",
+            "The share of those battles your one Pokémon wins. " + story,
+        ),
+    )
+    body = '<ol class="steps">'
+    for i, ((title, text), ill) in enumerate(zip(steps, ills, strict=True), 1):
+        art = f'<span class="big">{e(ill)}</span>' if i == 3 else ill
+        body += (
+            f'<li class="step"><div class="ill" aria-hidden="true">{art}</div><div>'
+            f'<h3><span class="n">{i}</span>{e(title)}</h3><p>{text}</p></div></li>'
+        )
+    return body + "</ol>"
+
+
+def how_badges(icons):
+    cards = (
+        (
+            "shadow",
+            tag("Shadow", "sh"),
+            "Shadow",
+            SHADOW_TITLE.removeprefix("Shadow form: ").capitalize() + ".",
+        ),
+        (
+            "elite-tm",
+            tag("Elite TM", "el"),
+            "Elite TM",
+            "The move needs an Elite TM, or came from a Community Day or event.",
+        ),
+        ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
+        (
+            "",
+            "".join(type_chip(t, icons, small=True) for t in ("steel", "water", "fighting")),
+            "Type icons",
+            "Your counter's types, in GO's colours.",
+        ),
+        (
+            "",
+            '<span class="pill">Toughest</span>',
+            "Toughest",
+            "The Rocket Pokémon most likely to beat this counter. Shown when it wins at least "
+            "1 battle in 20.",
+        ),
+        (
+            "",
+            '<span class="pill">HP left</span><span class="pill">KOs</span>',
+            "HP left · KOs",
+            "On wider screens: the HP your counter usually has at the end, and how many Rocket "
+            "Pokémon it beats on average.",
+        ),
+    )
+    body = '<div class="badges">'
+    for anchor, example, title, text in cards:
+        anchor_id = f' id="{e(anchor)}"' if anchor else ""
+        body += (
+            f'<div class="badge"{anchor_id}><div class="ex" aria-hidden="true">{example}</div>'
+            f"<p><b>{e(title)}</b><br>{e(text)}</p></div>"
+        )
+    return body + "</div>"
+
+
+def how_tables(data):
+    level = " or ".join(levels(data, {}))
+    params = data.get("params", {})
+    ivs = params.get("ivs", {})
+    iv_text = "/".join(str(ivs.get(k, "not recorded")) for k in ("atk", "def", "hp"))
+    rocket = data.get("rules", {}).get("rocket_shields")
+    rocket_text = {True: "As in game", False: "Not used"}.get(rocket, "Not recorded")
+    shields = shield_policy(data).replace("shields", "Shields")
+    setup = (
+        ("Your counter", f"Level {level} · IVs {iv_text} · fights the whole lineup alone"),
+        ("Your moves", "Charged attack as soon as it has the energy"),
+        ("Your shields", shields),
+        ("Rocket lineups", "Current lineups · every lineup counts equally"),
+        ("Rocket moves", "Any move the Pokémon can learn"),
+        ("Rocket shields", rocket_text),
+        ("Not included", "Mega Evolution · moves that raise or lower stats · switching"),
+    )
     stamp = data.get("computed_for_battle_date", data.get("battle_date"))
+    sources = [
+        (
+            source.get("name", "not recorded"),
+            f"{source.get('license', 'not recorded')} · {fetched_label(source.get('fetched_at'))}",
+        )
+        for source in data.get("sources", [])
+    ]
+    sources.append(("Credits", data.get("credits", "not recorded")))
+    sources.append(("Data", battle_date(stamp) if stamp else "date not recorded"))
+
+    def table(rows):
+        return (
+            '<table class="kv">'
+            + "".join(f"<tr><th>{e(k)}</th><td>{e(v)}</td></tr>" for k, v in rows)
+            + "</table>"
+        )
+
     return (
-        '<section class="card method how-summary">'
-        "<p>The best Pokémon to beat each Team GO Rocket grunt and leader, picked by a battle "
-        f"simulator. {e(PERCENT_LINE)}</p>"
-        f'<p id="shadow"><b>Shadow:</b> {e(SHADOW_TITLE.removeprefix("Shadow form: "))}.</p>'
-        '<p id="elite-tm"><b>Elite TM:</b> the move needs an Elite TM, or came from a '
-        "Community Day or event.</p>"
-        f'<p id="pause">{e(PAUSE_PLAIN)}</p>'
-        + settings(data, " or ".join(levels(data, {})))
-        + f"<p>Data: {e(battle_date(stamp) if stamp else 'date not recorded')} · Credits: "
-        f"{e(data.get('credits', 'not recorded'))}</p></section>"
+        f'<section class="card"><h2>The battle setup</h2>{table(setup)}</section>'
+        f'<section class="card"><h2>Sources</h2>{table(sources)}</section>'
     )
 
 
-def how_body(data, *, pause_legends=(), screen_notes=(), grade_rows=(), method_sections=()):
-    """Plain summary, then every technical section inside one collapsed details element."""
+def how_explainer(data, *, featured=None, sprites=None, icons=frozenset()):
+    """Owner ruling (option A): lede, 3 scoring steps, badge cards, FAQ, setup and sources."""
+    sprites = sprites or Sprites()
+    faq = "".join(
+        f"<details{' open' if i == 0 else ''}><summary>{e(q)}</summary><p>{e(a)}</p></details>"
+        for i, (q, a) in enumerate(FAQ)
+    )
     return (
-        how_summary(data)
-        + '<details class="tech"><summary>Technical details</summary>'
+        '<section class="card how-summary"><p class="lede">We simulate thousands of battles to '
+        "find which Pokémon beats each Rocket grunt and leader <b>on its own</b>. "
+        f"{e(PERCENT_LINE)}</p></section>"
+        '<section class="card"><h2>How a counter is scored</h2>'
+        + how_steps(data, featured, sprites)
+        + "</section>"
+        '<section class="card"><h2>What the badges mean</h2>' + how_badges(icons) + "</section>"
+        f'<section class="card faq"><h2>Questions</h2>{faq}</section>' + how_tables(data)
+    )
+
+
+def method_notes(sections):
+    """Show blocks every character shares once; list only what differs by name."""
+    if not sections:
+        return ""
+    count = len(sections[0][3])
+    shared = [
+        all(blocks[i] == sections[0][3][i] for _, _, _, blocks in sections) for i in range(count)
+    ]
+    body = ""
+    if any(shared):
+        body += (
+            '<section class="card method"><h2>Shared by every grunt and leader</h2>'
+            + "".join(block for block, same in zip(sections[0][3], shared, strict=True) if same)
+            + "</section>"
+        )
+    for name, slug, reason, blocks in sections:
+        own = "".join(block for block, same in zip(blocks, shared, strict=True) if not same)
+        body += (
+            f'<section class="card method" id="c-{e(slug)}"><h2>{e(name)}</h2>'
+            + (unavailable(reason) if reason else "")
+            + (own or "<p>Nothing beyond the shared notes.</p>")
+            + "</section>"
+        )
+    return body
+
+
+def how_body(
+    data,
+    *,
+    pause_legends=(),
+    screen_notes=(),
+    grade_rows=(),
+    method_sections=(),
+    featured=None,
+    sprites=None,
+    icons=frozenset(),
+):
+    """Plain explainer, then every technical section inside one collapsed details element."""
+    return (
+        how_explainer(data, featured=featured, sprites=sprites, icons=icons)
+        + '<details class="tech"><summary>Full technical notes</summary>'
         + how_technical(data, pause_legends, screen_notes, grade_rows)
-        + "".join(method_sections)
+        + method_notes(list(method_sections))
         + "</details>"
     )
 
@@ -1427,6 +1678,7 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
     )
     grids = {"leaders": [], "grunts": []}
     method_sections, pause_legends, grade_rows = [], [], []
+    featured_pool = []
     screen_notes = {}
 
     def collect_rows(name, results, meta):
@@ -1520,14 +1772,19 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
         collect_rows(name, results, meta)
         pause_legends.append(f"<li><b>{e(name)}:</b> {pause_band_legend(meta)}</li>")
         method_sections.append(
-            f'<section class="card method" id="c-{e(slug)}"><h2>{e(name)}</h2>'
-            + (unavailable(reason) if reason else "")
-            + trust_strip(meta)
-            + provenance(meta)
-            + "".join(assumptions(meta, level) for level in levels(meta, results))
-            + notes(meta, all_view)
-            + "</section>"
+            (
+                name,
+                slug,
+                reason,
+                (
+                    trust_strip(meta),
+                    provenance(meta),
+                    "".join(assumptions(meta, level) for level in levels(meta, results)),
+                    notes(meta, all_view),
+                ),
+            )
         )
+        featured_pool.append((name, results))
         del data, report, results, meta
     for view, title in (("all", "All Rocket"), ("grunts", "Grunts"), ("leaders", "Leaders")):
         data = overall.get(view, {}) if not overall_reason else {}
@@ -1576,6 +1833,9 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
             screen_notes=screen_notes,
             grade_rows=grade_rows,
             method_sections=method_sections,
+            featured=featured_counter(featured_pool),
+            sprites=sprite_store,
+            icons=icons,
         ),
         assets=brand_data,
     )

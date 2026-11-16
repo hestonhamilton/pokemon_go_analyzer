@@ -1761,32 +1761,28 @@ def test_percent_line_and_shadow_tooltip(reports, tmp_path):
     shadow = site.content_tags({"speciesId": "example_shadow"})
     assert shadow == f'<span class="tag sh" title="{site.SHADOW_TITLE}">Shadow</span>'
     assert "Shadow form: hits harder, takes more damage" == site.SHADOW_TITLE
-    assert "hits harder, takes more damage." in pages["how.html"]
+    assert "Hits harder, takes more damage." in pages["how.html"]
 
 
-def test_how_opens_with_plain_summary_and_one_collapsed_tech_section(reports, tmp_path):
+def test_how_is_an_explainer_with_faq_then_one_collapsed_tech_section(reports, tmp_path):
+    # Owner ruling: option A (explainer + FAQ) for how.html.
     pages = build(reports, tmp_path / "site")
     how = pages["how.html"]
-    summary = re.search(r'<section class="card method how-summary">(.*?)</section>', how, re.S)
-    lines = re.findall(r"<p\b", summary.group(1))
-    assert 1 <= len(lines) <= 6
-    text = summary.group(1)
-    for words in (
-        site.PERCENT_LINE.replace("%", ""),
-        "<b>Shadow:</b>",
-        "<b>Elite TM:</b>",
-        escape(site.PAUSE_PLAIN),
-        "Your counter: level 50 or 40",
-        "Data: 14 Nov 2026",
-        "Credits:",
-    ):
-        assert words in text, words
+    tech_at = how.index('<details class="tech">')
+    plain = how[:tech_at]
+    assert site.PERCENT_LINE.replace("%", "") in plain
+    assert plain.count('class="step"') == 3
+    for title in ("Quick 1-on-1 check", "Full battles", "Win %"):
+        assert title in plain, title
     for anchor in ("pause", "elite-tm", "shadow"):
-        assert f'id="{anchor}"' in text
-    assert how.count("<details") == 1
-    assert how.count('<details class="tech"><summary>Technical details</summary>') == 1
-    assert how.index("how-summary") < how.index('<details class="tech">')
-    tech = how.split('<details class="tech">', 1)[1]
+        assert f'id="{anchor}"' in plain
+    for question, _ in site.FAQ:
+        assert escape(question) in plain, question
+    assert plain.count("<details") == len(site.FAQ)
+    for words in ("The battle setup", "Level 50 or 40", "Sources", "14 Nov 2026"):
+        assert words in plain, words
+    assert how.count('<details class="tech"><summary>Full technical notes</summary>') == 1
+    tech = how[tech_at:]
     assert "</details></main>" in tech
     for heading in (
         "Validation and provenance",
@@ -1798,15 +1794,42 @@ def test_how_opens_with_plain_summary_and_one_collapsed_tech_section(reports, tm
         "Sources, credits and limitations",
     ):
         assert heading in tech, heading
-    for entry in read(reports, "manifest.json")["characters"]:
+    characters = read(reports, "manifest.json")["characters"]
+    for entry in characters:
         assert f'id="c-{entry["slug"]}"' in tech
+    # Notes every character shares are printed once, not once per character.
+    limitations = escape(read(reports, "overall.json")["limitations"])
+    assert how.count(limitations) <= 2
     # The plain pause sentence and the technical explanation each appear once.
     assert how.count(escape(site.PAUSE_PLAIN)) == 1
     assert how.count("Pause band is a sensitivity check") == 1
-    characters = read(reports, "manifest.json")["characters"]
     assert len(re.findall(r"<li><b>[^<]*:</b> (?:more than|band not)", how)) == len(characters)
     ids = [a["id"] for _, a in Elements(how).elements if "id" in a]
     assert len(ids) == len(set(ids))
+
+
+def test_method_notes_print_shared_blocks_once_and_name_differences():
+    sections = [
+        ("Cliff", "cliff", "", ("<p>same</p>", "<p>cliff only</p>")),
+        ("Arlo", "arlo", "", ("<p>same</p>", "<p>arlo only</p>")),
+        ("Empty", "empty", "no results", ("<p>same</p>", "<p>cliff only</p>")),
+    ]
+    html = site.method_notes(sections)
+    assert html.count("<p>same</p>") == 1
+    assert "Shared by every grunt and leader" in html
+    assert html.count("<p>cliff only</p>") == 2
+    assert html.count("<p>arlo only</p>") == 1
+    for slug in ("cliff", "arlo", "empty"):
+        assert f'id="c-{slug}"' in html
+    assert "no results" in html
+    single = site.method_notes([("Cliff", "cliff", "", ("<p>same</p>",))] * 2)
+    assert "Nothing beyond the shared notes." in single
+    assert site.method_notes([]) == ""
+
+
+def test_timing_line_has_card_padding():
+    # Owner report: the one-line Timing-sensitive note ran flush to the Giovanni card edge.
+    assert ".cc .timing-all{padding:" in site.CSS
 
 
 def test_battle_details_use_plain_words(reports, tmp_path):
