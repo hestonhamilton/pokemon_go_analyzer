@@ -15,7 +15,8 @@ SCREEN_NOTE = (
     "Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. "
     "The grid ignores carried-over shields and HP between slots. "
     "Screen numbers are not lineup win rates."
-    " Ties at the K cut break by species id alphabetically."
+    " Ties on win rate break by mean HP left, then fewer turns (win margin); builds still"
+    " level with the K-th on all three are all kept."
 )
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
@@ -191,11 +192,24 @@ def screen_candidate(
         "pool_complete": pool_complete,
         "grade": "; ".join(parts),
         "score": mean(rates) if all(r is not None for r in rates) else None,
+        "hp_left": _slot_mean(groups, "mean_player_hp_fraction_left"),
+        "turns": _slot_mean(groups, "mean_turns"),
         "slot_win_rates": rates,
         "slot_aggregates": groups,
         "grid_limitation": winrate.GRID_NOTE,
         "note": SCREEN_NOTE,
     }
+
+
+def _slot_mean(groups, field):
+    values = [g.get(field) for g in groups]
+    return mean(values) if values and None not in values else None
+
+
+def screen_margin(screen):
+    """Win rate, then mean HP left, then fewer turns: PvPoke rating / Pokebattler TTW idea."""
+    hp, turns = screen.get("hp_left"), screen.get("turns")
+    return -screen["score"], -(hp or 0), turns or 0
 
 
 def screen_candidates(
@@ -224,7 +238,7 @@ def screen_candidates(
     for candidate, screen in zip(candidates, mapper(run, candidates), strict=True):
         if screen["score"] is None:
             continue
-        order = (-screen["score"], *candidate.key)
+        order = (*screen_margin(screen), *candidate.key)
         key = candidate.species_id, candidate.key[1]
         if key not in best or order < best[key][0]:
             best[key] = order, candidate, screen
@@ -305,13 +319,14 @@ def rank_character(
         pool_complete=pool_complete,
         mapper=mapper,
     )
-    counts = {}
+    counts, cut = {}, {}
     finalists = []
     for candidate, screen in screened:
         level = candidate.key[1]
-        if counts.get(level, 0) >= k:
+        if counts.get(level, 0) >= k and screen_margin(screen) != cut[level]:
             continue
         counts[level] = counts.get(level, 0) + 1
+        cut[level] = screen_margin(screen)
         finalists.append((candidate, screen))
     rows = full_results(
         [c for c, _ in finalists],

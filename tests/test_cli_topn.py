@@ -262,8 +262,9 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
         grid=grid,
         trial_runner=trial_runner,
     )
-    assert len(calls) == 4
-    assert {key[0] for key in calls} == {"metagross", "kirlia"}
+    # kirlia and snubbull tie exactly at the K=2 cut, so both are kept (no alphabetical cut).
+    assert len(calls) == 6
+    assert {key[0] for key in calls} == {"metagross", "kirlia", "snubbull"}
     assert all(key[2:] == ("BULLET_PUNCH", "EARTHQUAKE") for key in calls if key[0] == "metagross")
     assert set(ranked) == {40, 50}
     for rows in ranked.values():
@@ -842,3 +843,79 @@ def test_invalid_pause_threshold_rejected_before_sources(cache, monkeypatch, val
     with pytest.raises(SystemExit) as exc:
         cli.main([*args(cache), "--pause-threshold", value])
     assert exc.value.code == 2
+
+
+def margin_grid(margins):
+    """Every slot at a 1.0 win rate; margins maps species id to (hp left, turns)."""
+
+    def grid(team, pools, **kwargs):
+        species = next(c for c in grid.builds if c.team == team).species_id
+        hp, turns = margins[species]
+        return [], [
+            {
+                "slot": slot,
+                "win_rate": 1.0,
+                "mean_player_hp_fraction_left": hp,
+                "mean_turns": turns,
+                "rules_grade": "estimate",
+                "flags": [],
+                "label": "estimate (every number)",
+            }
+            for slot in range(1, 4)
+        ]
+
+    return grid
+
+
+def test_screen_breaks_saturated_ties_by_hp_left_then_turns(cache):
+    builds = [
+        topn.Candidate(name, c.attacker, c.move_flags)
+        for name, c in zip(("aa", "bb", "cc", "dd"), candidates(cache)[:4], strict=True)
+    ]
+    grid = margin_grid({"aa": (0.2, 10), "bb": (0.9, 30), "cc": (0.9, 12), "dd": (0.5, 5)})
+    grid.builds = builds
+    screened = topn.screen_candidates(builds, [], rank="grunt", battle_date="2026-11-14", grid=grid)
+    assert [c.species_id for c, _ in screened] == ["cc", "bb", "dd", "aa"]
+    assert screened[0][1]["hp_left"] == 0.9
+    assert screened[0][1]["turns"] == 12
+
+
+def test_k_cut_keeps_exact_margin_ties_only(cache, monkeypatch):
+    monkeypatch.setattr(solo, "supports", lambda *a: False)
+    builds = [
+        topn.Candidate(name, c.attacker, c.move_flags)
+        for name, c in zip(("aa", "bb", "cc", "dd"), candidates(cache)[:4], strict=True)
+    ]
+    grid = margin_grid({"aa": (0.2, 10), "bb": (0.9, 12), "cc": (0.9, 12), "dd": (0.5, 5)})
+    grid.builds = builds
+    finalists = []
+
+    def trial_runner(team, pools, **kwargs):
+        finalists.append(next(c.species_id for c in builds if c.team == team))
+        kwargs.pop("execution")
+        return winrate.trials(team, pools, **kwargs)
+
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+    topn.rank_character(
+        builds,
+        pools,
+        k=1,
+        rank="grunt",
+        battle_date="2026-11-14",
+        grid=grid,
+        trial_runner=trial_runner,
+    )
+    assert sorted(finalists) == ["bb", "cc"]
+
+
+def test_grid_aggregates_report_mean_hp_left_and_turns(cache):
+    build = candidates(cache)[0]
+    target = candidates(cache)[1].team[0]
+    pools = [[winrate.Option("a", target), winrate.Option("b", target)]] * 3
+    rows, groups = winrate.grid(build.team, pools, rank="grunt", battle_date="2026-11-14")
+    for group in groups:
+        mine = [r for r in rows if r["slot"] == group["slot"]]
+        assert group["mean_player_hp_fraction_left"] == pytest.approx(
+            sum(r["player_hp_fraction_left"] for r in mine) / len(mine)
+        )
+        assert group["mean_turns"] == pytest.approx(sum(r["turns"] for r in mine) / len(mine))
