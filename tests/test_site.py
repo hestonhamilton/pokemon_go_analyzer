@@ -1007,6 +1007,13 @@ def test_filter_js_and_progressive_controls(reports, tmp_path):
             elements = Elements(body).elements
             rows = [a for _, a in elements if "data-types" in a]
             filters = [a["data-filter"] for _, a in elements if "data-filter" in a]
+            # Owner ruling: both orders are rendered; the alternative starts hidden.
+            orders = {
+                order: [a for _, a in Elements(block).elements if "data-types" in a]
+                for order, block in re.findall(
+                    r'<div data-order="([^"]+)"[^>]*>(.*?)</ol>', body, re.S
+                )
+            }
             if not rows:
                 assert not filters
                 continue
@@ -1017,16 +1024,23 @@ def test_filter_js_and_progressive_controls(reports, tmp_path):
             assert "<noscript>" in body
             types = {t for row in rows for t in json.loads(row["data-types"]) if t in site.TYPES}
             assert filters == ["", *sorted(types)], (path, level)
-            sections.append({"rows": rows, "filters": filters})
+            if rows:
+                assert set(orders) == {"speed", "hp"}, (path, level)
+                assert len(orders["speed"]) == len(orders["hp"]) == len(rows) // 2
+                assert '<div data-order="hp" hidden>' in body
+            sections.append({"speed": orders["speed"], "hp": orders["hp"], "filters": filters})
     assert len(sections) >= 8  # Overall and character lists, at both levels.
     actual_harness = r"""
 const specs=SPECS;
-const sections=specs.map(spec=>{
- const rows=spec.rows.map(r=>({dataset:{types:r['data-types'],win:r['data-win']},
+const mk=list=>list.map(r=>({dataset:{types:r['data-types'],win:r['data-win']},
   hidden:false,rank:{textContent:''},querySelector(){return this.rank;}}));
+const sections=specs.map(spec=>{
+ const speed=mk(spec.speed),hp=mk(spec.hp),rows=[...speed,...hp];
+ const ols=[speed,hp].map(list=>({querySelectorAll(){return list;}}));
  const controls={hidden:true},warning={hidden:true};
- const s={rows,controls,warning,querySelector(){return warning;},
-  querySelectorAll(q){return q==='[data-filter]'?this.buttons:rows;}};
+ const s={rows,speed,hp,controls,warning,querySelector(){return warning;},
+  querySelectorAll(q){return q==='[data-filter]'?this.buttons:q==='ol.rows'?ols:
+   q==='[data-order="speed"] [data-types]'?speed:rows;}};
  s.buttons=spec.filters.map(t=>({dataset:{filter:t},textContent:t,closest(){return s;},
   setAttribute(k,v){this[k]=v;}}));
  return s;
@@ -1040,10 +1054,14 @@ for(const s of sections){
  for(const b of [...s.buttons.slice(1),s.buttons[0]]){
   const others=sections.filter(x=>x!==s).map(x=>x.rows.map(r=>[r.hidden,r.rank.textContent]));
   b.onclick();
-  const visible=s.rows.filter(r=>b.dataset.filter===''||
+  const shown=list=>list.filter(r=>b.dataset.filter===''||
    JSON.parse(r.dataset.types).includes(b.dataset.filter));
-  assert.deepEqual(s.rows.filter(r=>!r.hidden),visible);
-  assert.deepEqual(visible.map(r=>r.rank.textContent),visible.map((r,i)=>i+1));
+  for(const list of [s.speed,s.hp]){
+   const visible=shown(list);
+   assert.deepEqual(list.filter(r=>!r.hidden),visible);
+   assert.deepEqual(visible.map(r=>r.rank.textContent),visible.map((r,i)=>i+1));
+  }
+  const visible=shown(s.speed);
   assert.equal(s.warning.hidden,visible.length===0||Number(visible[0].dataset.win)>=.5);
   assert.deepEqual(s.buttons.map(x=>x['aria-pressed']),s.buttons.map(x=>x===b));
   assert.deepEqual(sections.filter(x=>x!==s).map(x=>x.rows.map(r=>[r.hidden,r.rank.textContent])),others);
@@ -1057,8 +1075,9 @@ const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
  querySelector(){return this.rank;}}));
 const controls={hidden:true},warning={hidden:true};
 const label={textContent:''};
+const ol={querySelectorAll(){return rows;}};
 const section={querySelector(q){return q==='[data-filter-label]'?label:warning;},
- querySelectorAll(s){return s==='[data-filter]'?[button]:rows;}};
+ querySelectorAll(s){return s==='[data-filter]'?[button]:s==='ol.rows'?[ol]:rows;}};
 const button={dataset:{filter:'fire'},textContent:' fire ',closest(){return section;},
  setAttribute(){}};
 globalThis.document={querySelectorAll(s){return s==='.tyfilter'?[controls]:[button];}};
@@ -1238,7 +1257,8 @@ def test_phone_layout_rules(reports, tmp_path):
     change(reports, entry["file"], fire_fixture)
     pages = build(reports, tmp_path / "site")
     html = pages["list/fire-grunt-female.html"]
-    assert html.count('class="row"') == 6  # three complete rows at each level
+    # Three complete rows at each level, once per order (Fastest and Most HP left).
+    assert html.count('class="row"') == 12
     assert "Fire grunt (female)" in html
     assert html.count('class="slot"') == 6
     assert ".wrap{overflow-x:auto;" in html
@@ -1445,10 +1465,10 @@ def test_stale_rows_and_their_sprites_never_reach_home(reports, tmp_path):
 def test_home_counter_limits_and_boss_badge():
     rows = [{"speciesId": f"counter_{i}", "win_rate": 1 - i / 10} for i in range(7)]
     body = site.list_body({}, {"40": rows}, "", overall=True, prefix="", limit=5)
-    assert body.count('class="row"') == 5
+    assert body.count('class="row"') == 10  # five per order
     assert "Counter 4" in body and "Counter 5" not in body
     card = site.tile("Giovanni", "list/giovanni.html", {}, {"40": rows}, "", rank="boss")
-    assert card.count("<li>") == 3
+    assert card.count("<li>") == 6  # three per order
     assert "Counter 2" in card and "Counter 3" not in card
     assert '<span class="rk-badge">Boss</span>' in card
 
@@ -1905,3 +1925,66 @@ def test_timing_sensitive_one_line_when_every_row_has_it():
     rows[1]["pause_band"] = {"sensitive": False}
     html = site.counter_rows(rows, site.Sprites())
     assert html.count("Timing-sensitive</a>") == 2 and "timing-all" not in html
+
+
+@pytest.mark.parametrize(
+    "saved,expected", [(None, "speed"), ("hp", "hp"), ("speed", "speed"), ("bogus", "speed")]
+)
+def test_order_switch_defaults_to_fastest_and_remembers(saved, expected):
+    # Owner ruling: speed first by default, a remembered "Most HP left" toggle.
+    harness = r"""
+const store={v:SAVED};
+globalThis.localStorage={getItem(){return store.v;},setItem(k,v){store.k=k;store.v=v;}};
+const blocks=['speed','hp','speed','hp'].map(o=>({dataset:{order:o},hidden:o!=='speed'}));
+const buttons=['speed','hp'].map(o=>({dataset:{sortChoice:o},setAttribute(k,v){this[k]=v;}}));
+const sw={hidden:true};
+globalThis.document={querySelectorAll(q){return q==='[data-sort-choice]'?buttons:
+ q==='[data-order]'?blocks:q==='.sortsw'?[sw]:[];}};
+SCRIPT
+const first=blocks.filter(b=>!b.hidden).map(b=>b.dataset.order);
+const pressed=buttons.map(b=>b['aria-pressed']);
+buttons[1].onclick();
+console.log(JSON.stringify({first,pressed,sw:sw.hidden,after:blocks.filter(b=>!b.hidden)
+ .map(b=>b.dataset.order),stored:[store.k,store.v]}));
+""".replace("SAVED", json.dumps(saved)).replace("SCRIPT", site.ORDER_JS)
+    result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+    out = json.loads(result.stdout)
+    assert out["first"] == [expected, expected]
+    assert out["pressed"] == [expected == "speed", expected == "hp"]
+    assert out["sw"] is False
+    assert out["after"] == ["hp", "hp"]
+    assert out["stored"] == ["pogo-sort", "hp"]
+
+
+def test_lists_render_fastest_then_most_hp_orders_with_time():
+    rows = [
+        {
+            "speciesId": "tank",
+            "win_rate": 1.0,
+            "mean_turns": 40,
+            "mean_player_hp_fraction_left": 0.9,
+        },
+        {
+            "speciesId": "fast",
+            "win_rate": 1.0,
+            "mean_turns": 20,
+            "mean_player_hp_fraction_left": 0.5,
+        },
+        {"speciesId": "loser", "win_rate": 0.5, "mean_turns": 5, "mean_player_hp_fraction_left": 1},
+    ]
+    body = site.list_body({}, {"40": rows}, "")
+    speed, hp = (
+        re.search(rf'<div data-order="{o}"[^>]*>(.*?)</ol>', body, re.S).group(1)
+        for o in ("speed", "hp")
+    )
+    assert speed.index("Fast") < speed.index("Tank") < speed.index("Loser")
+    assert hp.index("Tank") < hp.index("Fast") < hp.index("Loser")
+    assert '<div data-order="hp" hidden>' in body
+    assert "<span>~10 s</span>" in speed and "<span>~20 s</span>" in speed
+    assert body.count('class="sortsw"') == 1 and "Most HP left" in body
+    tile = site.tile("Cliff", "list/cliff.html", {}, {"40": rows}, "")
+    first = [
+        re.search(r"<li>.*?<span>(\w+)", b, re.S).group(1)
+        for b in re.findall(r'<div data-order="[^"]+"[^>]*>(.*?)</div>', tile, re.S)
+    ]
+    assert first == ["Fast", "Tank"]

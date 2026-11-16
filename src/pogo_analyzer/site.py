@@ -260,6 +260,10 @@ grid-template-columns:16px 36px minmax(0,1fr) 58px} .row .spr{width:36px; height
 .row .nm{font-size:.9rem} .row .score b{font-size:1.1rem} .row .mv{font-size:.75rem}
 .set{font-size:.75rem; margin-bottom:4px} .tough{font-size:.7rem} }
 .cc .timing-all{padding:8px 12px 0; margin:0}
+.sortsw{font-size:.8rem; color:var(--muted); margin:2px 0 6px; display:flex; gap:2px;
+align-items:center; flex-wrap:wrap} .sortsw button{font:700 .8rem var(--body); border:0;
+background:transparent; color:var(--muted); padding:2px 6px; border-radius:6px; cursor:pointer}
+.sortsw button[aria-pressed=true]{color:var(--ink); background:var(--bg)}
 .lede{font-size:1.12rem; line-height:1.45; margin:0}
 .steps{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0;
 padding:0; list-style:none} .step{background:var(--bg); border:1px solid var(--line);
@@ -303,11 +307,31 @@ s.querySelector('[data-filter-label]').textContent=t?': '+n.charAt(0).toUpperCas
 s.querySelectorAll('[data-types]').forEach(r=>{
 r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t);
 });
-const rows=[...s.querySelectorAll('[data-types]')].filter(r=>!r.hidden);
+s.querySelectorAll('ol.rows').forEach(ol=>{
+[...ol.querySelectorAll('[data-types]')].filter(r=>!r.hidden)
+.forEach((r,i)=>r.querySelector('[data-rank]').textContent=i+1);
+});
+const rows=[...s.querySelectorAll('[data-order="speed"] [data-types]')].filter(r=>!r.hidden);
 const warning=s.querySelector('[data-best-warning]');
 warning.hidden=rows.length===0||Number(rows[0].dataset.win)>=0.5;
-rows.forEach((r,i)=>r.querySelector('[data-rank]').textContent=i+1);
 });"""
+# Owner ruling: "Fastest" by default, "Most HP left" on request, remembered per browser.
+ORDER_JS = """
+(function(){
+const buttons=[...document.querySelectorAll('[data-sort-choice]')];
+function show(order){
+document.querySelectorAll('[data-order]').forEach(b=>b.hidden=b.dataset.order!==order);
+buttons.forEach(b=>b.setAttribute('aria-pressed',b.dataset.sortChoice===order));
+}
+buttons.forEach(b=>b.onclick=()=>{
+show(b.dataset.sortChoice);
+try{localStorage.setItem('pogo-sort',b.dataset.sortChoice)}catch(e){}
+});
+let saved=null;
+try{saved=localStorage.getItem('pogo-sort')}catch(e){}
+show(saved==='hp'?'hp':'speed');
+document.querySelectorAll('.sortsw').forEach(s=>s.hidden=false);
+})();"""
 LEVEL_JS = """
 document.querySelectorAll('[data-levels]').forEach(card=>{
 const buttons=[...card.querySelectorAll('[data-show-level]')];
@@ -496,7 +520,8 @@ def page_legends():
     return (
         '<p class="legend">Elite TM: the move can\'t be taught by a normal TM and '
         "needs an Elite TM, or was only available at a Community Day or event. PvPoke's elite "
-        "and legacy moves are both included. Ranked by win rate, HP left, then turns. "
+        "and legacy moves are both included. Ranked by win rate, then the fastest win, then "
+        "HP left; the Most HP left switch ranks HP left before speed. "
         "Type filters show counters of the selected attacker type. "
         "Expand a counter for its details.</p>"
     )
@@ -614,7 +639,8 @@ def document(title, data, body, nav=None, *, script=False, prefix="", assets=fro
         f'<a href="{e(prefix)}how.html">How these numbers work</a>{when}</div>\n'
         f"<main>{body}</main>\n"
         + (f"<script>{FILTER_JS}</script>\n" if script else "")
-        + f"<script>{LEVEL_JS}</script>\n<script>{THEME_JS}</script>\n"
+        + f"<script>{LEVEL_JS}</script>\n<script>{ORDER_JS}</script>\n"
+        + f"<script>{THEME_JS}</script>\n"
         + "</body>\n</html>\n"
     )
 
@@ -763,14 +789,41 @@ def unavailable(reason):
     return notice(reason if reason.startswith("not calculated") else "not calculated · " + reason)
 
 
-def ordered(rows):
-    return sorted(
-        rows,
-        key=lambda r: (
-            -r["win_rate"],
-            -r.get("mean_player_hp_fraction_left", 0),
-            r.get("mean_turns", 0),
-        ),
+# Owner ruling: fastest KO first by default; "Most HP left" is the alternative order.
+ORDERS = (("speed", "Fastest"), ("hp", "Most HP left"))
+
+
+def ordered(rows, order="speed"):
+    def key(r):
+        hp, turns = -r.get("mean_player_hp_fraction_left", 0), r.get("mean_turns", 0)
+        return (-r["win_rate"], turns, hp) if order == "speed" else (-r["win_rate"], hp, turns)
+
+    return sorted(rows, key=key)
+
+
+def seconds(turns):
+    """Simulator turns are 0.5 s each; shown as an approximate battle length."""
+    return f"~{turns / 2:.0f} s"
+
+
+def order_buttons():
+    """Low-key switch; hidden until JS runs, so no-JS pages show the default order only."""
+    return (
+        '<div class="sortsw" role="group" aria-label="Order" hidden>Order: '
+        + "".join(
+            f'<button type="button" data-sort-choice="{key}" '
+            f'aria-pressed="{"true" if i == 0 else "false"}">{e(label)}</button>'
+            for i, (key, label) in enumerate(ORDERS)
+        )
+        + "</div>"
+    )
+
+
+def order_blocks(render):
+    """One block per order; the alternative is hidden until the switch picks it."""
+    return "".join(
+        f'<div data-order="{key}"{" hidden" if i else ""}>{render(key)}</div>'
+        for i, (key, _) in enumerate(ORDERS)
     )
 
 
@@ -842,10 +895,13 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
             )
         hp = row.get("mean_player_hp_fraction_left")
         kos = row.get("mean_rocket_knocked_out")
+        turns = row.get("mean_turns")
+        time_text = seconds(turns) if turns is not None else "time not recorded"
         hp_text = f"{hp * 100:.0f}% HP left" if hp is not None else "HP not recorded"
         ko_text = f"{kos:.1f} KOs" if kos is not None else "KOs not recorded"
         body += (
-            f'</div><div class="sec"><span>{e(hp_text)}</span><span>{e(ko_text)}</span></div>'
+            f'</div><div class="sec"><span>{e(time_text)}</span><span>{e(hp_text)}</span>'
+            f"<span>{e(ko_text)}</span></div>"
             f'<div class="score"><b>{e(percentage(row["win_rate"]))}</b><span>win</span></div></li>'
         )
     return body + "</ol>"
@@ -882,14 +938,17 @@ def list_body(
     body = (
         extra + '<section class="card" data-levels><div class="bar">'
         f"<h2>{e(title)}</h2>{level_buttons(level_keys)}</div>"
-        f'<p class="hint pct">{e(PERCENT_LINE)}</p>'
+        f'<p class="hint pct">{e(PERCENT_LINE)}</p>' + order_buttons()
     )
     if reason:
         body += unavailable(reason)
     for level in level_keys:
-        rows = ordered(results.get(level, []))
-        if limit:
-            rows = rows[:limit]
+        level_rows = results.get(level, [])
+
+        def by(order, level_rows=level_rows):
+            return ordered(level_rows, order)[:limit] if limit else ordered(level_rows, order)
+
+        rows = by("speed")
         body += (
             f'<section id="level-{e(level)}" data-level="{e(level)}">'
             f'<h3 class="level-title">Level {e(level)}</h3>{settings(data, level)}'
@@ -917,7 +976,11 @@ def list_body(
                 '</div></details><noscript><p class="moves">Without JavaScript all types are shown.'
                 "</p></noscript>"
             )
-        body += counter_rows(rows, sprites, icons=icons, prefix=prefix, toughest=not overall)
+        body += order_blocks(
+            lambda order, by=by: counter_rows(
+                by(order), sprites, icons=icons, prefix=prefix, toughest=not overall
+            )
+        )
         body += (
             f'<p class="notice" data-best-warning'
             f"{' hidden' if rows[0]['win_rate'] >= 0.5 else ''}>"
@@ -1107,21 +1170,26 @@ def tile(
         f'<h3>{e(title)}</h3><span class="lead">{lead_sprites}</span></a>'
     )
     if rows:
-        every = all_timing_sensitive(rows[:3])
-        body += (
-            (timing_line() if every else "")
-            + '<ol class="top3">'
-            + "".join(
-                "<li>"
-                + sprites.render(r.get("speciesId", "not recorded"), size=32)
-                + f"<span>{e(heading(r.get('speciesId', 'not recorded')))}"
-                + content_tags(r, timing=not every)
-                + "</span>"
-                + f"<b>{e(percentage(r['win_rate']))}</b></li>"
-                for r in rows[:3]
+
+        def top3(order):
+            top = ordered(rows, order)[:3]
+            every = all_timing_sensitive(top)
+            return (
+                (timing_line() if every else "")
+                + '<ol class="top3">'
+                + "".join(
+                    "<li>"
+                    + sprites.render(r.get("speciesId", "not recorded"), size=32)
+                    + f"<span>{e(heading(r.get('speciesId', 'not recorded')))}"
+                    + content_tags(r, timing=not every)
+                    + "</span>"
+                    + f"<b>{e(percentage(r['win_rate']))}</b></li>"
+                    for r in top
+                )
+                + "</ol>"
             )
-            + "</ol>"
-        )
+
+        body += order_blocks(top3)
     else:
         body += unavailable(reason or f"no full results at level {level}")
     return body + "</article>"
@@ -1153,8 +1221,8 @@ FAQ = (
     (
         "Why do so many counters show 100%?",
         "Most grunts are weak, so many Pokémon win every simulated battle. Rows at the same % "
-        "are ordered by HP left, then by how fast they win, so the top of the list is still "
-        "the cleanest win.",
+        "are ordered by how fast they win, so the top of the list is the quickest clear. "
+        "Rather keep your Pokémon healthy between battles? Pick Most HP left above any list.",
     ),
     (
         "What does Timing-sensitive mean for me?",
@@ -1230,7 +1298,7 @@ def how_steps(data, featured, sprites):
         ),
         (
             "Win %",
-            "The share of those battles your one Pokémon wins. " + story,
+            "The share of those battles your one Pokémon wins; ties go to the faster win. " + story,
         ),
     )
     body = '<ol class="steps">'
@@ -1273,10 +1341,10 @@ def how_badges(icons):
         ),
         (
             "",
-            '<span class="pill">HP left</span><span class="pill">KOs</span>',
-            "HP left · KOs",
-            "On wider screens: the HP your counter usually has at the end, and how many Rocket "
-            "Pokémon it beats on average.",
+            '<span class="pill">~16 s</span><span class="pill">HP left</span>',
+            "Time · HP left · KOs",
+            "On wider screens: about how long the battle takes, the HP your counter usually has "
+            "at the end, and how many Rocket Pokémon it beats on average.",
         ),
     )
     body = '<div class="badges">'
