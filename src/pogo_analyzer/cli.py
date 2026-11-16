@@ -27,7 +27,7 @@ from pogo_analyzer.rocket_counters import parse_rocket_response, rank
 from pogo_analyzer.sim_cli import add_parser as add_sim_parser
 from pogo_analyzer.sim_cli import main_sim
 from pogo_analyzer.site import add_parser as add_site_parser
-from pogo_analyzer.site import main_site
+from pogo_analyzer.site import main_site, main_site_sprites
 from pogo_analyzer.topn_cli import add_parser as add_topn_parser
 from pogo_analyzer.topn_cli import main_topn
 
@@ -138,7 +138,7 @@ def stopped(exc, requests):
 def main(argv=None):
     arg_parser = parser()
     args = arg_parser.parse_args(argv)
-    if args.command in ("calc", "sim", "topn", "precompute", "site"):
+    if args.command in ("calc", "sim", "topn", "precompute", "site", "site-sprites"):
         try:
             return {
                 "calc": main_calc,
@@ -146,6 +146,7 @@ def main(argv=None):
                 "topn": main_topn,
                 "precompute": main_precompute,
                 "site": main_site,
+                "site-sprites": main_site_sprites,
             }[args.command](args, arg_parser)
         except STOP_ERRORS as exc:
             return stopped(exc, 0)

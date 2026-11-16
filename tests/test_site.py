@@ -1297,3 +1297,111 @@ def test_estimate_idea_appears_once_per_page_in_the_bar(reports, tmp_path):
         assert "how.html" in html, name
         found = ESTIMATE_WORDS.findall(" ".join(parsed.text))
         assert not found, (name, found)
+
+
+def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
+    import hashlib
+
+    species = {
+        "palkia": 484,
+        "palkia_origin": 484,
+        "raichu": 26,
+        "raichu_alolan": 26,
+        "articuno": 144,
+        "articuno_galarian": 144,
+        "growlithe": 58,
+        "growlithe_hisuian": 58,
+        "wooper": 194,
+        "wooper_paldean": 194,
+        "plain": 1,
+        "normal": 2,
+        "forms": 3,
+        "missing": 4,
+        "bad\nbase": 5,
+    }
+    cache = tmp_path / "sprite-cache" / "sources"
+    cache.mkdir(parents=True)
+    url = site.PVPOKE_GM_URL
+    entry = {
+        "url": url,
+        "status": 200,
+        "body": json.dumps(
+            {"pokemon": [{"speciesId": name, "dex": dex} for name, dex in species.items()]}
+        ),
+    }
+    (cache / (hashlib.sha256(url.encode()).hexdigest() + ".json")).write_text(json.dumps(entry))
+    names = [
+        "pm484.fORIGIN.icon.png",
+        "pm26.fALOLA.icon.png",
+        "pm144.fGALARIAN.icon.png",
+        "pm58.fHISUIAN.icon.png",
+        "pm194.fPALDEA.icon.png",
+        "pm1.icon.png",
+        "pm2.fNORMAL.icon.png",
+        "pm3.fZ.icon.png",
+        "pm3.fA.icon.png",
+        "pm4.s.icon.png",
+        "pm4.c1.icon.png",
+        "pm5.icon.png\nmalicious",
+    ]
+    tree = tmp_path / "tree.json"
+    tree.write_text(json.dumps({"tree": [{"path": name} for name in names]}))
+    bases = set(species) - {"palkia", "raichu", "articuno", "growlithe", "wooper"}
+    bases.add("unknown")
+    monkeypatch.setattr(site, "render_site", lambda *args: ({}, bases))
+    assert (
+        cli.main(
+            [
+                "site-sprites",
+                "--data",
+                str(reports),
+                "--cache-dir",
+                str(cache.parent),
+                "--tree",
+                str(tree),
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr()
+    assert out.out.splitlines() == [
+        "articuno_galarian pm144.fGALARIAN.icon.png",
+        "forms pm3.fA.icon.png",
+        "growlithe_hisuian pm58.fHISUIAN.icon.png",
+        "normal pm2.fNORMAL.icon.png",
+        "palkia_origin pm484.fORIGIN.icon.png",
+        "plain pm1.icon.png",
+        "raichu_alolan pm26.fALOLA.icon.png",
+        "wooper_paldean pm194.fPALDEA.icon.png",
+    ]
+    assert "missing" in out.err and "unknown" in out.err and "bad\\nbase" in out.err
+    (cache / (hashlib.sha256(url.encode()).hexdigest() + ".json")).unlink()
+    with pytest.raises(SystemExit):
+        cli.main(
+            [
+                "site-sprites",
+                "--data",
+                str(reports),
+                "--cache-dir",
+                str(cache.parent),
+                "--tree",
+                str(tree),
+            ]
+        )
+    out = capsys.readouterr()
+    assert out.out == "" and "gamemaster cache" in out.err
+
+
+def test_sprite_requests_match_build(reports, tmp_path, monkeypatch):
+    requested = set()
+    original = site.Sprites.render
+
+    def record(self, species, **kwargs):
+        requested.add(str(species).removesuffix("_shadow"))
+        return original(self, species, **kwargs)
+
+    monkeypatch.setattr(site.Sprites, "render", record)
+    site.build_site(reports, tmp_path / "site")
+    _, bases = site.render_site(reports)
+    assert bases == requested
+    assert bases

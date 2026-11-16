@@ -386,6 +386,10 @@ python -m http.server 8000 --directory public
 
 Use `--type-icons DIR` to add local type PNGs; icons are not shipped in the repo and are not fetched by the tool.
 Use `--sprites DIR` for local `<speciesId without _shadow>.png` sprites; sprites are not shipped or fetched by the tool.
+For deployment, `pogo-analyzer site-sprites --data reports --cache-dir CACHE --tree TREE.json`
+prints sorted `base filename` pairs for the sprites used by the site, using the cached PvPoke
+gamemaster and a local GitHub tree response. The deployment script can download those files
+from PokeMiners into `DIR/<base>.png`; unavailable species are reported on stderr.
 Use `--brand-assets DIR` for `rocket-r.png` and OFL Lato fonts `lato-{400,700,900}.woff2`;
 these assets are not shipped or fetched by the tool. Missing assets use a letter R and system fonts.
 

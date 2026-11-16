@@ -1,10 +1,12 @@
 """Offline, escaped static HTML views over manifest-listed precompute reports."""
 
+import hashlib
 import json
 import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
@@ -13,6 +15,7 @@ from html import escape
 from math import floor
 from pathlib import Path
 
+from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -593,9 +596,11 @@ class Sprites:
         self.directory = directory
         self.assets = {}
         self.checked = set()
+        self.requested = set()
 
     def render(self, species, *, prefix="", size=44, cls="spr"):
         base = str(species).removesuffix("_shadow")
+        self.requested.add(base)
         if re.fullmatch(r"[a-z0-9_]+", base) and base not in self.checked:
             self.checked.add(base)
             self.assets.update(
@@ -1221,11 +1226,8 @@ def load_brand_assets(directory):
     )
 
 
-def build_site(data_dir, out, type_icons=None, brand_assets=None, sprites=None):
-    if Path(out).is_symlink():
-        raise ValueError("output symlink points outside --out")
-    root, destination = Path(data_dir).resolve(), Path(out).resolve()
-    check_destination(destination)
+def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
+    root = Path(data_dir).resolve()
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     check_dates(manifest)
     slugs = {"all", "grunts", "leaders"}
@@ -1400,8 +1402,65 @@ def build_site(data_dir, out, type_icons=None, brand_assets=None, sprites=None):
         assets=brand_data,
     )
     pages.update(sprite_store.assets)
+    return pages, sprite_store.requested
+
+
+def build_site(data_dir, out, type_icons=None, brand_assets=None, sprites=None):
+    if Path(out).is_symlink():
+        raise ValueError("output symlink points outside --out")
+    destination = Path(out).resolve()
+    check_destination(destination)
+    pages, _ = render_site(data_dir, type_icons, brand_assets, sprites)
     publish_pages(destination, pages)
     return sum(name.endswith(".html") for name in pages)
+
+
+def sprite_files(data_dir, cache_dir, tree_path):
+    """Resolve the bases requested by the renderer against cached source and tree data."""
+    manifest = json.loads((Path(data_dir) / "manifest.json").read_text())
+    if not any(s.get("url") == PVPOKE_GM_URL for s in manifest["sources"]):
+        raise ValueError("gamemaster URL missing from report sources")
+    digest = hashlib.sha256(PVPOKE_GM_URL.encode()).hexdigest()
+    try:
+        entry = json.loads((Path(cache_dir) / "sources" / f"{digest}.json").read_text())
+        if entry["url"] != PVPOKE_GM_URL or entry["status"] != 200:
+            raise ValueError("wrong URL or status")
+        body = entry["body"]
+        if isinstance(body, str):
+            body = json.loads(body)
+        pokemon = body["pokemon"]
+        if not isinstance(pokemon, list) or not pokemon:
+            raise ValueError("pokemon must be a nonempty list")
+        dex = {p["speciesId"]: p["dex"] for p in pokemon}
+        if any(not isinstance(k, str) or type(v) is not int or v < 1 for k, v in dex.items()):
+            raise ValueError("invalid species or dex number")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"missing or invalid gamemaster cache entry: {exc}") from exc
+    tree = json.loads(Path(tree_path).read_text())
+    names = {item["path"] for item in tree["tree"] if isinstance(item.get("path"), str)}
+    names = {name for name in names if re.fullmatch(r"pm[0-9]+(?:\.f[A-Z0-9_]+)?\.icon\.png", name)}
+    _, bases = render_site(data_dir)
+    result, skipped = {}, []
+    aliases = {"alolan": "ALOLA", "galarian": "GALARIAN", "hisuian": "HISUIAN", "paldean": "PALDEA"}
+    for base in sorted(bases):
+        if not re.fullmatch(r"[a-z0-9_]+", base) or base not in dex:
+            skipped.append(base)
+            continue
+        number = dex[base]
+        parents = [s for s, n in dex.items() if n == number and base.startswith(s + "_")]
+        suffix = base[len(min(parents, key=len)) + 1 :] if parents else ""
+        prefix = f"pm{number}"
+        candidates = []
+        if suffix:
+            candidates.append(f"{prefix}.f{aliases.get(suffix, suffix.upper())}.icon.png")
+        candidates.extend((f"{prefix}.icon.png", f"{prefix}.fNORMAL.icon.png"))
+        candidates.extend(sorted(name for name in names if name.startswith(prefix + ".f")))
+        choice = next((name for name in candidates if name in names), None)
+        if choice:
+            result[base] = choice
+        else:
+            skipped.append(base)
+    return result, skipped
 
 
 def add_parser(commands):
@@ -1411,6 +1470,10 @@ def add_parser(commands):
     sub.add_argument("--type-icons", type=Path)
     sub.add_argument("--brand-assets", type=Path)
     sub.add_argument("--sprites", type=Path)
+    sub = commands.add_parser("site-sprites", help="List sprite filenames for site species")
+    sub.add_argument("--data", type=Path, required=True)
+    sub.add_argument("--cache-dir", type=Path, required=True)
+    sub.add_argument("--tree", type=Path, required=True)
 
 
 def main_site(args, arg_parser):
@@ -1418,4 +1481,16 @@ def main_site(args, arg_parser):
         build_site(args.data, args.out, args.type_icons, args.brand_assets, args.sprites)
     except (ValueError, OSError, KeyError, TypeError) as exc:
         arg_parser.error(str(exc))
+    return 0
+
+
+def main_site_sprites(args, arg_parser):
+    try:
+        files, skipped = sprite_files(args.data, args.cache_dir, args.tree)
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        arg_parser.error(str(exc))
+    if skipped:
+        print("skipped sprite bases: " + ", ".join(repr(s) for s in skipped), file=sys.stderr)
+    for base, filename in files.items():
+        print(base, filename)
     return 0
