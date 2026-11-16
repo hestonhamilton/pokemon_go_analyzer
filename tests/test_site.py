@@ -815,7 +815,8 @@ def test_detail_numbers_preserved_without_estimate_marks(reports, tmp_path):
         html = pages[f"counters/{entry['slug']}.html"]
         expected_summary_rows = 0
         for rows in data["character"]["finalists"].values():
-            for row in rows:
+            # Lists show each species once per order: its best moveset in that order.
+            for row in site.shown(rows):
                 for key, percent in numeric:
                     assert site.estimate(row[key], percent=percent) in html
                 for rate in row["screen"]["slot_win_rates"]:
@@ -1792,7 +1793,7 @@ def test_how_is_an_explainer_with_faq_then_one_collapsed_tech_section(reports, t
     plain = how[:tech_at]
     assert site.PERCENT_LINE.replace("%", "") in plain
     assert plain.count('class="step"') == 3
-    for title in ("Quick 1-on-1 check", "Full battles", "Win %"):
+    for title in ("Quick check", "Full battles", "Win %"):
         assert title in plain, title
     for anchor in ("pause", "elite-tm", "shadow"):
         assert f'id="{anchor}"' in plain
@@ -1988,3 +1989,50 @@ def test_lists_render_fastest_then_most_hp_orders_with_time():
         for b in re.findall(r'<div data-order="[^"]+"[^>]*>(.*?)</div>', tile, re.S)
     ]
     assert first == ["Fast", "Tank"]
+
+
+def test_lists_show_each_species_once_per_order():
+    rows = [
+        {
+            "speciesId": sp,
+            "id": name,
+            "win_rate": w,
+            "mean_player_hp_fraction_left": h,
+            "mean_turns": t,
+        }
+        for sp, name, w, h, t in (
+            ("goodra", "fast", 1.0, 0.5, 20),
+            ("goodra", "bulky", 1.0, 0.8, 30),
+            ("goodra", "neither", 1.0, 0.4, 40),
+            ("palkia", "palkia", 0.982, 0.6, 48),
+            ("palkia_shadow", "shadow", 0.981, 0.5, 42),
+        )
+    ]
+    assert [r["id"] for r in site.ordered(rows)] == ["fast", "shadow", "palkia"]
+    assert [r["id"] for r in site.ordered(rows, "hp")] == ["bulky", "palkia", "shadow"]
+    # Battle details: every row either order shows, in the default order.
+    assert [r["id"] for r in site.shown(rows)] == ["fast", "bulky", "shadow", "palkia"]
+
+
+def test_character_card_top3_picks_each_orders_best_moveset():
+    """Reviewer repro: HP order must see goodra's bulky moveset, not the speed-cut list."""
+    rows = [
+        {
+            "speciesId": sp,
+            "win_rate": w,
+            "mean_player_hp_fraction_left": h,
+            "mean_turns": t,
+            "fast_move": move,
+        }
+        for sp, move, w, h, t in (
+            ("goodra", "FAST", 1.0, 0.5, 20),
+            ("goodra", "BULKY", 1.0, 0.95, 30),
+            ("palkia", "P", 1.0, 0.9, 25),
+        )
+    ]
+    html = site.tile("Ghost", "list/ghost.html", {}, {"50": rows}, "")
+    hp_block = html.split('data-order="hp"')[1]
+    speed_block = html.split('data-order="speed"')[1].split('data-order="hp"')[0]
+    # Speed: goodra (fast) then palkia. HP: goodra (bulky, 95%) still first, then palkia.
+    assert speed_block.index("Goodra") < speed_block.index("Palkia")
+    assert hp_block.index("Goodra") < hp_block.index("Palkia")

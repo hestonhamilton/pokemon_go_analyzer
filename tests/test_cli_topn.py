@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import date
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from pogo_analyzer import calc_cli, cli, sim_cli, topn, topn_cli
 from pogo_analyzer.lineups import EVENT_INFO_URL, PVPOKE_GM_URL
 from pogo_analyzer.pokebattler import PoliteClient
 from pogo_analyzer.sim import solo, winrate
+from pogo_analyzer.sim.rocket import simulate_rocket
 
 FIXTURES = Path(__file__).parent / "fixtures" / "calc"
 
@@ -200,7 +202,8 @@ def test_pause_band_threshold_era_value_and_mapper(
         [*(["era"] if reuse_era else []), *[f"override-{t}" for t in overrides], "unverified"]
     )
     assert calls == [None, *overrides]
-    assert mapped == [1] * (1 + len(calls))  # Screen and every full pass use the same mapper.
+    # The sampled screen, the finalists' 1-on-1 table and every full pass share the mapper.
+    assert mapped == [1] * (2 + len(calls))
 
 
 @pytest.mark.parametrize("value", ["", "0", "21", "6.0", "6,", "none,8", "six"])
@@ -253,6 +256,9 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
         kwargs.pop("execution")
         return winrate.trials(team, pools, **kwargs)
 
+    def sampler(candidate, pools, **kwargs):
+        return {"score": scores[candidate.species_id], "hp_left": 0.5, "turns": 10}
+
     parsed = cli.parser().parse_args(args(cache))
     chars, species, moves, _ = calc_cli.load_sources(cache)
     pools, _, _ = sim_cli._pools(chars[0], species, moves, parsed)
@@ -263,12 +269,17 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
         rank="grunt",
         battle_date=parsed.battle_date,
         grid=grid,
+        sampler=sampler,
         trial_runner=trial_runner,
     )
     # kirlia and snubbull tie exactly at the K=2 cut, so both are kept (no alphabetical cut).
-    assert len(calls) == 6
+    # Metagross's four movesets tie on the screen; its first two by key go forward.
+    assert len(calls) == 8
     assert {key[0] for key in calls} == {"metagross", "kirlia", "snubbull"}
-    assert all(key[2:] == ("BULLET_PUNCH", "EARTHQUAKE") for key in calls if key[0] == "metagross")
+    assert {key[2:] for key in calls if key[0] == "metagross"} == {
+        ("BULLET_PUNCH", "EARTHQUAKE"),
+        ("BULLET_PUNCH", "METEOR_MASH"),
+    }
     assert set(ranked) == {40, 50}
     for rows in ranked.values():
         for row in rows:
@@ -328,8 +339,8 @@ def test_screen_preserves_slot_grades_and_has_independent_headline(
     def grid(team, pools, **kwargs):
         return [], copy.deepcopy(groups)
 
-    ((build, screen),) = topn.screen_candidates(
-        [candidate],
+    screen = topn.screen_candidate(
+        candidate,
         [],
         rank="grunt",
         battle_date="2026-11-14",
@@ -337,7 +348,6 @@ def test_screen_preserves_slot_grades_and_has_independent_headline(
         stats_grade=lambda c: "cp-only" if c is candidate else pytest.fail("unexpected build"),
         pool_complete=not incomplete,
     )
-    assert build is candidate
     assert screen["slot_aggregates"] == groups
     assert screen["score"] == 0.5
     assert screen["slot_win_rates"] == [0.25, 0.5, 0.75]
@@ -384,9 +394,11 @@ def test_json_provenance_grades_and_calc_cells_match_sim(cache, capsys):
     assert data["rcpm_note"] == calc_cli.CP_ONLY
     assert all(s["fetched_at"] and s["license"] == "MIT" for s in data["sources"])
     assert {s["url"] for s in data["sources"]} == {EVENT_INFO_URL, PVPOKE_GM_URL}
-    assert "not lineup win rates" in data["screen_note"]
+    assert "not a lineup win rate" in data["screen_note"]
     assert "no encounter-rate source" in data["weighting_note"]
-    (row,) = finalists(data)
+    rows = finalists(data)
+    assert len(rows) == 2  # the top 2 movesets of the one species go to full battles
+    row = rows[0]
     assert row["grade"] == "estimate; unverified (l); extrapolated forward; stats parity-only"
     screen = row["screen"]
     assert screen["grade"] == row["grade"]
@@ -458,7 +470,7 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
     event["17"]["type"] = "Empty"
     event["17"]["encounters"]["third"] = []
     write_source(cache, EVENT_INFO_URL, event)
-    original = topn.screen_candidate
+    original = topn.sample_screen
 
     def different_favorites(candidate, pools, *, rank, **kwargs):
         row = original(candidate, pools, rank=rank, **kwargs)
@@ -466,7 +478,7 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
         row["score"] = int(candidate.species_id == favorite)
         return row
 
-    monkeypatch.setattr(topn, "screen_candidate", different_favorites)
+    monkeypatch.setattr(topn, "sample_screen", different_favorites)
     calls = []
     original_trials = solo.aggregate
 
@@ -476,7 +488,9 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
 
     monkeypatch.setattr(solo, "aggregate", counted)
     data = output(cache, capsys, ["--k", "1", "--level", "40"], all_characters=True)
-    assert len(calls) == 12  # 3 finalists x 3 passes + 3 overall-only results with no band.
+    # 4 finalist builds (2 metagross movesets, kirlia twice) x 3 passes, plus 5 overall-only
+    # results with no band (kirlia for the grunt, 2 metagross for each leader).
+    assert len(calls) == 17
     coverage = data["overall"]["coverage"]
     assert coverage["characters_with_result"] == 3 and coverage["total"] == 4
     assert coverage["missing"] == [
@@ -555,7 +569,7 @@ def test_candidates_shadow_mega_unreleased_and_rejections(cache, capsys):
     assert "invalid fast move" in skipped["rejected"]
     assert data["params"]["candidate_count"] == 4
     shadow = [r for r in finalists(data) if r["speciesId"] == "metagross_shadow"]
-    assert len(shadow) == 2
+    assert len(shadow) == 4  # top 2 movesets at each of two levels
     assert all(r["species"] == "metagross" and r["form"] == "shadow" for r in shadow)
     assert all(r["team"][0]["shadow"] for r in shadow)
     assert all(m["form"]["value"] == "shadow" for r in shadow for m in r["calc_rows"])
@@ -624,8 +638,8 @@ def test_planned_totals_are_printed_before_ranking(cache, capsys, monkeypatch):
     def ranked(builds, pools, **kwargs):
         if not calls:
             assert capsys.readouterr().err == (
-                "estimate: planned stage-1 1v1 battles: 56; "
-                "maximum stage-2 lineup battles: 12. --all adds union completion battles.\n"
+                "estimate: planned stage-1 sample lineup battles: 512; "
+                "maximum stage-2 lineup battles: 96. --all adds union completion battles.\n"
             )
         calls.append(kwargs["rank"])
         return {}
@@ -851,6 +865,16 @@ def test_invalid_pause_threshold_rejected_before_sources(cache, monkeypatch, val
     assert exc.value.code == 2
 
 
+def margin_sampler(margins):
+    """A 1.0 screen score for every build; margins maps species id to (hp left, turns)."""
+
+    def sampler(candidate, pools, **kwargs):
+        hp, turns = margins[candidate.species_id]
+        return {"score": 1.0, "hp_left": hp, "turns": turns, "samples": 32}
+
+    return sampler
+
+
 def margin_grid(margins):
     """Every slot at a 1.0 win rate; margins maps species id to (hp left, turns)."""
 
@@ -878,9 +902,11 @@ def test_screen_breaks_saturated_ties_by_turns_then_hp_left(cache):
         topn.Candidate(name, c.attacker, c.move_flags)
         for name, c in zip(("aa", "bb", "cc", "dd"), candidates(cache)[:4], strict=True)
     ]
-    grid = margin_grid({"aa": (0.2, 10), "bb": (0.9, 30), "cc": (0.9, 12), "dd": (0.5, 5)})
-    grid.builds = builds
-    screened = topn.screen_candidates(builds, [], rank="grunt", battle_date="2026-11-14", grid=grid)
+    sampler = margin_sampler({"aa": (0.2, 10), "bb": (0.9, 30), "cc": (0.9, 12), "dd": (0.5, 5)})
+    screened = topn.screen_candidates(
+        builds, [], rank="grunt", battle_date="2026-11-14", sampler=sampler
+    )
+    screened.sort(key=lambda item: topn.screen_margin(item[1]))
     assert [c.species_id for c, _ in screened] == ["dd", "aa", "cc", "bb"]
     by_hp = sorted(screened, key=lambda item: topn.screen_margin(item[1], "hp"))
     assert [c.species_id for c, _ in by_hp] == ["cc", "bb", "dd", "aa"]
@@ -894,8 +920,7 @@ def test_k_cut_keeps_exact_margin_ties_only(cache, monkeypatch):
         topn.Candidate(name, c.attacker, c.move_flags)
         for name, c in zip(("aa", "bb", "cc", "dd"), candidates(cache)[:4], strict=True)
     ]
-    grid = margin_grid({"aa": (0.2, 10), "bb": (0.9, 12), "cc": (0.9, 12), "dd": (0.5, 5)})
-    grid.builds = builds
+    sampler = margin_sampler({"aa": (0.2, 10), "bb": (0.9, 12), "cc": (0.9, 12), "dd": (0.5, 5)})
     finalists = []
 
     def trial_runner(team, pools, **kwargs):
@@ -910,7 +935,7 @@ def test_k_cut_keeps_exact_margin_ties_only(cache, monkeypatch):
         k=1,
         rank="grunt",
         battle_date="2026-11-14",
-        grid=grid,
+        sampler=sampler,
         trial_runner=trial_runner,
     )
     # K=1: dd is fastest; bb and cc tie exactly on HP left and turns, so both are kept.
@@ -930,11 +955,8 @@ def test_grid_aggregates_report_mean_hp_left_and_turns(cache):
         assert group["mean_turns"] == pytest.approx(sum(r["turns"] for r in mine) / len(mine))
 
 
-def test_top_k_union_covers_both_orders_per_level(cache):
+def test_pick_finalists_covers_both_orders_per_level(cache):
     base = candidates(cache)[:1][0]
-
-    def build(name, level):
-        return topn.Candidate(name, base.attacker, base.move_flags), level
 
     def screen(score, hp, turns):
         return {"score": score, "hp_left": hp, "turns": turns}
@@ -947,18 +969,96 @@ def test_top_k_union_covers_both_orders_per_level(cache):
             ("mid", (1.0, 0.6, 15)),
             ("weak", (0.5, 0.9, 5)),
         ):
-            candidate, _ = build(name, level)
             candidate = topn.Candidate(
                 name,
                 ({**base.attacker[0], "level": level}, *base.attacker[1:]),
                 base.move_flags,
             )
             items.append((candidate, screen(*values)))
-    kept = topn.top_k_union(items, 1)
+    kept = topn.pick_finalists(items, 1)
     assert [(c.species_id, c.key[1]) for c, _ in kept] == [
         ("fast", 40),
-        ("tank", 40),
         ("fast", 50),
+        ("tank", 40),
         ("tank", 50),
     ]
-    assert len(topn.top_k_union(items, 2)) == 6  # fast, mid, tank per level
+    assert len(topn.pick_finalists(items, 2)) == 6  # fast, mid, tank per level
+
+
+def test_pick_finalists_keeps_top_movesets_per_order(cache):
+    """Each order keeps its own top 2 movesets per species, so up to four go forward."""
+    builds = [c for c in candidates(cache) if c.species_id == "metagross"]
+    assert len(builds) == 4
+    # (score, hp left, turns): two fast movesets, two bulky ones.
+    values = [(1.0, 0.2, 5), (1.0, 0.3, 6), (1.0, 0.9, 40), (1.0, 0.8, 30)]
+    items = [
+        (c, {"score": s, "hp_left": h, "turns": t})
+        for c, (s, h, t) in zip(builds, values, strict=True)
+    ]
+    assert len(topn.pick_finalists(items, 1)) == 4
+    assert len(topn.pick_finalists(items, 1, movesets=1)) == 2
+    assert {c.key for c, _ in topn.pick_finalists(items, 1, orders=("speed",))} == {
+        builds[0].key,
+        builds[1].key,
+    }
+
+
+def test_sample_screen_carries_state_and_plays_small_pools_once(cache):
+    builds = candidates(cache)
+    build, other = builds[0], builds[1]
+    pools = [
+        [winrate.Option("a", other.team[0]), winrate.Option("b", build.team[0])],
+        [winrate.Option("c", other.team[0])],
+        [winrate.Option("d", build.team[0]), winrate.Option("e", other.team[0])],
+    ]
+    seen = []
+
+    def battle(team, lineup, **kwargs):
+        seen.append(lineup)
+        return simulate_rocket(team, lineup, **kwargs)
+
+    kwargs = dict(rank="grunt", battle_date="2026-11-14")
+    first = topn.sample_screen(build, pools, battle=battle, **kwargs)
+    assert first == topn.sample_screen(build, pools, **kwargs)
+    # 4 lineups, at most 32: each is played exactly once, as a whole lineup.
+    every = [tuple(o.combatant for o in lineup) for lineup in winrate.lineups(pools)]
+    assert first["samples"] == 4 and seen == every
+    summaries = [
+        winrate.battle_summary(simulate_rocket(build.team, lineup, **kwargs), build.team)
+        for lineup in every
+    ]
+    # HP, energy and shields carry between Rocket Pokémon exactly as in a direct battle.
+    assert first["score"] == sum(s["winner"] == "player" for s in summaries) / 4
+    assert first["turns"] == pytest.approx(sum(s["turns"] for s in summaries) / 4)
+    empty = topn.sample_screen(build, [pools[0], [], pools[2]], **kwargs)
+    assert empty["score"] is None
+    assert topn.screen_candidates([build], [pools[0], [], pools[2]], **kwargs) == []
+
+
+def test_screen_lineups_are_shared_by_every_build_at_a_level(cache):
+    builds = candidates(cache, (40, 50))
+    combatants = [c.team[0] for c in builds if c.key[1] == 40.0]
+    assert len(combatants) >= 4
+    options = [winrate.Option(f"o{i}", c) for i, c in enumerate(combatants[:4])]
+    pools = [options[:4], options[:3], options[1:4]]  # 36 lineups > 32
+    lineups = topn.screen_lineups(pools, 40.0)
+    assert len(lineups) == topn.SAMPLES == len(set(lineups))  # distinct, no repeats
+    assert lineups == topn.screen_lineups(pools, 40.0)
+    assert lineups != topn.screen_lineups(pools, 50.0)  # seeded per level
+    met = {}
+
+    def battle(team, lineup, **kwargs):
+        met.setdefault(team, []).append(lineup)
+        return simulate_rocket(team, lineup, **kwargs)
+
+    level40 = [c for c in builds if c.key[1] == 40.0]
+    topn.screen_candidates(
+        level40,
+        pools,
+        rank="grunt",
+        battle_date="2026-11-14",
+        sampler=partial(topn.sample_screen, battle=battle),
+    )
+    # Common random numbers: every build and moveset meets the same 32 lineups.
+    assert len(met) == len(level40)
+    assert all(seen == list(lineups) for seen in met.values())

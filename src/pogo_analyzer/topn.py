@@ -4,6 +4,8 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import partial
+from math import prod
+from random import Random
 from statistics import mean
 
 from . import calc_cli as calc
@@ -12,13 +14,17 @@ from .sim.grades import weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
 SCREEN_NOTE = (
-    "Stage 1 score is the mean of the three slot 1v1 win rates; draws are not wins. "
-    "The grid ignores carried-over shields and HP between slots. "
-    "Screen numbers are not lineup win rates."
-    " Ties on win rate break by fewer turns, then mean HP left (fastest first); the moveset"
-    " kept per species is the fastest. Finalists are the union of the top K in that order"
-    " and the top K by HP left, then fewer turns; builds level with either K-th are kept."
+    "Stage 1 plays each build against the same 32 real lineups per level (drawn with a fixed"
+    " seed; every lineup once when there are 32 or fewer),"
+    " carrying HP, energy and shields from one opponent to the next; its score is the share"
+    " of those battles won, draws are not wins, and it is not a lineup win rate."
+    " Per species and level the top 2 movesets in each order go forward. Species are ranked"
+    " by their best moveset; finalists are the union of the top K by fewest turns and the"
+    " top K by HP left, and species level with either K-th are kept."
+    " The quick 1-on-1 check on each counter is computed for finalists only."
 )
+SAMPLES = 32
+MOVESETS = 2
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
     "Characters without a full result are excluded, never counted as zero."
@@ -214,56 +220,112 @@ def screen_margin(screen, order="speed"):
     return (-screen["score"], turns, hp) if order == "speed" else (-screen["score"], hp, turns)
 
 
-def top_k_union(screened, k, orders=("speed", "hp")):
-    """Per level, the top K in each order plus exact ties with each K-th, in input order."""
+def screen_lineups(pools, level, samples=SAMPLES):
+    """The lineups every build at one level meets: all of them when there are at most
+    `samples`, otherwise `samples` distinct lineups drawn with a seed from the level and the
+    pools, so every build and moveset faces the same battles (common random numbers)."""
+    sizes = [len(pool) for pool in pools]
+    total = prod(sizes)
+    if total <= samples:
+        indices = range(total)
+    else:
+        seed = repr(
+            (
+                f"{level:g}",
+                [
+                    [
+                        (o.species, o.combatant.fast.id, [m.id for m in o.combatant.charged])
+                        for o in pool
+                    ]
+                    for pool in pools
+                ],
+            )
+        )
+        indices = sorted(Random(seed).sample(range(total), samples))
+    lineups = []
+    for index in indices:
+        picks = []
+        for pool, size in zip(reversed(pools), reversed(sizes), strict=True):
+            index, pick = divmod(index, size)
+            picks.append(pool[pick].combatant)
+        lineups.append(tuple(reversed(picks)))
+    return tuple(lineups)
+
+
+def sample_screen(
+    candidate, pools, *, rank, battle_date, lineups_by_level=None, battle=simulate_rocket
+):
+    """Whole battles against the level's screen lineups: HP, energy and shields carry over."""
+    if not pools or not all(pools):
+        return {"score": None, "hp_left": None, "turns": None, "samples": 0}
+    level = candidate.key[1]
+    lineups = (lineups_by_level or {}).get(level) or screen_lineups(pools, level)
+    team = candidate.team
+    wins = hp = turns = 0
+    for lineup in lineups:
+        summary = winrate.battle_summary(
+            battle(team, lineup, rank=rank, battle_date=battle_date), team
+        )
+        wins += summary["winner"] == "player"
+        hp += summary["hp_fraction"]
+        turns += summary["turns"]
+    n = len(lineups)
+    return {"score": wins / n, "hp_left": hp / n, "turns": turns / n, "samples": n}
+
+
+def screen_candidates(candidates, pools, *, rank, battle_date, sampler=None, mapper=map):
+    """Stage 1 for every build, in input order; builds without a score are dropped."""
+    candidates = list(candidates)
+    shared = (
+        {level: screen_lineups(pools, level) for level in {c.key[1] for c in candidates}}
+        if pools and all(pools)
+        else {}
+    )
+    run = partial(
+        sampler or sample_screen,
+        pools=pools,
+        rank=rank,
+        battle_date=battle_date,
+        lineups_by_level=shared,
+    )
+    return [
+        (candidate, screen)
+        for candidate, screen in zip(candidates, mapper(run, candidates), strict=True)
+        if screen["score"] is not None
+    ]
+
+
+def pick_finalists(screened, k, *, movesets=MOVESETS, orders=("speed", "hp")):
+    """Top movesets per species in each order; then, per level, the top K species in each
+    order (by their best moveset) plus exact ties with each K-th. Returns every kept moveset
+    of every kept species, in screen order."""
+
+    def order_key(index, order):
+        candidate, screen = screened[index]
+        return screen_margin(screen, order), candidate.key
+
+    groups = {}
+    for index, (candidate, _) in enumerate(screened):
+        groups.setdefault((candidate.key[1], candidate.species_id), []).append(index)
+    picks = {}
+    for group, indices in groups.items():
+        chosen = set()
+        for order in orders:
+            chosen.update(sorted(indices, key=lambda i, o=order: order_key(i, o))[:movesets])
+        picks[group] = chosen
     keep = set()
     for order in orders:
+        best = {group: min(order_key(i, order) for i in chosen) for group, chosen in picks.items()}
         counts, cut = {}, {}
-        ranked = sorted(
-            enumerate(screened), key=lambda item: (screen_margin(item[1][1], order), item[0])
-        )
-        for index, (candidate, screen) in ranked:
-            level = candidate.key[1]
-            margin = screen_margin(screen, order)
+        for group in sorted(best, key=best.get):
+            level, margin = group[0], best[group][0]
             if counts.get(level, 0) >= k and margin != cut[level]:
                 continue
             counts[level] = counts.get(level, 0) + 1
             cut[level] = margin
-            keep.add(index)
-    return [item for index, item in enumerate(screened) if index in keep]
-
-
-def screen_candidates(
-    candidates,
-    pools,
-    *,
-    rank,
-    battle_date,
-    grid=winrate.grid,
-    stats_grade=None,
-    pool_complete=True,
-    mapper=map,
-):
-    """Best moveset for each source species and level, with deterministic ties."""
-    candidates = list(candidates)
-    best = {}
-    run = partial(
-        screen_candidate,
-        pools=pools,
-        rank=rank,
-        battle_date=battle_date,
-        grid=grid,
-        stats_grade=stats_grade if stats_grade is not None else "model",
-        pool_complete=pool_complete,
-    )
-    for candidate, screen in zip(candidates, mapper(run, candidates), strict=True):
-        if screen["score"] is None:
-            continue
-        order = (*screen_margin(screen), *candidate.key)
-        key = candidate.species_id, candidate.key[1]
-        if key not in best or order < best[key][0]:
-            best[key] = order, candidate, screen
-    return [(c, s) for _, c, s in sorted(best.values(), key=lambda entry: entry[0])]
+            keep.add(group)
+    kept = [i for group in keep for i in picks[group]]
+    return [screened[i] for i in sorted(kept, key=lambda i: order_key(i, "speed"))]
 
 
 def full_result(
@@ -317,6 +379,7 @@ def rank_character(
     rank,
     battle_date,
     grid=winrate.grid,
+    sampler=None,
     battle=simulate_rocket,
     trial_runner=None,
     stats_grade=None,
@@ -325,23 +388,31 @@ def rank_character(
     pause_band=(),
     pause_threshold=PAUSE_BAND_THRESHOLD,
 ):
-    """Run stage 2 only for the top K species per level, before full-result sorting."""
+    """Stage 2 (full battles) for the top movesets of the top K species per level and order."""
     if k < 1:
         raise ValueError("--k must be positive")
     era, _ = _era(battle_date, rule_data())
     validate_pause_band(pause_band, era)
     screened = screen_candidates(
-        candidates,
-        pools,
-        rank=rank,
-        battle_date=battle_date,
-        grid=grid,
-        stats_grade=stats_grade,
-        pool_complete=pool_complete,
-        mapper=mapper,
+        candidates, pools, rank=rank, battle_date=battle_date, sampler=sampler, mapper=mapper
     )
-    finalists = top_k_union(screened, k)
+    finalists = pick_finalists(screened, k)
     counts = {candidate.key[1]: True for candidate, _ in finalists}
+    # The quick 1-on-1 table on each counter's details: finalists only.
+    grids = list(
+        mapper(
+            partial(
+                screen_candidate,
+                pools=pools,
+                rank=rank,
+                battle_date=battle_date,
+                grid=grid,
+                stats_grade=stats_grade if stats_grade is not None else "model",
+                pool_complete=pool_complete,
+            ),
+            [c for c, _ in finalists],
+        )
+    )
     rows = full_results(
         [c for c, _ in finalists],
         pools,
@@ -352,8 +423,10 @@ def rank_character(
         trial_runner=trial_runner,
     )
     levels = {level: [] for level in counts}
-    for (candidate, screen), row in zip(finalists, rows, strict=True):
-        levels[candidate.key[1]].append({**row, **candidate.output(), "screen": screen})
+    for (candidate, sample), grid_screen, row in zip(finalists, grids, rows, strict=True):
+        levels[candidate.key[1]].append(
+            {**row, **candidate.output(), "screen": grid_screen, "sample_screen": sample}
+        )
     if pause_band and finalists:
         era_turns = era["charged"]
         turns = sorted({era_turns, *pause_band})

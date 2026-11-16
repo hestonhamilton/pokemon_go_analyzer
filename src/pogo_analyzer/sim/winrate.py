@@ -3,6 +3,7 @@
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from itertools import product
+from math import floor
 from statistics import mean
 
 from .battle import Combatant
@@ -10,13 +11,33 @@ from .rocket import DEFAULT_ROCKET_RULES, rules_dict, simulate_rocket
 
 GRID_NOTE = "ignores carried-over shields and HP between slots"
 SORT_NOTE = (
-    "win_rate descending, mean turns ascending (fastest), mean player HP fraction left "
-    "descending; the site can also show HP left before turns"
+    "win_rate in whole-percent bands (rounded to the nearest percent) descending, then mean"
+    " turns ascending (fastest), then mean player HP fraction left descending, then exact"
+    " win_rate; the site can also show HP left before turns. Lists keep each species' best"
+    " moveset in the order shown"
 )
+
+
+def win_band(win_rate):
+    """Owner ruling: win rates within the same whole percent count as tied. Rounds half up
+    (98.5% joins 99%), with a small tolerance for float error."""
+    return floor(win_rate * 100 + 0.5 + 1e-9)
+
+
 # Owner ruling: speed first by default; HP first is the alternative order on the site.
 SORT_KEYS = {
-    "speed": lambda r: (-r["win_rate"], r["mean_turns"], -r["mean_player_hp_fraction_left"]),
-    "hp": lambda r: (-r["win_rate"], -r["mean_player_hp_fraction_left"], r["mean_turns"]),
+    "speed": lambda r: (
+        -win_band(r["win_rate"]),
+        r["mean_turns"],
+        -r["mean_player_hp_fraction_left"],
+        -r["win_rate"],
+    ),
+    "hp": lambda r: (
+        -win_band(r["win_rate"]),
+        -r["mean_player_hp_fraction_left"],
+        r["mean_turns"],
+        -r["win_rate"],
+    ),
 }
 
 

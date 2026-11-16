@@ -18,6 +18,7 @@ from pogo_analyzer.sim.winrate import (
     moveset_ids,
     player_combatant,
     sort_results,
+    win_band,
 )
 
 FAST = Move("F", "normal", 2, 1)
@@ -124,6 +125,35 @@ def test_sort_order():
     # Owner ruling: fewest turns first by default; HP left first is the alternative order.
     assert [r["id"] for r in sort_results(rows)] == ["win", "hurt", "fast", "slow"]
     assert [r["id"] for r in sort_results(rows, "hp")] == ["win", "fast", "slow", "hurt"]
+
+
+def test_sort_bands_win_rate_to_whole_percent():
+    rows = [
+        dict(id=name, speciesId=sp, win_rate=w, mean_player_hp_fraction_left=h, mean_turns=t)
+        for name, sp, w, h, t in (
+            ("palkia", "palkia", 0.982, 0.6, 48),
+            ("shadow", "palkia_shadow", 0.981, 0.5, 42),
+            ("lower", "x", 0.974, 0.9, 10),  # 97%: a band below, however fast
+            ("exact", "y", 0.9815, 0.5, 42),  # same band and margin: exact rate breaks it
+        )
+    ]
+    # Owner ruling: whole-percent bands, then fastest (or most HP left).
+    assert [r["id"] for r in sort_results(rows)] == ["exact", "shadow", "palkia", "lower"]
+    assert [r["id"] for r in sort_results(rows, "hp")] == ["palkia", "exact", "shadow", "lower"]
+
+
+def test_win_band_rounds_half_up():
+    # Owner ruling: nearest whole percent, half up, as the FAQ says.
+    assert [win_band(w) for w in (0.985, 0.995, 0.975, 0.9849, 0.5, 0.005, 1.0)] == [
+        99,
+        100,
+        98,
+        98,
+        50,
+        1,
+        100,
+    ]
+    assert win_band(57 / 100) == 57  # 57.00000000000001 in floats, still 57
 
 
 def test_enumeration_and_filter():

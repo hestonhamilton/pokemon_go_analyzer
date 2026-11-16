@@ -225,8 +225,8 @@ This counts workers within one aggregate; precompute still maps builds across wo
 Offline CI compares battles and full aggregates against the reference.
 On the sources of a measured full run, overall completion for all 26 characters fell
 from about 150 core-hours to about 55 CPU-minutes (14 minutes on 4 workers). All 22,750
-build × character results were identical. Stage 1, the 1v1 screen, is unchanged and is
-now most of a per-character run.
+build × character results were identical. Stage 1 was then the larger part of a
+per-character run; it is now the sampled lineup screen described below.
 
 ## Top-N counters (estimate)
 
@@ -239,12 +239,21 @@ uv run pogo-analyzer topn --all --battle-date 2026-11-14 --level 40 --level 50 \
   --candidates metagross,metagross_shadow --exclude-elite-legacy --format json
 ```
 
-Stage 1 screens every released PvPoke species and fast × single charged moveset with a solo 1v1
-grid. Its score is the mean of the three slot win rates; draws are not wins. The grid ignores
-carried-over shields and HP between slots, so screen scores are not lineup win rates. Each species
-keeps its best moveset per level; ties at the K cut break by species id alphabetically.
-Stage 2 battles the top `--k` species (default 30) against every full lineup, then ranks by
-win rate, HP left and turns, following `sim`.
+Stage 1 screens every released PvPoke species and fast × single charged moveset with 32 whole
+battles against real lineups: 32 distinct lineups drawn with a seed from the character's pools and
+the level, so every build and moveset meets the same battles and runs repeat (characters with 32
+or fewer lineups play each once). HP, energy and
+shields carry from one Rocket Pokémon to the next, as in a real battle. The score is the share of
+those battles won; draws are not wins, and screen scores are not lineup win rates. Per species and
+level, the top 2 movesets by fewest turns and the top 2 by HP left go forward. Species are ranked by
+their best moveset, and the finalists are the union of the top `--k` (default 30) by each order;
+species level with either K-th are kept. On 16 Nov 2026 data (Ghost and Fire grunts, Cliff and
+Giovanni, levels 40 and 50) this kept all of the true top 10 in both orders, where the earlier 1v1
+grid screen kept as few as 2 of 8.
+Stage 2 battles those builds against every full lineup, then ranks by win rate in whole-percent
+bands, then turns (or HP left), following `sim`; lists show each species once per order, with its
+best moveset in that order. The quick 1v1 grid (`screen` on each finalist) is computed for
+finalists only and shown on Battle details.
 
 Each per-character finalist also gets a `pause_band`: full-battle win rates at
 `--pause-band 6,8` (the default) plus the era's charged-attack pause length read from
@@ -279,8 +288,10 @@ equal weight per character, a model choice with no encounter-rate source. Covera
 characters and states how many are covered; an empty resolved slot excludes its character rather
 than counting it as zero. Overall rows retain the estimate label and union of contributing ledger
 evidence. Incomplete pools and the weakest contributing grades remain explicit. Before battles run,
-stderr shows planned stage-1 1v1 battles (builds × slot options, summed over available characters)
-and maximum stage-2 lineup battles (K × levels × lineups, summed over available characters).
+stderr shows planned stage-1 sample lineup battles (builds × 32, summed over available characters)
+and maximum stage-2 lineup battles (at most 8K builds per level: the top K species in each of 2
+orders, each sending its top 2 movesets in each order; × levels × lineups, summed over available
+characters).
 `--all` adds union completion battles. Screening is serial; full enumeration reuses `sim`'s capped
 workers: at most three workers plus the parent. Progress goes to stderr.
 
@@ -421,7 +432,7 @@ are refused. When upgrading an older unmarked site, choose a new or empty `--out
 - `list/all.html`, `list/grunts.html`, `list/leaders.html`: ranked overall lists with
   attacker-type filter chips. HP left and Rocket KOs appear on desktop (700px and up).
 - `counters/<slug>.html`: native expandable battle details in plain words: the quick
-  1-on-1 check (stage-1 screen), the win chance against each of their Pokémon
+  1-on-1 check (computed for finalists), the win chance against each of their Pokémon
   (conditional win rates; battle counts are not shown), the win-chance range over
   tested Rocket pauses and damage ranges over their possible moves.
 - `how.html`: a plain summary of at most six lines (what the site is, what the % means,

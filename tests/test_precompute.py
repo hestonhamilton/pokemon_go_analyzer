@@ -16,7 +16,7 @@ from test_cli_topn import read_source, write_source
 from pogo_analyzer import calc_cli, cli, precompute, sim_cli, topn, topn_cli
 from pogo_analyzer.lineups import EVENT_INFO_URL, PVPOKE_GM_URL
 
-_ORIGINAL_SCREEN = topn.screen_candidate
+_ORIGINAL_SCREEN = topn.sample_screen
 
 
 def _favor_by_rank(candidate, pools, *, rank, **kwargs):
@@ -84,6 +84,7 @@ def assert_no_stages(monkeypatch):
     def blocked(*args, **kwargs):
         pytest.fail("a reusable run must not screen or battle")
 
+    monkeypatch.setattr(topn, "sample_screen", blocked)
     monkeypatch.setattr(topn, "screen_candidate", blocked)
     monkeypatch.setattr(topn, "full_result", blocked)
     monkeypatch.setattr(sim_cli, "_pool_context", blocked)
@@ -553,7 +554,7 @@ def test_parallel_equals_serial_including_overall_completion(
 ):
     if start_method not in multiprocessing.get_all_start_methods():
         pytest.skip(f"{start_method} unavailable")
-    monkeypatch.setattr(topn, "screen_candidate", _favor_by_rank)
+    monkeypatch.setattr(topn, "sample_screen", _favor_by_rank)
     mapped = []
 
     class RecordingPool:
@@ -595,10 +596,12 @@ def test_parallel_equals_serial_including_overall_completion(
             entry.pop("runtime_seconds")
         files["manifest.json"] = manifest
     assert first == second
-    assert len(first["overall.json"]["all"]["results"]["40"]) == 2
+    # Reports keep both metagross movesets; the site shows each species once per order.
+    assert len(first["overall.json"]["all"]["results"]["40"]) == 3
     assert sum(size for function, size in mapped if function is _favor_by_rank) == 10
-    # Two finalists x three passes, plus two overall-only builds, all use the pool.
-    assert sum(size for function, size in mapped if function is topn.full_result) == 8
+    # Three finalist builds (two metagross movesets, kirlia) x three passes, plus three
+    # overall-only builds, all use the pool.
+    assert sum(size for function, size in mapped if function is topn.full_result) == 12
 
 
 def test_pause_band_params_invalidate_reuse(cache, tmp_path):
@@ -648,7 +651,7 @@ def test_atomic_write_respects_umask(tmp_path):
 
 def test_worker_failure_propagates_and_releases_lock(cache, tmp_path, monkeypatch):
     out = tmp_path / "reports"
-    monkeypatch.setattr(topn, "screen_candidate", _raise_screen)
+    monkeypatch.setattr(topn, "sample_screen", _raise_screen)
     options = cli.parser().parse_args(argv(cache, out, "--workers", "2"))
     with pytest.raises(ValueError, match="injected worker failure"):
         precompute.run(options)
@@ -656,7 +659,7 @@ def test_worker_failure_propagates_and_releases_lock(cache, tmp_path, monkeypatc
     assert list(out.iterdir()) == [out / ".lock"]
     with (out / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    monkeypatch.setattr(topn, "screen_candidate", _ORIGINAL_SCREEN)
+    monkeypatch.setattr(topn, "sample_screen", _ORIGINAL_SCREEN)
     assert run(cache, out)["overall"]["status"] == "computed"
 
 
