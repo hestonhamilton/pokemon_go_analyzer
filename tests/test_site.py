@@ -1006,7 +1006,9 @@ def test_filter_js_and_progressive_controls(reports, tmp_path):
                 assert not filters
                 continue
             assert level in ("40", "50")
-            assert '<div class="controls" role="group" aria-label="Attacker types" hidden>' in body
+            # Owner ruling: the type filter is collapsed by default and hidden without JS.
+            assert '<details class="tyfilter" hidden><summary>Filter by type' in body
+            assert '<details class="tyfilter" hidden open' not in body
             assert "<noscript>" in body
             types = {t for row in rows for t in json.loads(row["data-types"]) if t in site.TYPES}
             assert filters == ["", *sorted(types)], (path, level)
@@ -1020,12 +1022,12 @@ const sections=specs.map(spec=>{
  const controls={hidden:true},warning={hidden:true};
  const s={rows,controls,warning,querySelector(){return warning;},
   querySelectorAll(q){return q==='[data-filter]'?this.buttons:rows;}};
- s.buttons=spec.filters.map(t=>({dataset:{filter:t},closest(){return s;},
+ s.buttons=spec.filters.map(t=>({dataset:{filter:t},textContent:t,closest(){return s;},
   setAttribute(k,v){this[k]=v;}}));
  return s;
 });
 globalThis.document={querySelectorAll(q){return sections.flatMap(s=>
- q==='.controls'?[s.controls]:s.buttons);}};
+ q==='.tyfilter'?[s.controls]:s.buttons);}};
 SCRIPT
 const assert=require('node:assert/strict');
 for(const s of sections){
@@ -1051,8 +1053,9 @@ const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
 const controls={hidden:true},warning={hidden:true};
 const section={querySelector(){return warning;},
  querySelectorAll(s){return s==='[data-filter]'?[button]:rows;}};
-const button={dataset:{filter:'fire'},closest(){return section;},setAttribute(){}};
-globalThis.document={querySelectorAll(s){return s==='.controls'?[controls]:[button];}};
+const button={dataset:{filter:'fire'},textContent:' Fire ',closest(){return section;},
+ setAttribute(){}};
+globalThis.document={querySelectorAll(s){return s==='.tyfilter'?[controls]:[button];}};
 SCRIPT
 button.onclick();
 console.log(JSON.stringify({hidden:controls.hidden,warning:warning.hidden,
@@ -1639,8 +1642,8 @@ def test_sprite_file_selection(reports, tmp_path, monkeypatch, capsys):
         "plain pm1.icon.png",
         "raichu_alolan pm26.fALOLA.icon.png",
         "wooper_paldean pm194.fPALDEA.icon.png",
-        # Owner ruling: Zygarde defaults to its 50% form, not the alphabetical first.
-        "zygarde pm718.fFIFTY_PERCENT.icon.png",
+        # Owner ruling: Zygarde shows its Complete form (replaces the earlier 50% default).
+        "zygarde pm718.fCOMPLETE.icon.png",
     ]
     assert "missing" in out.err and "unknown" in out.err and "bad\\nbase" in out.err
     (cache / (hashlib.sha256(url.encode()).hexdigest() + ".json")).unlink()

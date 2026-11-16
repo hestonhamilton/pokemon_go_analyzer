@@ -211,7 +211,9 @@ details[open]>summary.detail-row::before{content:"\\25BE"}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
 clip:rect(0,0,0,0); white-space:nowrap; border:0}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);
-outline-offset:2px} [hidden]{display:none!important} @media(max-width:699px){.top{gap:2px;
+outline-offset:2px} [hidden]{display:none!important}
+.tyfilter{margin:2px 0 8px} .tyfilter>summary{cursor:pointer; font-weight:700; font-size:.85rem;
+color:var(--muted)} .tyfilter .controls{margin-top:8px} @media(max-width:699px){.top{gap:2px;
 padding:6px 10px} .top a{padding:6px 9px} .disc{padding:6px 14px} .charhead{padding:10px 14px}
 .charhead h1{font-size:1.3rem} .charhead .ct{gap:6px; margin-bottom:4px}
 .charhead .hint{margin-bottom:3px} .lineup{gap:3px} .slot{gap:4px; padding:2px 6px;
@@ -224,10 +226,11 @@ grid-template-columns:16px 36px minmax(0,1fr) 58px} .row .spr{width:36px; height
 """
 # Filtering only hides server-rendered rows. Without JS all rows and levels remain available.
 FILTER_JS = """
-document.querySelectorAll('.controls').forEach(c=>c.hidden=false);
+document.querySelectorAll('.tyfilter').forEach(c=>c.hidden=false);
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
 const s=b.closest('[data-level]'),t=b.dataset.filter;
 s.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',x===b));
+s.querySelector('[data-filter-label]').textContent=t?': '+b.textContent.trim():'';
 s.querySelectorAll('[data-types]').forEach(r=>{
 r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t);
 });
@@ -797,7 +800,12 @@ def list_body(
             continue
         if limit is None:
             types = sorted({t for row in rows for t in row.get("types", []) if t in TYPES})
-            body += '<div class="controls" role="group" aria-label="Attacker types" hidden>'
+            # Owner ruling: collapsed by default, like PvPoke and Pokebattler's filter controls.
+            body += (
+                '<details class="tyfilter" hidden><summary>Filter by type'
+                "<span data-filter-label></span></summary>"
+                '<div class="controls" role="group" aria-label="Attacker types">'
+            )
             body += '<button class="t" data-filter="" aria-pressed="true">All types</button>'
             body += "".join(
                 f'<button class="t" data-filter="{e(t)}" aria-pressed="false">'
@@ -805,7 +813,7 @@ def list_body(
                 for t in types
             )
             body += (
-                '</div><noscript><p class="moves">Without JavaScript all types are shown.'
+                '</div></details><noscript><p class="moves">Without JavaScript all types are shown.'
                 "</p></noscript>"
             )
         body += counter_rows(rows, sprites, icons=icons, prefix=prefix, toughest=not overall)
@@ -1473,7 +1481,7 @@ def build_site(data_dir, out, type_icons=None, brand_assets=None, sprites=None):
 
 
 # Owner ruling: the form people mean when a species has no plain sprite file.
-DEFAULT_SPRITE_FORMS = {"zygarde": "FIFTY_PERCENT"}
+DEFAULT_SPRITE_FORMS = {"zygarde": "COMPLETE"}
 
 
 def sprite_files(data_dir, cache_dir, tree_path):
