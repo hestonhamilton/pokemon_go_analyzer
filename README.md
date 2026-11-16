@@ -210,6 +210,24 @@ gate prints UNVALIDATED. Large characters continue with stdlib multiprocessing o
 parent, which collects and aggregates results (fewer workers on machines with fewer than four CPUs). See the [win rate report](tests/fixtures/sim/winrate_report.md)
 for metric definitions, grade dependencies, pool sizes, runtimes and model choices.
 
+## Exact solo engine
+
+`sim/solo.py` reuses deterministic battle prefixes at Rocket replacements.
+It gives exactly the same results as the reference simulator, including floats.
+`topn` stage 2, the pause band and overall union completion use it for solo teams.
+It supports every era and rank, default policies, and default Rocket rules with any
+valid pause-length override. Multi-member teams, other rules and custom battle
+functions use the reference simulator. The `sim` command uses the reference too.
+When `topn` supplies a trial runner, engine rows report
+`execution: {"mode": "exact solo engine", "workers": 1}`.
+This counts workers within one aggregate; precompute still maps builds across workers.
+
+Offline CI compares battles and full aggregates against the reference.
+On the sources of a measured full run, overall completion for all 26 characters fell
+from about 150 core-hours to about 55 CPU-minutes (14 minutes on 4 workers). All 22,750
+build × character results were identical. Stage 1, the 1v1 screen, is unchanged and is
+now most of a per-character run.
+
 ## Top-N counters (estimate)
 
 `topn` ranks solo attackers using the offline calculator and simulator. Every number is an
