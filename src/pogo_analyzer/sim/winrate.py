@@ -3,6 +3,7 @@
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from itertools import product
+from math import floor
 from statistics import mean
 
 from .battle import Combatant
@@ -18,8 +19,9 @@ SORT_NOTE = (
 
 
 def win_band(win_rate):
-    """Owner ruling: win rates within the same whole percent count as tied."""
-    return round(win_rate * 100)
+    """Owner ruling: win rates within the same whole percent count as tied. Rounds half up
+    (98.5% joins 99%), with a small tolerance for float error."""
+    return floor(win_rate * 100 + 0.5 + 1e-9)
 
 
 # Owner ruling: speed first by default; HP first is the alternative order on the site.
@@ -244,16 +246,6 @@ def estimate(team, pools, *, rank, battle_date, rules=DEFAULT_ROCKET_RULES, batt
 
 def sort_results(rows, order="speed"):
     return sorted(rows, key=SORT_KEYS[order])
-
-
-def best_per_species(rows, order="speed"):
-    """One row per species: its best moveset in this order, in list order."""
-    seen, kept = set(), []
-    for row in sort_results(rows, order):
-        if row["speciesId"] not in seen:
-            seen.add(row["speciesId"])
-            kept.append(row)
-    return kept
 
 
 def grid(

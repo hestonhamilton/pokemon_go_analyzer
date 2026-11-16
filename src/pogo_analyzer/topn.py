@@ -4,6 +4,7 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import partial
+from math import prod
 from random import Random
 from statistics import mean
 
@@ -13,7 +14,8 @@ from .sim.grades import weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
 SCREEN_NOTE = (
-    "Stage 1 plays each build against 32 real lineups drawn at random (seeded per build),"
+    "Stage 1 plays each build against the same 32 real lineups per level (drawn with a fixed"
+    " seed; every lineup once when there are 32 or fewer),"
     " carrying HP, energy and shields from one opponent to the next; its score is the share"
     " of those battles won, draws are not wins, and it is not a lineup win rate."
     " Per species and level the top 2 movesets in each order go forward. Species are ranked"
@@ -218,33 +220,74 @@ def screen_margin(screen, order="speed"):
     return (-screen["score"], turns, hp) if order == "speed" else (-screen["score"], hp, turns)
 
 
-def sample_screen(candidate, pools, *, rank, battle_date, samples=SAMPLES, battle=simulate_rocket):
-    """Whole battles against seeded random real lineups: HP, energy and shields carry over."""
+def screen_lineups(pools, level, samples=SAMPLES):
+    """The lineups every build at one level meets: all of them when there are at most
+    `samples`, otherwise `samples` distinct lineups drawn with a seed from the level and the
+    pools, so every build and moveset faces the same battles (common random numbers)."""
+    sizes = [len(pool) for pool in pools]
+    total = prod(sizes)
+    if total <= samples:
+        indices = range(total)
+    else:
+        seed = repr(
+            (
+                f"{level:g}",
+                [
+                    [
+                        (o.species, o.combatant.fast.id, [m.id for m in o.combatant.charged])
+                        for o in pool
+                    ]
+                    for pool in pools
+                ],
+            )
+        )
+        indices = sorted(Random(seed).sample(range(total), samples))
+    lineups = []
+    for index in indices:
+        picks = []
+        for pool, size in zip(reversed(pools), reversed(sizes), strict=True):
+            index, pick = divmod(index, size)
+            picks.append(pool[pick].combatant)
+        lineups.append(tuple(reversed(picks)))
+    return tuple(lineups)
+
+
+def sample_screen(
+    candidate, pools, *, rank, battle_date, lineups_by_level=None, battle=simulate_rocket
+):
+    """Whole battles against the level's screen lineups: HP, energy and shields carry over."""
     if not pools or not all(pools):
         return {"score": None, "hp_left": None, "turns": None, "samples": 0}
-    rng = Random(repr(candidate.key))  # string seed: identical in every worker and run
+    level = candidate.key[1]
+    lineups = (lineups_by_level or {}).get(level) or screen_lineups(pools, level)
     team = candidate.team
     wins = hp = turns = 0
-    for _ in range(samples):
-        lineup = tuple(rng.choice(pool).combatant for pool in pools)
+    for lineup in lineups:
         summary = winrate.battle_summary(
             battle(team, lineup, rank=rank, battle_date=battle_date), team
         )
         wins += summary["winner"] == "player"
         hp += summary["hp_fraction"]
         turns += summary["turns"]
-    return {
-        "score": wins / samples,
-        "hp_left": hp / samples,
-        "turns": turns / samples,
-        "samples": samples,
-    }
+    n = len(lineups)
+    return {"score": wins / n, "hp_left": hp / n, "turns": turns / n, "samples": n}
 
 
 def screen_candidates(candidates, pools, *, rank, battle_date, sampler=None, mapper=map):
     """Stage 1 for every build, in input order; builds without a score are dropped."""
     candidates = list(candidates)
-    run = partial(sampler or sample_screen, pools=pools, rank=rank, battle_date=battle_date)
+    shared = (
+        {level: screen_lineups(pools, level) for level in {c.key[1] for c in candidates}}
+        if pools and all(pools)
+        else {}
+    )
+    run = partial(
+        sampler or sample_screen,
+        pools=pools,
+        rank=rank,
+        battle_date=battle_date,
+        lineups_by_level=shared,
+    )
     return [
         (candidate, screen)
         for candidate, screen in zip(candidates, mapper(run, candidates), strict=True)

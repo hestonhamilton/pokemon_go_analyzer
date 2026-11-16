@@ -240,7 +240,9 @@ uv run pogo-analyzer topn --all --battle-date 2026-11-14 --level 40 --level 50 \
 ```
 
 Stage 1 screens every released PvPoke species and fast × single charged moveset with 32 whole
-battles against real lineups drawn at random (seeded per build, so runs repeat). HP, energy and
+battles against real lineups: 32 distinct lineups drawn with a seed from the character's pools and
+the level, so every build and moveset meets the same battles and runs repeat (characters with 32
+or fewer lineups play each once). HP, energy and
 shields carry from one Rocket Pokémon to the next, as in a real battle. The score is the share of
 those battles won; draws are not wins, and screen scores are not lineup win rates. Per species and
 level, the top 2 movesets by fewest turns and the top 2 by HP left go forward. Species are ranked by
@@ -287,8 +289,9 @@ characters and states how many are covered; an empty resolved slot excludes its 
 than counting it as zero. Overall rows retain the estimate label and union of contributing ledger
 evidence. Incomplete pools and the weakest contributing grades remain explicit. Before battles run,
 stderr shows planned stage-1 sample lineup battles (builds × 32, summed over available characters)
-and maximum stage-2 lineup battles (K × 2 orders × 2 movesets × levels × lineups, summed over
-available characters).
+and maximum stage-2 lineup battles (at most 8K builds per level: the top K species in each of 2
+orders, each sending its top 2 movesets in each order; × levels × lineups, summed over available
+characters).
 `--all` adds union completion battles. Screening is serial; full enumeration reuses `sim`'s capped
 workers: at most three workers plus the parent. Progress goes to stderr.
 

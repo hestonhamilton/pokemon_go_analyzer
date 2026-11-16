@@ -1188,7 +1188,8 @@ def tile(
     if rows:
 
         def top3(order):
-            top = ordered(rows, order)[:3]
+            # Each order picks its own best moveset from every row, not the speed-cut list.
+            top = ordered(results.get(level, []), order)[:3]
             every = all_timing_sensitive(top)
             return (
                 (timing_line() if every else "")

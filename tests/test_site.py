@@ -2012,3 +2012,27 @@ def test_lists_show_each_species_once_per_order():
     assert [r["id"] for r in site.ordered(rows, "hp")] == ["bulky", "palkia", "shadow"]
     # Battle details: every row either order shows, in the default order.
     assert [r["id"] for r in site.shown(rows)] == ["fast", "bulky", "shadow", "palkia"]
+
+
+def test_character_card_top3_picks_each_orders_best_moveset():
+    """Reviewer repro: HP order must see goodra's bulky moveset, not the speed-cut list."""
+    rows = [
+        {
+            "speciesId": sp,
+            "win_rate": w,
+            "mean_player_hp_fraction_left": h,
+            "mean_turns": t,
+            "fast_move": move,
+        }
+        for sp, move, w, h, t in (
+            ("goodra", "FAST", 1.0, 0.5, 20),
+            ("goodra", "BULKY", 1.0, 0.95, 30),
+            ("palkia", "P", 1.0, 0.9, 25),
+        )
+    ]
+    html = site.tile("Ghost", "list/ghost.html", {}, {"50": rows}, "")
+    hp_block = html.split('data-order="hp"')[1]
+    speed_block = html.split('data-order="speed"')[1].split('data-order="hp"')[0]
+    # Speed: goodra (fast) then palkia. HP: goodra (bulky, 95%) still first, then palkia.
+    assert speed_block.index("Goodra") < speed_block.index("Palkia")
+    assert hp_block.index("Goodra") < hp_block.index("Palkia")

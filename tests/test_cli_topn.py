@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import date
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -638,7 +639,7 @@ def test_planned_totals_are_printed_before_ranking(cache, capsys, monkeypatch):
         if not calls:
             assert capsys.readouterr().err == (
                 "estimate: planned stage-1 sample lineup battles: 512; "
-                "maximum stage-2 lineup battles: 48. --all adds union completion battles.\n"
+                "maximum stage-2 lineup battles: 96. --all adds union completion battles.\n"
             )
         calls.append(kwargs["rank"])
         return {}
@@ -1002,7 +1003,7 @@ def test_pick_finalists_keeps_top_movesets_per_order(cache):
     }
 
 
-def test_sample_screen_carries_state_and_repeats(cache):
+def test_sample_screen_carries_state_and_plays_small_pools_once(cache):
     builds = candidates(cache)
     build, other = builds[0], builds[1]
     pools = [
@@ -1018,17 +1019,46 @@ def test_sample_screen_carries_state_and_repeats(cache):
 
     kwargs = dict(rank="grunt", battle_date="2026-11-14")
     first = topn.sample_screen(build, pools, battle=battle, **kwargs)
-    assert first == topn.sample_screen(build, pools, **kwargs)  # seeded per build
-    assert first["samples"] == topn.SAMPLES == len(seen)
-    # Whole lineups, one Pokémon per slot: HP, energy and shields carry between them.
-    assert all(len(lineup) == 3 for lineup in seen)
-    assert len(set(seen)) > 1
+    assert first == topn.sample_screen(build, pools, **kwargs)
+    # 4 lineups, at most 32: each is played exactly once, as a whole lineup.
+    every = [tuple(o.combatant for o in lineup) for lineup in winrate.lineups(pools)]
+    assert first["samples"] == 4 and seen == every
     summaries = [
         winrate.battle_summary(simulate_rocket(build.team, lineup, **kwargs), build.team)
-        for lineup in seen
+        for lineup in every
     ]
-    assert first["score"] == sum(s["winner"] == "player" for s in summaries) / len(seen)
-    assert first["turns"] == pytest.approx(sum(s["turns"] for s in summaries) / len(seen))
+    # HP, energy and shields carry between Rocket Pokémon exactly as in a direct battle.
+    assert first["score"] == sum(s["winner"] == "player" for s in summaries) / 4
+    assert first["turns"] == pytest.approx(sum(s["turns"] for s in summaries) / 4)
     empty = topn.sample_screen(build, [pools[0], [], pools[2]], **kwargs)
     assert empty["score"] is None
     assert topn.screen_candidates([build], [pools[0], [], pools[2]], **kwargs) == []
+
+
+def test_screen_lineups_are_shared_by_every_build_at_a_level(cache):
+    builds = candidates(cache, (40, 50))
+    combatants = [c.team[0] for c in builds if c.key[1] == 40.0]
+    assert len(combatants) >= 4
+    options = [winrate.Option(f"o{i}", c) for i, c in enumerate(combatants[:4])]
+    pools = [options[:4], options[:3], options[1:4]]  # 36 lineups > 32
+    lineups = topn.screen_lineups(pools, 40.0)
+    assert len(lineups) == topn.SAMPLES == len(set(lineups))  # distinct, no repeats
+    assert lineups == topn.screen_lineups(pools, 40.0)
+    assert lineups != topn.screen_lineups(pools, 50.0)  # seeded per level
+    met = {}
+
+    def battle(team, lineup, **kwargs):
+        met.setdefault(team, []).append(lineup)
+        return simulate_rocket(team, lineup, **kwargs)
+
+    level40 = [c for c in builds if c.key[1] == 40.0]
+    topn.screen_candidates(
+        level40,
+        pools,
+        rank="grunt",
+        battle_date="2026-11-14",
+        sampler=partial(topn.sample_screen, battle=battle),
+    )
+    # Common random numbers: every build and moveset meets the same 32 lineups.
+    assert len(met) == len(level40)
+    assert all(seen == list(lineups) for seen in met.values())

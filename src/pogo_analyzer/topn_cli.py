@@ -181,8 +181,9 @@ def prepare_output(args):
     eligible = [report for report in reports if "reason" not in report]
     screen_battles = len(candidates) * topn.SAMPLES * len(eligible)
     lineup_battles = sum(
-        # K species per order (two orders), each with up to MOVESETS movesets; ties can add more.
-        args.k * 2 * topn.MOVESETS * len(levels) * prod(report["slot_option_counts"])
+        # K species per order (two orders), each sending its top MOVESETS movesets in each order:
+        # at most 8K builds per level; ties at the cut can add more.
+        args.k * 2 * 2 * topn.MOVESETS * len(levels) * prod(report["slot_option_counts"])
         for report in eligible
     )
     print(

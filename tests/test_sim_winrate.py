@@ -12,13 +12,13 @@ from pogo_analyzer.sim.rocket import Evidence, RocketRules, simulate_rocket
 from pogo_analyzer.sim.winrate import (
     Option,
     battle_summary,
-    best_per_species,
     estimate,
     grid,
     lineups,
     moveset_ids,
     player_combatant,
     sort_results,
+    win_band,
 )
 
 FAST = Move("F", "normal", 2, 1)
@@ -142,15 +142,18 @@ def test_sort_bands_win_rate_to_whole_percent():
     assert [r["id"] for r in sort_results(rows, "hp")] == ["palkia", "exact", "shadow", "lower"]
 
 
-def test_best_per_species_keeps_each_orders_best_moveset():
-    rows = [
-        dict(
-            id=name, speciesId="goodra", win_rate=1.0, mean_player_hp_fraction_left=h, mean_turns=t
-        )
-        for name, h, t in (("fast", 0.5, 20), ("bulky", 0.8, 30), ("neither", 0.4, 40))
+def test_win_band_rounds_half_up():
+    # Owner ruling: nearest whole percent, half up, as the FAQ says.
+    assert [win_band(w) for w in (0.985, 0.995, 0.975, 0.9849, 0.5, 0.005, 1.0)] == [
+        99,
+        100,
+        98,
+        98,
+        50,
+        1,
+        100,
     ]
-    assert [r["id"] for r in best_per_species(rows)] == ["fast"]
-    assert [r["id"] for r in best_per_species(rows, "hp")] == ["bulky"]
+    assert win_band(57 / 100) == 57  # 57.00000000000001 in floats, still 57
 
 
 def test_enumeration_and_filter():
