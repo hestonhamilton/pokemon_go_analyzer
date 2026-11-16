@@ -318,7 +318,9 @@ class _RocketBattle(_BattleHooks):
                 replacements[1] is not None
                 or (replacements[0] is not None and self.rules.faint == "any_replacement")
             ):
-                self.pause_through = max(self.pause_through, row.number + self.lengths[1])
+                # Owner test, 16 Nov 2026: a charged attack's pause does not carry over to
+                # the next Pokémon; the switch-in pause replaces whatever pause is running.
+                self.pause_through = row.number + self.lengths[1]
         self.timeline.append(
             RocketTurn(
                 row,

@@ -297,7 +297,8 @@ class _Engine:
                     winner = "rocket"
                 return _Segment(_Terminal(winner, "timeout", turn, hp[0], fainted), tuple(fired))
             if hp[1] == 0:
-                pause = max(pause, turn + faint_pause)
+                # Owner test, 16 Nov 2026: the switch-in pause replaces any charge pause.
+                pause = turn + faint_pause
                 end = _Boundary(
                     turn,
                     hp[0],
