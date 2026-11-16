@@ -4,8 +4,9 @@ Ported from PvPoke (MIT, copyright 2019 pvpoke), commit
 426e5e9f39d3a027849698fb2f5edd9df6056cbf. Bare line numbers below cite
 src/js/battle/Battle.js; citations into other files name the file (for
 example Pokemon.js). Full notice: data/PVPoke-LICENSE.
-Only ordinary, unbuffed moves are represented by calculator.Move. Forms,
-move effects, switching, Rocket pauses, shield inventories and timers are absent.
+Guaranteed stat changes are supported with Rules(stat_stages=True); chance
+effects are not yet supported. Forms, switching, Rocket pauses, shield
+inventories and timers are absent from this core.
 """
 
 import math
@@ -127,10 +128,14 @@ class Rules:
     Example: t1 player submits, t2 player's charge hits and the Rocket submits,
     t3 the Rocket's charge hits, t4 no inputs. This is an estimate of ledger j,
     not a measured Rocket timeline.
+
+    stat_stages: apply guaranteed stat changes, as PvPoke does by default.
+    This will default to True after parity and the exact solo engine are done.
     """
 
     ledger_j_next_turn_charged: bool = False
     ledger_j_both_charged_fire: bool = False
+    stat_stages: bool = False
 
 
 PVPOKE_RULES = Rules()
@@ -249,6 +254,7 @@ def _simulate(
     shields = (player_shield_policy or policies[0], rocket_shield_policy or policies[1])
     hp = [p.hp for p in combatants]
     energy = [p.energy for p in combatants]
+    stages = [[0, 0], [0, 0]]  # Per side: attack, defence.
     cooldown = [0, 0]  # Pokemon.js 1924–1931, 1944–1947.
     faint_source = ["", ""]
     queue: list[_Action] = []
@@ -257,6 +263,7 @@ def _simulate(
     previous_charged = False
     used_charged = [False, False]
     used_shield = False
+    changed_stage = False
     for turn in range(1, max_turns + 1):
         events: list[list[str]] = [[], []]
         dealt = [0, 0]
@@ -352,6 +359,11 @@ def _simulate(
                 defender_shadow=True if other == 1 else combatants[0].shadow,
                 charged=charged,
                 shielded=shielded,
+                **(
+                    {"attack_stage": stages[i][0], "defence_stage": stages[other][1]}
+                    if rules.stat_stages
+                    else {}
+                ),
             )
             damage = hooks.damage(i, move, calculation, shielded) if hooks else calculation.damage
             if charged:
@@ -371,6 +383,12 @@ def _simulate(
             else:
                 energy[i] = min(ENERGY_CAP, energy[i] + move.energy_gain)  # 1329–1340.
             hp[other] = max(0, hp[other] - damage)  # 1365.
+            if rules.stat_stages and move.stage_chance == 1.0:
+                for side, deltas in ((i, move.self_stages), (other, move.opponent_stages)):
+                    for stat, delta in enumerate(deltas):
+                        new_stage = max(-4, min(4, stages[side][stat] + delta))
+                        changed_stage |= new_stage != stages[side][stat]
+                        stages[side][stat] = new_stage
             if hp[other] <= 0:
                 faint_source[other] = kind  # 1683–1684.
             dealt[i] += damage
@@ -398,6 +416,7 @@ def _simulate(
                             replacement if n == i else p for n, p in enumerate(combatants)
                         )
                         hp[i], energy[i] = replacement.hp, replacement.energy
+                        stages[i] = [0, 0]
                         faint_source[i] = ""
         elif min(hp) <= 0:
             break
@@ -408,6 +427,8 @@ def _simulate(
         rows += ("l",)
     if used_shield:
         rows += ("m",)
+    if changed_stage:
+        rows += ("o",)
     if used_charged[0]:
         rows += ("p",)
     return Result(

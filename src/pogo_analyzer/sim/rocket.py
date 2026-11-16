@@ -109,6 +109,9 @@ def rules_dict(rules: RocketRules) -> dict:
     result = asdict(rules)
     if rules.pause_turns_override is None:
         result.pop("pause_turns_override")
+    if not rules.turn_rules.stat_stages:
+        # Outputs from before stat stages carry no key; absent means off.
+        result["turn_rules"].pop("stat_stages")
     return result
 
 

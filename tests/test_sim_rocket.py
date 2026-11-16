@@ -722,3 +722,50 @@ def test_switch_in_pause_replaces_charge_pause(stamp, charge, faint):
     assert ko.pause_through == ko.core.number + faint
     # Before the owner test, the charge pause (t + 1 + charge) could outlast the switch-in.
     assert (ko.core.number + 1 + charge > ko.core.number + faint) is (charge >= faint)
+
+
+def test_stat_stages_carry_for_survivor_and_reset_for_replacement():
+    from pogo_analyzer.sim.damage import calculate_damage
+
+    debuff = replace(C, self_stages=(0, -2))
+    hit = replace(F, power=20)
+    rules = RocketRules(turn_rules=Rules(stat_stages=True), pauses=False)
+    player = mon(1000, charged=(debuff,), energy=20)
+    result = simulate_rocket(
+        [player], [mon(1), mon(1000, fast=hit)], battle_date=None, rules=rules, max_turns=3
+    )
+    expected = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("normal",),
+        ("normal",),
+        attacker_shadow=True,
+        defender_shadow=False,
+        defence_stage=-2,
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert result.timeline[2].core.damage[1] == expected.damage
+
+    rocket = mon(1, charged=(debuff,), energy=20, attack=101)
+    result = simulate_rocket(
+        [mon(1000, fast=hit)],
+        [rocket, mon(1000)],
+        battle_date=None,
+        rules=rules,
+        max_turns=3,
+        player_policy=FastOnly(),
+    )
+    expected = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("normal",),
+        ("normal",),
+        attacker_shadow=False,
+        defender_shadow=True,
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert result.timeline[2].core.damage[0] == expected.damage
