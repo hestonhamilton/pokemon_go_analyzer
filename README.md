@@ -408,18 +408,28 @@ Existing nonempty directories without a valid marker, or containing unrelated fi
 are refused. When upgrading an older unmarked site, choose a new or empty `--out` path.
 
 - `index.html`: a top-five Best all-round list, followed by Leaders and Grunts grids
-  with lead-slot sprites and each character's top three counters.
-- `list/<slug>.html`: a compact Rocket header, possible Pokémon by slot, and ranked
+  with lead-slot sprites and each character's top three counters. Leaders keep the
+  manifest order; grunts sort by type A to Z, female before male, with Mixed and Decoy
+  last. The game data's Metal grunts display as Steel grunts; slugs and files keep
+  `metal`. "Best against any grunt" and "Best against any leader" link to the overall
+  lists. Each counter list says what the % means in one muted line.
+- `list/<slug>.html`: a compact Rocket header, possible Pokémon by slot (named under
+  each sprite), and ranked
   counters with attacker-type filter chips, moves, type icons, content tags and win rate.
   A Toughest matchup appears when its conditional win rate is under 95%, floored to one
   decimal place. The Battle details link opens expandable results.
 - `list/all.html`, `list/grunts.html`, `list/leaders.html`: ranked overall lists with
   attacker-type filter chips. HP left and Rocket KOs appear on desktop (700px and up).
-- `counters/<slug>.html`: native expandable battle details, including stage-1 screens,
-  conditional species win rates and sample sizes (`n`, or “n not recorded”), pause
-  band ranges and numeric calc ranges over Rocket movesets.
-- `how.html`: validation status and label, open discrepancies, assumptions per level,
-  pause notes and legends, grade vocabulary and rows that differ from the usual grade,
+- `counters/<slug>.html`: native expandable battle details in plain words: the quick
+  1-on-1 check (stage-1 screen), the win chance against each of their Pokémon
+  (conditional win rates; battle counts are not shown), the win-chance range over
+  tested Rocket pauses and damage ranges over their possible moves.
+- `how.html`: a plain summary of at most six lines (what the site is, what the % means,
+  one line each for Shadow, Elite TM and Timing-sensitive at `#shadow`, `#elite-tm` and
+  `#pause`, the counter settings, the data date and credits), then one collapsed
+  “Technical details” section: validation status and label, open discrepancies,
+  assumptions per level, the pause explanation once with each character's pause numbers
+  on one line, grade vocabulary and rows that differ from the usual grade,
   rCPM/moveset/filter notes, battle dates and rules periods, coverage, sources, credits,
   limitations and source fetch times. Shared
   metadata comes from the overall report or manifest; character sections preserve

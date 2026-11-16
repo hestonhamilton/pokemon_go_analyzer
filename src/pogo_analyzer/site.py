@@ -45,10 +45,24 @@ PAUSE_NOTE = (
     "Rankings depend strongly on the modelled Rocket pause after each charged attack "
     "(verification ledger row k); its trigger is an owner observation and not measured."
 )
+PAUSE_PLAIN = (
+    "Timing-sensitive means the result changes a lot depending on how long Rocket pauses "
+    "after a charged attack — bring a backup."
+)
+# The technical explanation is shown once on how.html; characters list only their numbers.
+PAUSE_TECH = (
+    "Pause band is a sensitivity check over assumed pause lengths, not a measured range "
+    '(<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
+    'docs/simulator-verification.md#ledger">verification ledger row k</a>); ranking uses the '
+    "era value. Timing-sensitive means a row's win rate moves more than the threshold, in "
+    "percentage points, between the shortest and longest pause tested."
+)
+SHADOW_TITLE = "Shadow form: hits harder, takes more damage"
+PERCENT_LINE = "% = chance your counter beats their whole lineup on its own."
 
 
 def pause_band_legend(data):
-    """Escaped legend HTML with a fixed ledger link and the rows' actual band span."""
+    """Escaped one-line pause numbers for one report: turns tested and threshold."""
     params = data.get("params", {})
     bands = [
         row["pause_band"]
@@ -56,29 +70,45 @@ def pause_band_legend(data):
         for row in rows
         if row.get("pause_band", {}).get("turns")
     ]
-    ledger = (
-        '<a href="https://github.com/hestonhamilton/pokemon_go_analyzer/blob/main/'
-        'docs/simulator-verification.md#ledger">verification ledger row k</a>'
-    )
-    note = (
-        "Pause band is a sensitivity check over assumed pause lengths, not a measured range "
-        f"({ledger}); ranking uses the era value. "
-    )
     if params.get("pause_band") == [] or not bands:
-        return note + "band not computed for this run."
+        return "band not computed for this run."
     descriptions = {}
     for band in bands:
         threshold = band.get("threshold", params.get("pause_threshold", 0.15))
         points = format((Decimal(str(threshold)) * 100).normalize(), "f")
         turns = band["turns"]
         description = (
-            f"Timing-sensitive means a row's win rate moves more than {e(points)} percentage "
-            f"points between {e(min(turns))} and {e(max(turns))} turns; "
-            f"threshold: {e(points)} percentage points "
-            f"({e(band.get('threshold_note', 'model choice'))})."
+            f"more than {e(points)} percentage points between {e(min(turns))} and "
+            f"{e(max(turns))} turns ({e(band.get('threshold_note', 'model choice'))})."
         )
         descriptions[description] = None
-    return note + " ".join(descriptions)
+    return " ".join(descriptions)
+
+
+# Owner ruling: the game data's Metal grunts read as Steel grunts. Slugs and files stay.
+DISPLAY_TYPES = {"Metal": "Steel"}
+
+
+def display_name(name):
+    """Character name as shown on the site."""
+    name = str(name)
+    for raw, shown in DISPLAY_TYPES.items():
+        if name.startswith(f"{raw} grunt"):
+            return shown + name[len(raw) :]
+    return name
+
+
+def grunt_order(name):
+    """Home grid order: type A to Z, female before male; Mixed then Decoy last."""
+    shown = display_name(name)
+    match = re.fullmatch(r"(.+) grunt \((.+)\)", shown)
+    kind, gender = match.groups() if match else (shown, "")
+    return (
+        {"Mixed": 1, "Decoy": 2}.get(kind, 0),
+        kind.casefold(),
+        {"female": 0, "male": 1}.get(gender, 2),
+        shown.casefold(),
+    )
 
 
 CSS = """
@@ -171,6 +201,10 @@ background:linear-gradient(160deg,#1c2030 0 65%,color-mix(in srgb,var(--t1) 60%,
 .charhead .ty{color:#fff} .slot{background:rgba(255,255,255,.08);
 border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:4px 8px}
 .lsp{background:radial-gradient(circle,rgba(160,110,220,.45) 0 55%,transparent 62%)}
+.lineup .lsp{background:radial-gradient(circle,rgba(233,228,245,.7) 0 55%,transparent 62%)}
+.lm{display:inline-flex; flex-direction:column; align-items:center; max-width:64px;
+vertical-align:top} .lname{font-size:.68rem; line-height:1.1; max-width:64px; text-align:center;
+overflow-wrap:anywhere}
 .top{flex-wrap:wrap} .top a{font-size:.85rem} .theme-toggle{cursor:pointer} a{color:var(--accent)}
 .cc{color:inherit} main{min-width:0} .card h2{font-size:1.25rem} .who{min-width:0}
 .row{font-variant-numeric:tabular-nums} .nm,.mv,.tough{overflow-wrap:anywhere}
@@ -212,6 +246,8 @@ details[open]>summary.detail-row::before{content:"\\25BE"}
 clip:rect(0,0,0,0); white-space:nowrap; border:0}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);
 outline-offset:2px} [hidden]{display:none!important}
+.pct{margin:0 0 4px} details.tech{margin-top:14px} details.tech>summary{font-weight:700;
+padding:8px 0}
 .tyfilter{margin:2px 0 8px} .tyfilter>summary{cursor:pointer; font-weight:700; font-size:.85rem;
 color:var(--muted)} .tyfilter .controls{margin-top:8px} @media(max-width:699px){.top{gap:2px;
 padding:6px 10px} .top a{padding:6px 9px} .disc{padding:6px 14px} .charhead{padding:10px 14px}
@@ -230,7 +266,8 @@ document.querySelectorAll('.tyfilter').forEach(c=>c.hidden=false);
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
 const s=b.closest('[data-level]'),t=b.dataset.filter;
 s.querySelectorAll('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',x===b));
-s.querySelector('[data-filter-label]').textContent=t?': '+b.textContent.trim():'';
+const n=b.textContent.trim();
+s.querySelector('[data-filter-label]').textContent=t?': '+n.charAt(0).toUpperCase()+n.slice(1):'';
 s.querySelectorAll('[data-types]').forEach(r=>{
 r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t);
 });
@@ -420,7 +457,7 @@ def trust_strip(data):
 
 def page_legends():
     return (
-        '<p class="legend" id="elite-tm">Elite TM: the move can\'t be taught by a normal TM and '
+        '<p class="legend">Elite TM: the move can\'t be taught by a normal TM and '
         "needs an Elite TM, or was only available at a Community Day or event. PvPoke's elite "
         "and legacy moves are both included. Ranked by win rate, HP left, then turns. "
         "Type filters show counters of the selected attacker type. "
@@ -557,7 +594,8 @@ def tag(text, kind="", title=""):
 
 def content_tags(row, prefix=""):
     species = row.get("speciesId", "")
-    body = tag("Shadow", "sh") if row.get("form") == "shadow" or species.endswith("_shadow") else ""
+    shadow = tag("Shadow", "sh", SHADOW_TITLE)
+    body = shadow if row.get("form") == "shadow" or species.endswith("_shadow") else ""
     if row.get("pause_band", {}).get("sensitive") is True:
         body += (
             f'<a class="tag warn" href="{e(prefix)}how.html#pause" '
@@ -640,8 +678,9 @@ def lineup_block(rows, sprites, prefix="../"):
     for slot, species in lineup_species(rows):
         body += f'<div class="slot"><span class="sn">{e(slot)}</span>'
         body += "".join(
-            f'<span class="lm" title="{e(heading(s))}">'
-            f"{sprites.render(s, prefix=prefix, size=32, cls='lsp')}</span>"
+            '<span class="lm">'
+            f"{sprites.render(s, prefix=prefix, size=32, cls='lsp')}"
+            f'<span class="lname">{e(heading(s))}</span></span>'
             for s in species[:6]
         )
         if len(species) > 6:
@@ -787,6 +826,7 @@ def list_body(
     body = (
         extra + '<section class="card" data-levels><div class="bar">'
         f"<h2>{e(title)}</h2>{level_buttons(level_keys)}</div>"
+        f'<p class="hint pct">{e(PERCENT_LINE)}</p>'
     )
     if reason:
         body += unavailable(reason)
@@ -845,18 +885,21 @@ def calc_summary(rows, grade_order):
                 best = max(c["value"] for c in damage)
                 cells = [c for c in damage if c["value"] == best]
             group[key].extend((c["value"], c["grade"]) for c in cells)
-    body = '<h3>Calc summary · ranges over Rocket movesets</h3><div class="wrap"><table><thead><tr>'
+    body = (
+        "<h3>Damage numbers · range over their possible moves</h3>"
+        '<div class="wrap"><table><thead><tr>'
+    )
     body += (
         "".join(
             f"<th>{name}</th>"
             for name in (
-                "Slot",
-                "Rocket species",
-                "Fast damage",
-                "Fast hits to KO",
-                "Best charged damage",
-                "Rocket fast damage",
-                "Turns survived",
+                "Lineup spot",
+                "Their Pokémon",
+                "Your fast move damage",
+                "Fast moves to beat it",
+                "Your best charged move damage",
+                "Their fast move damage",
+                "Turns you last",
             )
         )
         + "</tr></thead><tbody>"
@@ -886,28 +929,28 @@ def counter_detail(row, data):
     band = row.get("pause_band")
     if band:
         body += (
-            "<p>Pause band: "
+            "<p>Win chance if Rocket pauses "
             f"{e(band['turns'][0])}–{e(band['turns'][-1])} turns: "
             f"{estimate(band['min'], percent=True)}–{estimate(band['max'], percent=True)}</p>"
         )
     screen = row.get("screen", {})
     if screen:
-        body += "<h3>Stage-1 screen · slot 1v1 win rates</h3>"
+        body += "<h3>Quick 1-on-1 check · win chance against each lineup spot</h3>"
         for slot, rate in enumerate(screen.get("slot_win_rates", []), 1):
-            body += f"<p>Screen slot {slot}: {estimate(rate, percent=True)}</p>"
-    body += "<h3>Full battle · conditional win rate per Rocket species in each slot</h3>"
+            body += f"<p>Lineup spot {slot}: {estimate(rate, percent=True)}</p>"
+    body += "<h3>Full battle · win chance against each of their Pokémon</h3>"
+    # Battle counts stay in the report; the page shows only the rates.
     body += (
-        '<div class="wrap"><table><caption>Conditional win rates · '
-        "per species</caption>"
-        "<thead><tr><th>Slot</th><th>Rocket species</th>"
-        "<th>Conditional win rate</th><th>n</th></tr></thead><tbody>"
+        '<div class="wrap"><table><caption>Win chance vs each of their Pokémon</caption>'
+        "<thead><tr><th>Lineup spot</th><th>Their Pokémon</th>"
+        "<th>Win chance vs this Pokémon</th></tr></thead><tbody>"
     )
     for slot in row.get("per_slot", []):
         for species in slot.get("species", []):
             body += (
                 f"<tr><td>{e(slot['slot'])}</td><td>{e(heading(species['species']))}</td>"
                 f'<td class="num">{estimate(species["conditional_win_rate"], percent=True)}'
-                f"</td><td>{e(species.get('battles', 'n not recorded'))}</td></tr>"
+                "</td></tr>"
             )
     body += "</tbody></table></div>"
     body += calc_summary(row.get("calc_rows", []), [g["id"] for g in data.get("grades", [])])
@@ -942,10 +985,10 @@ def counters_body(data, results, reason, *, sprites=None):
                 for n in (
                     "#",
                     "Counter",
-                    "Win rate",
+                    "Win chance",
                     "Draw",
-                    "Rocket KOs",
-                    "Solo sweep",
+                    "Their Pokémon beaten",
+                    "Beats all 3 alone",
                     "HP left",
                     "Turns",
                 )
@@ -953,10 +996,10 @@ def counters_body(data, results, reason, *, sprites=None):
             + "</div>"
         )
         columns = (
-            ("win_rate", "Win rate", True),
+            ("win_rate", "Win chance", True),
             ("draw_rate", "Draw", True),
-            ("mean_rocket_knocked_out", "Rocket KOs", False),
-            ("lead_sweep_probability", "Solo sweep", True),
+            ("mean_rocket_knocked_out", "Their Pokémon beaten", False),
+            ("lead_sweep_probability", "Beats all 3 alone", True),
             ("mean_player_hp_fraction_left", "HP left", True),
             ("mean_turns", "Turns", False),
         )
@@ -1048,7 +1091,35 @@ def grade_differences(rows):
     return body + "<p>None: every published row carries the usual grade.</p>"
 
 
-def how_body(data, *, pause_legends=(), screen_notes=(), grade_rows=()):
+def how_summary(data):
+    """At most six plain lines; the badge anchors live here so links land on plain words."""
+    stamp = data.get("computed_for_battle_date", data.get("battle_date"))
+    return (
+        '<section class="card method how-summary">'
+        "<p>The best Pokémon to beat each Team GO Rocket grunt and leader, picked by a battle "
+        f"simulator. {e(PERCENT_LINE)}</p>"
+        f'<p id="shadow"><b>Shadow:</b> {e(SHADOW_TITLE.removeprefix("Shadow form: "))}.</p>'
+        '<p id="elite-tm"><b>Elite TM:</b> the move needs an Elite TM, or came from a '
+        "Community Day or event.</p>"
+        f'<p id="pause">{e(PAUSE_PLAIN)}</p>'
+        + settings(data, " or ".join(levels(data, {})))
+        + f"<p>Data: {e(battle_date(stamp) if stamp else 'date not recorded')} · Credits: "
+        f"{e(data.get('credits', 'not recorded'))}</p></section>"
+    )
+
+
+def how_body(data, *, pause_legends=(), screen_notes=(), grade_rows=(), method_sections=()):
+    """Plain summary, then every technical section inside one collapsed details element."""
+    return (
+        how_summary(data)
+        + '<details class="tech"><summary>Technical details</summary>'
+        + how_technical(data, pause_legends, screen_notes, grade_rows)
+        + "".join(method_sections)
+        + "</details>"
+    )
+
+
+def how_technical(data, pause_legends, screen_notes, grade_rows):
     body = (
         '<section class="card method"><h2>Validation and provenance</h2>'
         + trust_strip(data)
@@ -1063,9 +1134,14 @@ def how_body(data, *, pause_legends=(), screen_notes=(), grade_rows=()):
         + f"<p>{e(data.get('filter_note', 'Filter note not recorded'))}</p>"
         + "<h2>Reading the rows</h2>"
         + page_legends()
-        + '<h2 id="pause">Rocket pause and sensitivity</h2>'
-        + ("".join(pause_legends) or "<p>Pause band not computed for this run.</p>")
-        + "<h2>Stage-1 grid</h2>"
+        + '<h2 id="pause-detail">Rocket pause and sensitivity</h2>'
+        + f"<p>{PAUSE_TECH}</p>"
+        + (
+            '<ul class="notes">' + "".join(pause_legends) + "</ul>"
+            if pause_legends
+            else "<p>Pause band not computed for this run.</p>"
+        )
+        + "<h2>Quick 1-on-1 check (stage-1 grid)</h2>"
         + "".join(f"<p>{e(note)}</p>" for note in screen_notes)
         + grade_differences(grade_rows)
         + "<h2>Grade vocabulary</h2><dl>"
@@ -1361,22 +1437,26 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
         reason = reason or report.get("reason", "")
         meta = metadata(data, entry)
         results = report.get("finalists", {}) if not reason else {}
-        slug, name = entry["slug"], entry["name"]
+        slug, name = entry["slug"], display_name(entry["name"])
         type_name = slug.split("-")[0] if entry.get("rank") == "grunt" else None
+        type_name = {"metal": "steel"}.get(type_name, type_name)
         if type_name not in TYPES:
             type_name = None
         group = "grunts" if entry.get("rank") == "grunt" else "leaders"
         grids[group].append(
-            tile(
-                name,
-                f"list/{slug}.html",
-                meta,
-                results,
-                reason,
-                rank="boss" if slug == "giovanni" else entry.get("rank"),
-                type_name=type_name,
-                icons=icons,
-                sprites=sprite_store,
+            (
+                grunt_order(name) if group == "grunts" else (len(grids[group]),),
+                tile(
+                    name,
+                    f"list/{slug}.html",
+                    meta,
+                    results,
+                    reason,
+                    rank="boss" if slug == "giovanni" else entry.get("rank"),
+                    type_name=type_name,
+                    icons=icons,
+                    sprites=sprite_store,
+                ),
             )
         )
         # Lineups follow the same level switch as the counter sections. Both render without JS.
@@ -1412,7 +1492,7 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
         )
         # Preserve file-specific provenance, settings, pause bands and notes in the method page.
         collect_rows(name, results, meta)
-        pause_legends.append(f"<p><b>{e(name)}.</b> {pause_band_legend(meta)}</p>")
+        pause_legends.append(f"<li><b>{e(name)}:</b> {pause_band_legend(meta)}</li>")
         method_sections.append(
             f'<section class="card method" id="c-{e(slug)}"><h2>{e(name)}</h2>'
             + (unavailable(reason) if reason else "")
@@ -1445,9 +1525,10 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
     for group, title in (("leaders", "Leaders"), ("grunts", "Grunts")):
         index_body += (
             f'<h2 class="grp" id="{e(group)}">{e(title)}</h2>'
-            f'<a class="more-link" href="list/{e(group)}.html">Full '
-            f'{"grunt" if group == "grunts" else "leader"} list →</a><div class="grid">'
-            + "".join(grids[group])
+            f'<a class="more-link" href="list/{e(group)}.html">Best against any '
+            f'{"grunt" if group == "grunts" else "leader"} →</a><div class="grid">'
+            # Leaders keep manifest order; grunts sort by type, then gender (owner ruling).
+            + "".join(html for _, html in sorted(grids[group], key=lambda item: item[0]))
             + "</div>"
         )
     pages["index.html"] = document(
@@ -1468,8 +1549,8 @@ def render_site(data_dir, type_icons=None, brand_assets=None, sprites=None):
             pause_legends=pause_legends,
             screen_notes=screen_notes,
             grade_rows=grade_rows,
-        )
-        + "".join(method_sections),
+            method_sections=method_sections,
+        ),
         assets=brand_data,
     )
     pages.update(sprite_store.assets)

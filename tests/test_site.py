@@ -121,7 +121,8 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
             elif kind == "counters":
                 assert '<details class="counter">' in html
                 assert "data-calc-summary" in html
-                assert "<th>n</th>" in html
+                assert "<th>Win chance vs this Pokémon</th>" in html
+                assert "<th>n</th>" not in html
         assert (
             f'href="../counters/{entry["slug"]}.html">Battle details</a>'
             in pages[f"list/{entry['slug']}.html"]
@@ -331,18 +332,20 @@ def test_pause_target_uses_row_band_data_and_grid_notes_have_one_home(reports, t
     change(reports, entry["file"], mutate)
     pages = build(reports, tmp_path / "site")
     how = pages["how.html"]
-    pause = re.search(r'id="pause">(.*?)(?=<h2)', how, re.S).group(1)
+    pause = re.search(r'id="pause-detail">(.*?)(?=<h2)', how, re.S).group(1)
     assert "Pause band is a sensitivity check" in pause
-    assert "Timing-sensitive means a row's win rate moves more than 12.5 percentage points" in pause
-    assert "between 4 and 9 turns" in pause
-    assert "threshold: 12.5 percentage points (custom &lt;threshold&gt; choice)" in pause
+    assert "Timing-sensitive means a row's win rate moves more than the threshold" in pause
+    assert (
+        "more than 12.5 percentage points between 4 and 9 turns (custom &lt;threshold&gt; choice)"
+        in pause
+    )
     assert "pause band not computed for the overall list" not in pause
     for note in ("Grid caveat: fixture ignores HP", "Fixture screen sensitivity check"):
         assert how.count(note) == 1
         assert all(note not in html for path, html in pages.items() if path != "how.html")
     counters = pages[f"counters/{entry['slug']}.html"]
-    assert "Pause band: 4–9 turns:" in counters
-    assert "Screen slot 1:" in counters
+    assert "Win chance if Rocket pauses 4–9 turns:" in counters
+    assert "Lineup spot 1:" in counters
 
 
 @pytest.mark.parametrize("slug", ["pause", "elite-tm", "row-grades"])
@@ -470,8 +473,9 @@ def test_level_switch_markup_and_home_grids(reports, tmp_path):
     assert 'id="leaders"' in home and 'id="grunts"' in home
     assert "<h2>Best all-round</h2>" in home
     assert 'href="list/all.html">Full list' in home
-    assert 'href="list/grunts.html">Full grunt list →</a>' in home
-    assert 'href="list/leaders.html">Full leader list →</a>' in home
+    assert 'href="list/grunts.html">Best against any grunt →</a>' in home
+    assert 'href="list/leaders.html">Best against any leader →</a>' in home
+    assert "Full grunt list" not in home and "Full leader list" not in home
     assert 'class="cch"' in home and 'class="lead"' in home and 'class="top3"' in home
     assert '<span class="rk-badge">Leader</span>' in home
 
@@ -1052,20 +1056,22 @@ const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
  dataset:{types:JSON.stringify([t]),win:String(v)},hidden:false,rank:{textContent:''},
  querySelector(){return this.rank;}}));
 const controls={hidden:true},warning={hidden:true};
-const section={querySelector(){return warning;},
+const label={textContent:''};
+const section={querySelector(q){return q==='[data-filter-label]'?label:warning;},
  querySelectorAll(s){return s==='[data-filter]'?[button]:rows;}};
-const button={dataset:{filter:'fire'},textContent:' Fire ',closest(){return section;},
+const button={dataset:{filter:'fire'},textContent:' fire ',closest(){return section;},
  setAttribute(){}};
 globalThis.document={querySelectorAll(s){return s==='.tyfilter'?[controls]:[button];}};
 SCRIPT
 button.onclick();
-console.log(JSON.stringify({hidden:controls.hidden,warning:warning.hidden,
+console.log(JSON.stringify({hidden:controls.hidden,warning:warning.hidden,label:label.textContent,
  rows:rows.map(r=>[r.hidden,r.rank.textContent])}));
 """.replace("SCRIPT", site.FILTER_JS)
     result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
     assert json.loads(result.stdout) == {
         "hidden": False,
         "warning": False,
+        "label": ": Fire",
         "rows": [[True, ""], [False, 1], [False, 2]],
     }
 
@@ -1082,9 +1088,11 @@ def test_conditional_denominators_and_headline_grades(recorded):
         "per_slot": [{"slot": 1, "species": [species]}],
     }
     html = site.counter_detail(row, {})
-    assert "<th>n</th>" in html
-    assert f"<td>{17 if recorded else 'n not recorded'}</td>" in html
+    # Consumer red team: battle counts are not shown; only the rates are.
+    assert "<th>n</th>" not in html
+    assert "17" not in html and "n not recorded" not in html
     assert "999" not in html
+    assert "<th>Win chance vs this Pokémon</th>" in html
     caption = re.search(r"<caption>(.*?)</caption>", html).group(1)
     assert "pool incomplete" not in caption and "extrapolated" not in caption
 
@@ -1299,6 +1307,11 @@ def test_lineup_caps_each_slot_and_uses_first_counter():
     assert html.count('class="lm"') == 6
     assert '<span class="more">+2</span>' in html
     assert "Mon 5" in html and "Mon 6" not in html and "Unused" not in html
+    # Consumer red team: names print under the sprites, on a lighter circle.
+    assert html.count('<span class="lname">') == 6
+    assert '<span class="lname">Mon 0</span>' in html
+    assert ".lname{font-size:.68rem;" in site.CSS and "max-width:64px" in site.CSS
+    assert ".lineup .lsp{background:radial-gradient(circle,rgba(233,228,245,.7)" in site.CSS
 
 
 def test_sprites_copied_referenced_and_pruned(reports, tmp_path):
@@ -1677,3 +1690,150 @@ def test_sprite_requests_match_build(reports, tmp_path, monkeypatch):
     _, bases = site.render_site(reports)
     assert bases == requested
     assert bases
+
+
+def test_grunt_order_and_steel_display_name():
+    names = [
+        "Water grunt (male)",
+        "Decoy grunt (female)",
+        "Metal grunt (male)",
+        "Mixed grunt (male)",
+        "Bug grunt (male)",
+        "Water grunt (female)",
+        "Metal grunt (female)",
+        "Mixed grunt (female)",
+    ]
+    ordered = [site.display_name(n) for n in sorted(names, key=site.grunt_order)]
+    assert ordered == [
+        "Bug grunt (male)",
+        "Steel grunt (female)",
+        "Steel grunt (male)",
+        "Water grunt (female)",
+        "Water grunt (male)",
+        "Mixed grunt (female)",
+        "Mixed grunt (male)",
+        "Decoy grunt (female)",
+    ]
+    assert site.display_name("Cliff") == "Cliff"
+    assert site.display_name("Metalgross grunt") == "Metalgross grunt"
+
+
+def test_home_grunt_grid_order_and_steel_pages(reports, tmp_path):
+    manifest = read(reports, "manifest.json")
+    entry = next(e for e in manifest["characters"] if e["name"] == "Fairy grunt (female)")
+    leaders = [e["name"] for e in manifest["characters"] if e.get("rank") != "grunt"]
+
+    def rename(data):
+        for item in data["characters"]:
+            if item["name"] == entry["name"]:
+                item.update(name="Metal grunt (male)", slug="metal-grunt-male")
+
+    change(reports, "manifest.json", rename)
+    change(reports, entry["file"], lambda d: d["character"].update(name="Metal grunt (male)"))
+    pages = build(reports, tmp_path / "site")
+    # Slugs and files keep the game data's name; only the display changes.
+    assert "list/metal-grunt-male.html" in pages and "counters/metal-grunt-male.html" in pages
+    for html in pages.values():
+        assert "Metal grunt" not in html
+    for kind, suffix in (("list", "top counters"), ("counters", "counters")):
+        html = pages[f"{kind}/metal-grunt-male.html"]
+        assert f"<title>Steel grunt (male) · {suffix}</title>" in html
+        assert "Steel grunt (male)</h1>" in html
+        assert 'class="ty ty-steel"' in html
+    home = pages["index.html"]
+    grunts = home.split('id="grunts"', 1)[1]
+    titles = re.findall(r"<h3>([^<]*)</h3>", grunts)
+    assert titles == ["Empty grunt (female)", "Steel grunt (male)"]
+    assert 'href="list/metal-grunt-male.html"' in grunts
+    leader_titles = re.findall(r"<h3>([^<]*)</h3>", home.split('id="leaders"', 1)[1])
+    assert leader_titles[: len(leaders)] == leaders
+
+
+def test_percent_line_and_shadow_tooltip(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    line = f'<p class="hint pct">{escape(site.PERCENT_LINE)}</p>'
+    for path, html in pages.items():
+        if path.startswith("list/") or path == "index.html":
+            assert html.count(line) == 1, path
+            assert html.index("<h2>") < html.index(line)
+        else:
+            assert line not in html, path
+    shadow = site.content_tags({"speciesId": "example_shadow"})
+    assert shadow == f'<span class="tag sh" title="{site.SHADOW_TITLE}">Shadow</span>'
+    assert "Shadow form: hits harder, takes more damage" == site.SHADOW_TITLE
+    assert "hits harder, takes more damage." in pages["how.html"]
+
+
+def test_how_opens_with_plain_summary_and_one_collapsed_tech_section(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    how = pages["how.html"]
+    summary = re.search(r'<section class="card method how-summary">(.*?)</section>', how, re.S)
+    lines = re.findall(r"<p\b", summary.group(1))
+    assert 1 <= len(lines) <= 6
+    text = summary.group(1)
+    for words in (
+        site.PERCENT_LINE.replace("%", ""),
+        "<b>Shadow:</b>",
+        "<b>Elite TM:</b>",
+        escape(site.PAUSE_PLAIN),
+        "Your counter: level 50 or 40",
+        "Data: 14 Nov 2026",
+        "Credits:",
+    ):
+        assert words in text, words
+    for anchor in ("pause", "elite-tm", "shadow"):
+        assert f'id="{anchor}"' in text
+    assert how.count("<details") == 1
+    assert how.count('<details class="tech"><summary>Technical details</summary>') == 1
+    assert how.index("how-summary") < how.index('<details class="tech">')
+    tech = how.split('<details class="tech">', 1)[1]
+    assert "</details></main>" in tech
+    for heading in (
+        "Validation and provenance",
+        "Assumptions",
+        "Rocket pause and sensitivity",
+        "Rows that differ from the usual grade",
+        "Grade vocabulary",
+        "coverage",
+        "Sources, credits and limitations",
+    ):
+        assert heading in tech, heading
+    for entry in read(reports, "manifest.json")["characters"]:
+        assert f'id="c-{entry["slug"]}"' in tech
+    # The plain pause sentence and the technical explanation each appear once.
+    assert how.count(escape(site.PAUSE_PLAIN)) == 1
+    assert how.count("Pause band is a sensitivity check") == 1
+    characters = read(reports, "manifest.json")["characters"]
+    assert len(re.findall(r"<li><b>[^<]*:</b> (?:more than|band not)", how)) == len(characters)
+    ids = [a["id"] for _, a in Elements(how).elements if "id" in a]
+    assert len(ids) == len(set(ids))
+
+
+def test_battle_details_use_plain_words(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    checked = 0
+    for path, html in pages.items():
+        if not path.startswith("counters/") or '<details class="counter">' not in html:
+            continue
+        checked += 1
+        text = " ".join(VisibleText(html).text)
+        for jargon in (
+            "Stage-1",
+            "stage-1",
+            "Conditional",
+            "conditional",
+            "n not recorded",
+            "Screen slot",
+            "Calc summary",
+            "Rocket species",
+            "Solo sweep",
+            "Rocket KOs",
+            "Pause band",
+            "grid",
+            "1v1",
+        ):
+            assert jargon not in text, (path, jargon)
+        assert "Quick 1-on-1 check" in text
+        assert "Win chance vs this Pokémon" in text
+        assert "<th>n</th>" not in html
+    assert checked
