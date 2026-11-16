@@ -404,6 +404,11 @@ are refused. When upgrading an older unmarked site, choose a new or empty `--out
   Rocket movesets and its weakest contributing cell grade. If the grade order is unknown,
   every distinct contributing grade is shown in sorted order.
 
+“How these numbers work” holds the trust strip, assumptions and page legends.
+It starts closed on phones and open on desktop. Without JavaScript it stays open.
+Estimate, validation warnings and the open-check count stay visible above it.
+A plain-language date line gives the battle date, its source and the battle rules period.
+
 All pages work without JavaScript. A short inline script filters list rows by attacker
 type and updates rank and percentage of best; without it, every row remains visible
 and filter controls stay hidden. Lists warn when the current view's best counter has
