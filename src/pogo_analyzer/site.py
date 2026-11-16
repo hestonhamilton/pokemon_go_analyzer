@@ -6,11 +6,15 @@ import re
 import shutil
 import tempfile
 from collections import defaultdict
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from html import escape
 from math import floor
 from pathlib import Path
+
+from .sim.rocket import rule_data
+
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 PAUSE_NOTE = (
     "Rankings depend strongly on the modelled Rocket pause after each charged attack "
@@ -73,6 +77,10 @@ border-radius:3px;padding:1px 6px;background:var(--panel);overflow-wrap:anywhere
 .chip.est{border-color:var(--ink);font-weight:600}.warn{color:var(--amber)}
 .chip.warn{border-color:var(--amber)}td .chip{white-space:nowrap;overflow-wrap:normal}
 .assume{padding:6px 14px;color:var(--muted);font-size:.86rem}
+.intro-info{padding:8px 14px 0;display:grid;gap:6px;justify-items:start}
+.intro-chips{display:flex;flex-wrap:wrap;gap:6px}
+.intro>summary{font-weight:600;padding:12px 14px;cursor:pointer}
+.intro-legends{padding:12px 14px;display:grid;gap:12px}
 .body{padding:12px 14px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
 .wrap{overflow-x:auto;position:relative}table{border-collapse:collapse;
 width:100%;font-variant-numeric:tabular-nums;font-size:.9rem}th,td{padding:6px 8px;
@@ -99,6 +107,9 @@ text-transform:uppercase}.detail{padding:12px;background:var(--bg);display:grid;
 clip:rect(0,0,0,0);white-space:nowrap;border:0}
 [hidden]{display:none!important}@media(max-width:640px){main{padding-inline:8px}}
 """
+INTRO_JS = """if(matchMedia('(max-width:640px)').matches){
+document.currentScript.previousElementSibling.open=false;
+}"""
 # Filtering only hides server-rendered rows. Without JS all rows and levels remain available.
 FILTER_JS = """const percent=v=>{
 const text=(v*100).toFixed(1);
@@ -188,17 +199,68 @@ def win_rate(row, *, overall=False):
     return text + "</span>"
 
 
+def english_date(value):
+    return f"{value.day} {MONTHS[value.month - 1]} {value.year}"
+
+
+def battle_date(value):
+    try:
+        return english_date(date.fromisoformat(value))
+    except (TypeError, ValueError):
+        return str(value) if value else "not recorded"
+
+
+def era_label(identifier):
+    if not identifier or identifier == "not recorded":
+        return "battle rules period not recorded"
+    for era in rule_data()["eras"]:
+        if era["id"] != identifier:
+            continue
+        start, until = era.get("from"), era.get("until")
+        if start:
+            text = f"battle rules from {battle_date(start)}"
+            if until:
+                text += f" to {english_date(date.fromisoformat(until) - timedelta(days=1))}"
+            return text
+        if until:
+            return f"battle rules before {battle_date(until)}"
+    return f"battle rules period {identifier}"
+
+
+def fetched_label(value):
+    if not value or value == "not recorded":
+        return "fetched not recorded"
+    try:
+        stamp = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return f"fetched {value}"
+    # Older timestamps without an offset are treated as UTC, never the host timezone.
+    stamp = stamp.replace(tzinfo=UTC) if stamp.tzinfo is None else stamp.astimezone(UTC)
+    return f"fetched {english_date(stamp)}, {stamp:%H:%M} UTC"
+
+
 def provenance(data):
     stamp = data.get("computed_for_battle_date", data.get("battle_date", "not recorded"))
     source = data.get(
         "computed_for_battle_date_source", data.get("battle_date_source", "not recorded")
     )
+    source = {
+        "default: run date": "the day this ran",
+        "explicit": "a chosen date",
+        "not recorded": "date source not recorded",
+        None: "date source not recorded",
+        "": "date source not recorded",
+    }.get(source, source)
     valid = data.get("valid_for", {})
     era = valid.get("era", data.get("era", "not recorded"))
     return (
-        f'<p class="moves">Computed for battle date {e(stamp)} · battle_date_source: '
-        f"{e(source)} · valid_for era: {e(era)}</p>"
-        + (chip("extrapolated forward", "warn") if valid.get("extrapolated") else "")
+        f'<p class="moves">Battles as of {e(battle_date(stamp))} ({e(source)}) · '
+        f"{e(era_label(era))}</p>"
+        + (
+            chip("newer than our sources: rules assumed unchanged", "warn")
+            if valid.get("extrapolated")
+            else ""
+        )
     )
 
 
@@ -231,7 +293,7 @@ def assumptions(data, level):
     )
 
 
-def trust(data, level):
+def validation_status(data):
     validation = data.get("validation", {})
     label = data.get("validation_label", "Validation label not recorded")
     if not isinstance(label, str):
@@ -240,6 +302,11 @@ def trust(data, level):
         word in label.casefold() for word in ("unvalidated", "gate failed")
     )
     discrepancies = validation.get("open_discrepancies", [])
+    return label, failed, discrepancies
+
+
+def trust_strip(data):
+    label, failed, discrepancies = validation_status(data)
     ids = [str(r.get("id", r.get("fixture", ""))) for r in discrepancies]
     strip = chip("every number is an estimate", "est") + chip(label)
     if failed:
@@ -247,7 +314,43 @@ def trust(data, level):
     strip += chip("open discrepancies: " + (", ".join(ids) or "none recorded"), "warn")
     strip += chip(data.get("rcpm_note") or "rCPM note not recorded")
     strip += chip(PAUSE_NOTE, "warn")
-    return f'<div class="trust">{strip}</div>{provenance(data)}{assumptions(data, level)}'
+    return f'<div class="trust">{strip}</div>'
+
+
+def trust(data, level):
+    return f"{trust_strip(data)}{provenance(data)}{assumptions(data, level)}"
+
+
+def intro(data, legends):
+    _, failed, discrepancies = validation_status(data)
+    visible = chip("every number is an estimate", "est")
+    if failed:
+        visible += chip("UNVALIDATED", "warn")
+    count = len(discrepancies)
+    if count:
+        visible += chip(f"{count} open {'check' if count == 1 else 'checks'}", "warn")
+    return (
+        f'<div class="intro-info"><div class="intro-chips">{visible}</div>'
+        f"{provenance(data)}</div>"
+        '<details class="intro" open><summary>How these numbers work</summary>'
+        f"{trust_strip(data)}{assumptions(data, '40/50 (per section)')}"
+        + (f'<div class="intro-legends">{legends}</div>' if legends else "")
+        + f"</details><script>{INTRO_JS}</script>"
+    )
+
+
+def page_legends(data, *, overall=False, counters=False):
+    ranking = (
+        "Expand a counter for its details."
+        if counters
+        else "% of best uses the current filtered view."
+    )
+    pause = "pause band not computed for the overall list" if overall else pause_band_legend(data)
+    return (
+        '<p class="legend">Badges: elite = elite move; legacy = legacy move. '
+        f"Ranked by win rate, HP left, then turns. {ranking}</p>"
+        f'<p class="legend">{pause}</p>'
+    )
 
 
 def notes(data, coverage_view=None):
@@ -268,19 +371,19 @@ def notes(data, coverage_view=None):
         body += (
             "<p><b>Source.</b> "
             + " · ".join(e(source.get(k, "not recorded")) for k in ("name", "license", "url"))
-            + f" · fetched_at {e(source.get('fetched_at', 'not recorded'))}</p>"
+            + f" · {e(fetched_label(source.get('fetched_at')))}</p>"
         )
     return f'<footer class="notes">{body}</footer>'
 
 
-def document(title, data, body, nav, *, script=False, coverage_view=None):
+def document(title, data, body, nav, *, script=False, coverage_view=None, legends=""):
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{e(title)}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<main>\n"
         f'<nav aria-label="Pages">{nav}</nav>\n<div class="screen">'
         f'<header class="screen-title"><h1>{e(title)}</h1></header>\n'
-        f"{trust(data, '40/50 (per section)')}\n"
+        f"{intro(data, legends)}\n"
         f'<div class="body">{body}</div>\n{notes(data, coverage_view)}\n</div>\n</main>\n'
         + (f"<script>{FILTER_JS}</script>\n" if script else "")
         + "</body>\n</html>\n"
@@ -343,13 +446,7 @@ def list_body(data, results, reason, extra="", *, overall=False):
         extra
         + '<nav aria-label="Levels">'
         + "".join(f'<a href="#level-{e(v)}">Level {e(v)}</a>' for v in level_keys)
-        + '</nav><p class="legend">Badges: elite = elite move; legacy = legacy move. '
-    )
-    body += "Ranked by win rate, HP left, then turns. % of best uses the current filtered view.</p>"
-    body += (
-        '<p class="legend">pause band not computed for the overall list</p>'
-        if overall
-        else f'<p class="legend">{pause_band_legend(data)}</p>'
+        + "</nav>"
     )
     for level in level_keys:
         rows = ordered(results.get(level, []))
@@ -505,10 +602,8 @@ def counters_body(data, results, reason):
     body = (
         '<nav aria-label="Levels">'
         + "".join(f'<a href="#level-{e(v)}">Level {e(v)}</a>' for v in level_keys)
-        + '</nav><p class="legend">Badges: elite = elite move; legacy = legacy move. '
+        + "</nav>"
     )
-    body += "Ranked by win rate, HP left, then turns. Expand a counter for its details.</p>"
-    body += f'<p class="legend">{pause_band_legend(data)}</p>'
     for level in level_keys:
         body += (
             f'<section id="level-{e(level)}"><h2>Level {e(level)}</h2>{assumptions(data, level)}'
@@ -798,6 +893,7 @@ def build_site(data_dir, out):
             home + overall_nav + f'<a href="../counters/{e(slug)}.html">Counter details</a>',
             script=True,
             coverage_view=all_view,
+            legends=page_legends(meta),
         )
         pages[f"counters/{slug}.html"] = document(
             f"{name} · counters",
@@ -805,6 +901,7 @@ def build_site(data_dir, out):
             counters_body(meta, results, reason),
             home + f'<a href="../list/{e(slug)}.html">Ranked list</a>',
             coverage_view=all_view,
+            legends=page_legends(meta, counters=True),
         )
         del data, report, results, meta
     for view, title in (("all", "All Rocket"), ("grunts", "Grunts"), ("leaders", "Leaders")):
@@ -822,6 +919,7 @@ def build_site(data_dir, out):
             home + overall_nav,
             script=True,
             coverage_view=data,
+            legends=page_legends(overall_meta, overall=True),
         )
     pages["index.html"] = document(
         "Rocket counters · top 3",

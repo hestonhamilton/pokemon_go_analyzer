@@ -78,11 +78,9 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
             escape(overall["weighting_note"]),
             escape(overall["credits"]),
             "open discrepancies:",
-            "battle_date_source: explicit",
-            "valid_for era:",
-            "2026-11-14",
-            escape(overall["era"]),
-            "extrapolated forward",
+            "Battles as of 14 Nov 2026 (a chosen date)",
+            "battle rules from 12 Mar 2026",
+            "newer than our sources: rules assumed unchanged",
             "2019-07-22",
             "IVs 15/15/15",
             "levels 40/50 (per section)",
@@ -109,7 +107,7 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
         for source in overall["sources"]:
             assert escape(source["name"]) in html
             assert escape(source["url"]) in html
-            assert f"fetched_at {FETCHED}" in html
+            assert "fetched 14 Nov 2026, 00:00 UTC" in html
         for tag, attrs in Elements(html).elements:
             for key, value in attrs.items():
                 # Plain <a href> navigation is allowed; src, srcset, link href,
@@ -119,7 +117,7 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
                 assert not re.search(r"(?:https?:)?//", value or "", re.I), (path, tag, key)
         assert not re.search(r"\burl\s*\(|@import\b", html, re.I)
         if path.startswith("counters/"):
-            assert "<script>" not in html  # Native details never need script.
+            assert site.FILTER_JS not in html
         if path.startswith(("list/", "counters/")):
             if path in ("list/all.html", "list/grunts.html", "list/leaders.html"):
                 assert "pause band not computed for the overall list" in html
@@ -183,6 +181,154 @@ def test_index_golden(reports, tmp_path):
     assert html == GOLDEN.read_text()
 
 
+def test_intro_fold_on_every_page(reports, tmp_path):
+    pages = build(reports, tmp_path / "site")
+    manifest = read(reports, "manifest.json")
+    for path, html in pages.items():
+        visible, rest = html.split('<details class="intro" open>', 1)
+        folded, body = rest.split("</details>", 1)
+        assert visible.endswith("</div>")
+        assert site.chip("every number is an estimate", "est") in visible
+        assert "Battles as of 14 Nov 2026 (a chosen date)" in visible
+        assert site.chip("newer than our sources: rules assumed unchanged", "warn") in visible
+        assert site.chip("2 open checks", "warn") in visible
+        assert site.chip("UNVALIDATED", "warn") not in visible
+        assert '<div class="trust">' not in visible
+        assert "You:" not in visible
+        assert folded.startswith("<summary>How these numbers work</summary>")
+        data = read(reports, "overall.json")
+        if path.startswith(("list/", "counters/")) and Path(path).stem not in (
+            "all",
+            "grunts",
+            "leaders",
+        ):
+            entry = next(e for e in manifest["characters"] if e["slug"] == Path(path).stem)
+            data = read(reports, entry["file"])
+        assert site.trust_strip(data) in folded
+        assert site.assumptions(data, "40/50 (per section)") in folded
+        assert body.startswith(f"<script>{site.INTRO_JS}</script>")
+        assert html.count(f"<script>{site.INTRO_JS}</script>") == 1
+        if path != "index.html":
+            legends = re.findall(r'<p class="legend">.*?</p>', folded, re.S)
+            assert len(legends) == 2
+            assert "Badges: elite = elite move; legacy = legacy move." in legends[0]
+            if Path(path).stem in ("all", "grunts", "leaders"):
+                assert "pause band not computed for the overall list" in legends[1]
+            else:
+                assert site.pause_band_legend(data) in legends[1]
+            assert '<p class="legend">' not in body
+            for level in ("40", "50"):
+                assert site.assumptions(data, level) in body
+        else:
+            assert '<p class="legend">' not in folded
+            assert "Assumptions, validation and sources" in body
+
+
+@pytest.mark.parametrize("count", [0, 1, 3])
+@pytest.mark.parametrize(
+    "validated,label,failed",
+    [(True, "Passed", False), (False, "Passed", True), (True, "UNVALIDATED: gate failed", True)],
+)
+def test_intro_visible_validation_and_check_counts(count, validated, label, failed):
+    data = {
+        "validation_label": label,
+        "validation": {
+            "validated": validated,
+            "open_discrepancies": [{"id": f"X{i}"} for i in range(count)],
+        },
+    }
+    html = site.document("Example", data, "", "")
+    visible, folded = html.split('<details class="intro" open>', 1)
+    assert (site.chip("UNVALIDATED", "warn") in visible) is failed
+    if count:
+        expected = f"{count} open {'check' if count == 1 else 'checks'}"
+        assert site.chip(expected, "warn") in visible
+    else:
+        assert "open check" not in visible
+    assert "open discrepancies:" not in visible
+    assert "open discrepancies:" in folded
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js unavailable for inline JS check")
+@pytest.mark.parametrize("phone", [True, False])
+def test_intro_script_closes_only_on_phones(phone):
+    harness = """
+const intro={open:true};
+globalThis.document={currentScript:{previousElementSibling:intro}};
+globalThis.matchMedia=query=>{
+if(query!=='(max-width:640px)')throw new Error(query);
+return {matches:PHONE};
+};
+SCRIPT
+console.log(JSON.stringify(intro.open));
+""".replace("PHONE", json.dumps(phone)).replace("SCRIPT", site.INTRO_JS)
+    result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+    assert json.loads(result.stdout) is (not phone)
+
+
+@pytest.mark.parametrize(
+    "era,expected",
+    [
+        ("before-dec-2025", "battle rules before 10 Dec 2025"),
+        ("dec-2025", "battle rules from 10 Dec 2025 to 11 Mar 2026"),
+        ("mar-2026", "battle rules from 12 Mar 2026"),
+        ('<unknown "era">', "battle rules period &lt;unknown &quot;era&quot;&gt;"),
+        (None, "battle rules period not recorded"),
+    ],
+)
+def test_provenance_era_wording(era, expected):
+    data = {"valid_for": {"era": era}} if era else {}
+    assert expected in site.provenance(data)
+
+
+@pytest.mark.parametrize("old_keys", [True, False])
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        ("default: run date", "the day this ran"),
+        ("explicit", "a chosen date"),
+        (None, "date source not recorded"),
+        ('<other "source">', "&lt;other &quot;source&quot;&gt;"),
+    ],
+)
+def test_provenance_date_and_source_wording(source, expected, old_keys):
+    prefix = "" if old_keys else "computed_for_"
+    data = {f"{prefix}battle_date": "2026-11-16", "era": "mar-2026"}
+    if source is not None:
+        data[f"{prefix}battle_date_source"] = source
+    assert site.provenance(data) == (
+        f'<p class="moves">Battles as of 16 Nov 2026 ({expected}) · '
+        "battle rules from 12 Mar 2026</p>"
+    )
+
+
+def test_provenance_extrapolation_wording_keeps_row_grade_vocabulary():
+    warning = site.chip("newer than our sources: rules assumed unchanged", "warn")
+    assert warning in site.provenance({"valid_for": {"extrapolated": True}})
+    assert warning not in site.provenance({})
+    assert "extrapolated forward" not in site.provenance({"valid_for": {"extrapolated": True}})
+    assert site.chip("extrapolated forward", "warn") in site.grades("estimate", ["extrapolated"])
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("2026-11-16T08:30:59Z", "fetched 16 Nov 2026, 08:30 UTC"),
+        ("2026-11-16T01:30:45-07:00", "fetched 16 Nov 2026, 08:30 UTC"),
+        ("2026-11-17T01:30:00+03:00", "fetched 16 Nov 2026, 22:30 UTC"),
+        ("2026-11-16T08:30:00", "fetched 16 Nov 2026, 08:30 UTC"),
+        (None, "fetched not recorded"),
+        ("", "fetched not recorded"),
+        ('<bad "timestamp">', "fetched &lt;bad &quot;timestamp&quot;&gt;"),
+    ],
+)
+def test_footer_fetched_wording(value, expected):
+    source = {"fetched_at": value} if value is not None else {}
+    html = site.notes({"sources": [source]})
+    assert f" · {expected}</p>" in html
+    assert "fetched_at" not in html
+
+
 def test_hostile_data_is_escaped(reports, tmp_path):
     hostile = '<script>alert("x")</script>'
     manifest = read(reports, "manifest.json")
@@ -225,7 +371,7 @@ def test_unvalidated_and_discrepancies_are_data_driven(reports, tmp_path):
     ]:
         change(reports, path, mutate)
     for html in build(reports, tmp_path / "site").values():
-        assert ">UNVALIDATED</span>" in html
+        assert site.chip("UNVALIDATED", "warn") in html.split('<details class="intro"')[0]
         assert "UNVALIDATED: gate failed; X9 is open" in html
         assert "open discrepancies: X9" in html
         assert "open discrepancies: F3" not in html
@@ -290,13 +436,13 @@ def test_stale_overall_is_visible(reports, tmp_path, mode):
             assert (
                 "older than the per-type lists, which have changed since it was computed." in html
             )
-        assert "Computed for battle date 2026-10-01" in html
-        assert "battle_date_source: default: run date" in html
-        assert "valid_for era: overall-file-era" in html
+        assert "Battles as of 1 Oct 2026" in html
+        assert "(the day this ran)" in html
+        assert "battle rules period overall-file-era" in html
         if path.startswith("list/"):
             assert ("data-win=" in html) is (mode == "status")
             assert ("not calculated" in html) is (mode == "key")
-            assert "Computed for battle date 2026-11-14" not in html
+            assert "Battles as of 14 Nov 2026" not in html
 
 
 def test_skipped_overall_reason(reports, tmp_path):
@@ -354,9 +500,9 @@ def test_per_file_dates_and_ignored_orphans(reports, tmp_path):
         (reports / path).write_text("not JSON: must not be read")
     pages = build(reports, tmp_path / "site")
     for path in ("index.html", f"list/{entry['slug']}.html", f"counters/{entry['slug']}.html"):
-        assert "Computed for battle date 2026-10-01" in pages[path]
-        assert "battle_date_source: default: run date" in pages[path]
-        assert "valid_for era: file-specific-era" in pages[path]
+        assert "Battles as of 1 Oct 2026" in pages[path]
+        assert "(the day this ran)" in pages[path]
+        assert "battle rules period file-specific-era" in pages[path]
 
 
 def test_calc_ranges_have_weakest_column_grades_and_one_row_per_species():
@@ -588,7 +734,7 @@ def test_single_character_precompute_without_overall(reports, tmp_path):
     assert len(pages) == 6
     assert "report file unavailable" in pages["list/all.html"]
     assert "every number is an estimate" in pages["index.html"]
-    assert "Computed for battle date not recorded" in pages["list/all.html"]
+    assert "Battles as of not recorded" in pages["list/all.html"]
     assert escape(read(reports, "manifest.json")["validation_label"]) in pages["index.html"]
     for html in pages.values():
         for footer in re.findall(r'<footer class="notes">(.*?)</footer>', html, re.S):
