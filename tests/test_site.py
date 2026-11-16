@@ -456,12 +456,13 @@ def test_level_switch_markup_and_home_grids(reports, tmp_path):
         if path == "how.html":
             continue
         buttons = [a for t, a in Elements(html).elements if "data-show-level" in a]
+        # Owner ruling: every page opens on level 50, with level 40 a tap away.
         assert [(b["data-show-level"], b["aria-pressed"]) for b in buttons] == [
-            ("40", "true"),
-            ("50", "false"),
+            ("50", "true"),
+            ("40", "false"),
         ]
         sections = [a for t, a in Elements(html).elements if "data-level" in a]
-        assert [a["data-level"] for a in sections] == ["40", "50"]
+        assert [a["data-level"] for a in sections] == ["50", "40"]
         assert all("hidden" not in a for a in sections)
         assert html.count("Your counter: level") == 2
         assert site.LEVEL_JS in html

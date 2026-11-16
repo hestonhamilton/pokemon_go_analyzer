@@ -681,10 +681,15 @@ def ordered(rows):
     )
 
 
+# Owner ruling: pages open on level 50; other levels are a tap away.
+DEFAULT_LEVEL = "50"
+
+
 def levels(data, results):
+    """Level keys with the default level first, then ascending."""
     return sorted(
         {"40", "50", *results, *(f"{v:g}" for v in data.get("params", {}).get("levels", []))},
-        key=float,
+        key=lambda v: (v != DEFAULT_LEVEL, float(v)),
     )
 
 
@@ -986,7 +991,8 @@ def tile(
     sprites=None,
 ):
     sprites = sprites or Sprites()
-    rows = ordered(results.get("40", []))
+    level = next((v for v in levels({}, results) if results.get(v)), DEFAULT_LEVEL)
+    rows = ordered(results.get(level, []))
     rank_label = {"boss": "Boss", "grunt": "Grunt"}.get(rank, "Leader")
     badge = (
         type_chip(type_name, icons, small=True)
@@ -1016,7 +1022,7 @@ def tile(
             + "</ol>"
         )
     else:
-        body += unavailable(reason or "no full results at level 40")
+        body += unavailable(reason or f"no full results at level {level}")
     return body + "</article>"
 
 
