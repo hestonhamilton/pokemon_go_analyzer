@@ -70,6 +70,15 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
     overall = read(reports, "overall.json")
     # Check every page, including both unavailable page types, rather than one sample.
     for path, html in pages.items():
+        head_script = f"<script>{site.THEME_HEAD_JS}</script>"
+        assert html.index('<meta charset="utf-8">') < html.index(head_script)
+        assert html.index(head_script) < html.index("<style>") < html.index("</head>")
+        assert html.index("</head>") < html.index("<body>")
+        assert site.THEME_TOGGLE in html
+        assert '<button type="button" class="theme-toggle" hidden' in html
+        assert "localStorage.getItem('pogo-theme')" in site.THEME_HEAD_JS
+        assert "t==='light'||t==='dark'" in site.THEME_HEAD_JS
+        assert "localStorage.setItem('pogo-theme'" in html
         for label in (
             "every number is an estimate",
             escape(overall["validation_label"]),
@@ -179,6 +188,38 @@ def test_index_golden(reports, tmp_path):
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(html)
     assert html == GOLDEN.read_text()
+
+
+def test_type_icons_and_placeholder(reports, tmp_path):
+    icons = tmp_path / "icons"
+    icons.mkdir()
+    png = b"\x89PNG\r\n\x1a\nstand-in"
+    (icons / "steel.png").write_bytes(png)
+    (icons / "fire.png").write_bytes(b"not a png")
+    (icons / "water.png").write_bytes(png + b"x" * 65536)
+    (icons / "grass.png").symlink_to(icons / "steel.png")
+    out = tmp_path / "site"
+    assert (
+        cli.main(["site", "--data", str(reports), "--out", str(out), "--type-icons", str(icons)])
+        == 0
+    )
+    assert (out / "types/steel.png").read_bytes() == png
+    assert sorted(p.name for p in (out / "types").iterdir()) == ["steel.png"]
+    assert "types/steel.png" in read(out, ".pogo-site")["files"]
+    html = (out / "list/all.html").read_text()
+    assert '<img src="../types/steel.png" alt="" width="18" height="18">' in html
+    assert 'data-filter="none"' not in html
+    assert not re.search(r'<span class="tys">.*?none.*?</span></td>', html)
+    for name in ("fire", "water", "grass"):
+        assert (
+            site.type_chip(name, site.load_type_icons(icons))
+            == f'<span class="ty ty-{name}">{name}</span>'
+        )
+    assert site.type_chip("<unknown>", set()) == "&lt;unknown&gt;"
+    build(reports, out)
+    assert not (out / "types").exists()
+    assert '<span class="ty ty-steel">steel</span>' in (out / "list/all.html").read_text()
+    assert "<img " not in (out / "list/all.html").read_text()
 
 
 def test_intro_fold_on_every_page(reports, tmp_path):

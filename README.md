@@ -384,8 +384,11 @@ uv run pogo-analyzer site --data reports --out public
 python -m http.server 8000 --directory public
 ```
 
+Use `--type-icons DIR` to add local type PNGs; icons are not shipped in the repo and are not fetched by the tool.
+
 Open `http://localhost:8000` to view the site. The output is plain static HTML with
 inline CSS, system fonts, light/dark colors and no remote assets or runtime dependencies.
+The theme toggle remembers your choice per browser and defaults to the device setting.
 Source URLs appear as visible text only. Each build stages a complete site in a temporary
 sibling directory, renames the old output aside, installs the new tree, then removes the
 old tree. Rerunning is safe and prunes pages for characters removed from the manifest.
