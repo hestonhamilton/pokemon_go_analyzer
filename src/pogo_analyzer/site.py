@@ -74,9 +74,10 @@ def pause_band_legend(data):
 
 
 CSS = """
-:root{--bg:#eef0ec;--panel:#fbfbf8;--ink:#1d2321;--muted:#5d6762;--line:#d3d8d2;
---accent:#1f5f8b;--win:#2f7d4f;--amber:#9a6200;--violet:#6a4c9c;
---display:"Arial Narrow",sans-serif;--body:system-ui,sans-serif;--mono:ui-monospace,monospace}
+:root{--bg:#eaf5f1;--panel:#ffffff;--ink:#24363c;--muted:#5b7176;--line:#d5e7e2;
+--accent:#1d8592;--win:#2f8f57;--amber:#9a6200;--violet:#6a4c9c;
+--nav-bg:#1d8592;--nav-ink:#fff;--rocket:#1c2030;--rocket-red:#e0302a;
+--display:Lato,system-ui,sans-serif;--body:Lato,system-ui,sans-serif;--mono:ui-monospace,monospace}
 /* Values sampled from the Pokémon GO type icons. */
 :root{--ty-normal:#9098a0;--ty-fire:#fca84c;--ty-water:#4c90d4;--ty-electric:#f4d03c;--ty-grass:#60b854;--ty-ice:#74ccc0;--ty-fighting:#cc4068;--ty-poison:#a464c4;--ty-ground:#d49060;--ty-flying:#90a8dc;--ty-psychic:#f86c74;--ty-bug:#90c02c;--ty-rock:#d0c490;--ty-ghost:#5468ac;--ty-dragon:#0868c0;--ty-dark:#585064;--ty-steel:#50849c;--ty-fairy:#ec8ce4;}
 .ty{display:inline-flex;align-items:center;gap:4px;font:600 .76rem var(--body);padding:1px 8px;
@@ -90,11 +91,13 @@ button.t:has(.ty),button.t:has(.ty)[aria-pressed=true]{padding:0;border:0;backgr
 button[aria-pressed=true] .ty{outline:2px solid var(--ink);outline-offset:1px}
 h2 .ty{vertical-align:.2em}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
---bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;
---muted:#99a49e;--line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;
+--bg:#0d1b20;--panel:#15292f;--ink:#e4f1ef;
+--muted:#93aeb0;--line:#24414a;--accent:#53c6cc;--win:#5cc086;--amber:#e3a646;
+--nav-bg:#53c6cc;--nav-ink:#0d1b20;--rocket:#0a0b10;--rocket-red:#ff3b30;
 --violet:#ad94dd;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;--muted:#99a49e;
---line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;--violet:#ad94dd;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#0d1b20;--panel:#15292f;--ink:#e4f1ef;--muted:#93aeb0;
+--line:#24414a;--accent:#53c6cc;--win:#5cc086;--amber:#e3a646;--violet:#ad94dd;
+--nav-bg:#53c6cc;--nav-ink:#0d1b20;--rocket:#0a0b10;--rocket-red:#ff3b30;color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
 font:15px/1.5 var(--body)}main{max-width:1180px;margin:auto;padding:28px 16px 80px;
 display:grid;gap:18px}h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:.01em}
@@ -143,6 +146,22 @@ text-transform:uppercase}.detail{padding:12px;background:var(--bg);display:grid;
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
 clip:rect(0,0,0,0);white-space:nowrap;border:0}
 [hidden]{display:none!important}@media(max-width:640px){main{padding-inline:8px}}
+.screen{border:0;border-radius:18px;box-shadow:0 3px 12px rgba(0,50,60,.14)}
+.tile{border:0;border-radius:14px;box-shadow:0 1px 6px rgba(0,50,60,.12)}
+.tile.overall{border:2px solid var(--accent)}
+nav a{background:var(--nav-bg);color:var(--nav-ink);border:0;border-radius:999px;
+padding:6px 14px}
+button.theme-toggle{background:var(--nav-bg);color:var(--nav-ink);border:0}
+button.t{border-radius:999px}.chip{border-radius:999px}
+h1,h2,h3{font-weight:900;letter-spacing:0}
+.screen-title{background:linear-gradient(100deg,var(--rocket) 0 calc(100% - 44px),
+var(--rocket-red) calc(100% - 44px) calc(100% - 32px),var(--rocket) calc(100% - 32px));
+color:#fff;padding:16px 56px 12px 16px}
+.screen-title .sub{color:#b9bdca}.screen-title a{color:#fff}
+.rmark{display:inline-block;vertical-align:-.08em;margin-right:.35em}
+.rmark.letter{background:var(--rocket-red);color:#fff;font:900 .8em var(--display);
+padding:0 .28em;transform:skew(-10deg)}
+.rmark img{height:.9em;width:auto;display:block}
 """
 INTRO_JS = """if(matchMedia('(max-width:640px)').matches){
 document.currentScript.previousElementSibling.open=false;
@@ -457,14 +476,38 @@ THEME_JS = """
 """
 
 
-def document(title, data, body, nav, *, script=False, coverage_view=None, legends=""):
+def document(
+    title,
+    data,
+    body,
+    nav,
+    *,
+    script=False,
+    coverage_view=None,
+    legends="",
+    prefix="",
+    assets=frozenset(),
+):
+    """Render with asset output names and a prefix relative to this page's directory."""
+    fonts = "".join(
+        f"@font-face{{font-family:Lato;font-weight:{weight};font-display:swap;"
+        f'src:url("{e(prefix)}fonts/lato-{weight}.woff2") format("woff2")}}\n'
+        for weight in (400, 700, 900)
+        if f"fonts/lato-{weight}.woff2" in assets
+    )
+    mark = (
+        '<span class="rmark" aria-hidden="true">'
+        f'<img src="{e(prefix)}brand/rocket-r.png" alt=""></span>'
+        if "brand/rocket-r.png" in assets
+        else '<span class="rmark letter" aria-hidden="true">R</span>'
+    )
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         f"<script>{THEME_HEAD_JS}</script>\n"
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f"<title>{e(title)}</title>\n<style>{CSS}</style>\n</head>\n<body>\n<main>\n"
+        f"<title>{e(title)}</title>\n<style>{fonts}{CSS}</style>\n</head>\n<body>\n<main>\n"
         f'<nav aria-label="Pages">{nav}{THEME_TOGGLE}</nav>\n<div class="screen">'
-        f'<header class="screen-title"><h1>{e(title)}</h1></header>\n'
+        f'<header class="screen-title"><h1>{mark}{e(title)}</h1></header>\n'
         f"{intro(data, legends)}\n"
         f'<div class="body">{body}</div>\n{notes(data, coverage_view)}\n</div>\n</main>\n'
         + (f"<script>{FILTER_JS}</script>\n" if script else "")
@@ -870,7 +913,8 @@ def check_destination(destination):
     if not isinstance(files, list) or not all(
         isinstance(name, str)
         and re.fullmatch(
-            r"(?:(?:index|(?:list|counters)/[a-z0-9]+(?:-[a-z0-9]+)*)\.html|types/[a-z]+\.png)",
+            r"(?:(?:index|(?:list|counters)/[a-z0-9]+(?:-[a-z0-9]+)*)\.html"
+            r"|types/[a-z]+\.png|brand/rocket-r\.png|fonts/lato-(?:400|700|900)\.woff2)",
             name,
         )
         for name in files
@@ -928,28 +972,49 @@ def publish_pages(destination, pages):
         shutil.rmtree(old)
 
 
-def load_type_icons(directory):
-    icons = {}
+def load_assets(directory, specs):
+    """Read only named, bounded regular files with the expected signature, without links.
+
+    Each spec supplies the source name, output key, signature and byte limit.
+    """
+    assets = {}
     if directory is None:
-        return icons
-    for name in TYPES:
+        return assets
+    for name, key, signature, limit in specs:
         try:
-            fd = os.open(
-                Path(directory) / f"{name}.png", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-            )
+            fd = os.open(Path(directory) / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             with os.fdopen(fd, "rb") as stream:
                 info = os.fstat(stream.fileno())
-                if not stat.S_ISREG(info.st_mode) or info.st_size > 65536:
+                if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
                     continue
-                content = stream.read(65537)
-                if len(content) <= 65536 and content.startswith(b"\x89PNG\r\n\x1a\n"):
-                    icons[name] = content
+                content = stream.read(limit + 1)
+                if len(content) <= limit and content.startswith(signature):
+                    assets[key] = content
         except OSError:
             continue
-    return icons
+    return assets
 
 
-def build_site(data_dir, out, type_icons=None):
+def load_type_icons(directory):
+    return load_assets(
+        directory, ((f"{name}.png", name, b"\x89PNG\r\n\x1a\n", 65536) for name in TYPES)
+    )
+
+
+def load_brand_assets(directory):
+    return load_assets(
+        directory,
+        [
+            ("rocket-r.png", "brand/rocket-r.png", b"\x89PNG\r\n\x1a\n", 65536),
+            *(
+                (f"lato-{w}.woff2", f"fonts/lato-{w}.woff2", b"wOF2", 131072)
+                for w in (400, 700, 900)
+            ),
+        ],
+    )
+
+
+def build_site(data_dir, out, type_icons=None, brand_assets=None):
     if Path(out).is_symlink():
         raise ValueError("output symlink points outside --out")
     root, destination = Path(data_dir).resolve(), Path(out).resolve()
@@ -995,8 +1060,10 @@ def build_site(data_dir, out, type_icons=None):
             "the per-type lists, which have changed since it was computed.</p>"
         )
     icon_data = load_type_icons(type_icons)
+    brand_data = load_brand_assets(brand_assets)
     icons = set(icon_data)
     pages = {f"types/{name}.png": content for name, content in icon_data.items()}
+    pages.update(brand_data)
     home = '<a href="../index.html">Home</a>'
     overall_nav = "".join(
         f'<a href="{view}.html">{title}</a>'
@@ -1047,6 +1114,8 @@ def build_site(data_dir, out, type_icons=None):
             script=True,
             coverage_view=all_view,
             legends=page_legends(meta),
+            prefix="../",
+            assets=brand_data,
         )
         pages[f"counters/{slug}.html"] = document(
             f"{name} · counters",
@@ -1055,6 +1124,8 @@ def build_site(data_dir, out, type_icons=None):
             home + f'<a href="../list/{e(slug)}.html">Ranked list</a>',
             coverage_view=all_view,
             legends=page_legends(meta, counters=True),
+            prefix="../",
+            assets=brand_data,
         )
         del data, report, results, meta
     for view, title in (("all", "All Rocket"), ("grunts", "Grunts"), ("leaders", "Leaders")):
@@ -1074,6 +1145,8 @@ def build_site(data_dir, out, type_icons=None):
             script=True,
             coverage_view=data,
             legends=page_legends(overall_meta, overall=True),
+            prefix="../",
+            assets=brand_data,
         )
     pages["index.html"] = document(
         "Rocket counters · top 3",
@@ -1082,9 +1155,10 @@ def build_site(data_dir, out, type_icons=None):
         '<a href="list/all.html">All Rocket</a><a href="list/grunts.html">Grunts</a>'
         '<a href="list/leaders.html">Leaders</a>',
         coverage_view=all_view,
+        assets=brand_data,
     )
     publish_pages(destination, pages)
-    return len(pages) - len(icon_data)
+    return len(pages) - len(icon_data) - len(brand_data)
 
 
 def add_parser(commands):
@@ -1092,11 +1166,12 @@ def add_parser(commands):
     sub.add_argument("--data", type=Path, required=True)
     sub.add_argument("--out", type=Path, required=True)
     sub.add_argument("--type-icons", type=Path)
+    sub.add_argument("--brand-assets", type=Path)
 
 
 def main_site(args, arg_parser):
     try:
-        build_site(args.data, args.out, args.type_icons)
+        build_site(args.data, args.out, args.type_icons, args.brand_assets)
     except (ValueError, OSError, KeyError, TypeError) as exc:
         arg_parser.error(str(exc))
     return 0

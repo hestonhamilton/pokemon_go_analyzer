@@ -6,9 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rocket counters · top 3</title>
 <style>
-:root{--bg:#eef0ec;--panel:#fbfbf8;--ink:#1d2321;--muted:#5d6762;--line:#d3d8d2;
---accent:#1f5f8b;--win:#2f7d4f;--amber:#9a6200;--violet:#6a4c9c;
---display:"Arial Narrow",sans-serif;--body:system-ui,sans-serif;--mono:ui-monospace,monospace}
+:root{--bg:#eaf5f1;--panel:#ffffff;--ink:#24363c;--muted:#5b7176;--line:#d5e7e2;
+--accent:#1d8592;--win:#2f8f57;--amber:#9a6200;--violet:#6a4c9c;
+--nav-bg:#1d8592;--nav-ink:#fff;--rocket:#1c2030;--rocket-red:#e0302a;
+--display:Lato,system-ui,sans-serif;--body:Lato,system-ui,sans-serif;--mono:ui-monospace,monospace}
 /* Values sampled from the Pokémon GO type icons. */
 :root{--ty-normal:#9098a0;--ty-fire:#fca84c;--ty-water:#4c90d4;--ty-electric:#f4d03c;--ty-grass:#60b854;--ty-ice:#74ccc0;--ty-fighting:#cc4068;--ty-poison:#a464c4;--ty-ground:#d49060;--ty-flying:#90a8dc;--ty-psychic:#f86c74;--ty-bug:#90c02c;--ty-rock:#d0c490;--ty-ghost:#5468ac;--ty-dragon:#0868c0;--ty-dark:#585064;--ty-steel:#50849c;--ty-fairy:#ec8ce4;}
 .ty{display:inline-flex;align-items:center;gap:4px;font:600 .76rem var(--body);padding:1px 8px;
@@ -22,11 +23,13 @@ button.t:has(.ty),button.t:has(.ty)[aria-pressed=true]{padding:0;border:0;backgr
 button[aria-pressed=true] .ty{outline:2px solid var(--ink);outline-offset:1px}
 h2 .ty{vertical-align:.2em}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
---bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;
---muted:#99a49e;--line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;
+--bg:#0d1b20;--panel:#15292f;--ink:#e4f1ef;
+--muted:#93aeb0;--line:#24414a;--accent:#53c6cc;--win:#5cc086;--amber:#e3a646;
+--nav-bg:#53c6cc;--nav-ink:#0d1b20;--rocket:#0a0b10;--rocket-red:#ff3b30;
 --violet:#ad94dd;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#121615;--panel:#1a1f1d;--ink:#e3e8e4;--muted:#99a49e;
---line:#2d3532;--accent:#6fb0dc;--win:#5cc086;--amber:#e3a646;--violet:#ad94dd;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#0d1b20;--panel:#15292f;--ink:#e4f1ef;--muted:#93aeb0;
+--line:#24414a;--accent:#53c6cc;--win:#5cc086;--amber:#e3a646;--violet:#ad94dd;
+--nav-bg:#53c6cc;--nav-ink:#0d1b20;--rocket:#0a0b10;--rocket-red:#ff3b30;color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
 font:15px/1.5 var(--body)}main{max-width:1180px;margin:auto;padding:28px 16px 80px;
 display:grid;gap:18px}h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:.01em}
@@ -75,12 +78,28 @@ text-transform:uppercase}.detail{padding:12px;background:var(--bg);display:grid;
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
 clip:rect(0,0,0,0);white-space:nowrap;border:0}
 [hidden]{display:none!important}@media(max-width:640px){main{padding-inline:8px}}
+.screen{border:0;border-radius:18px;box-shadow:0 3px 12px rgba(0,50,60,.14)}
+.tile{border:0;border-radius:14px;box-shadow:0 1px 6px rgba(0,50,60,.12)}
+.tile.overall{border:2px solid var(--accent)}
+nav a{background:var(--nav-bg);color:var(--nav-ink);border:0;border-radius:999px;
+padding:6px 14px}
+button.theme-toggle{background:var(--nav-bg);color:var(--nav-ink);border:0}
+button.t{border-radius:999px}.chip{border-radius:999px}
+h1,h2,h3{font-weight:900;letter-spacing:0}
+.screen-title{background:linear-gradient(100deg,var(--rocket) 0 calc(100% - 44px),
+var(--rocket-red) calc(100% - 44px) calc(100% - 32px),var(--rocket) calc(100% - 32px));
+color:#fff;padding:16px 56px 12px 16px}
+.screen-title .sub{color:#b9bdca}.screen-title a{color:#fff}
+.rmark{display:inline-block;vertical-align:-.08em;margin-right:.35em}
+.rmark.letter{background:var(--rocket-red);color:#fff;font:900 .8em var(--display);
+padding:0 .28em;transform:skew(-10deg)}
+.rmark img{height:.9em;width:auto;display:block}
 </style>
 </head>
 <body>
 <main>
 <nav aria-label="Pages"><a href="list/all.html">All Rocket</a><a href="list/grunts.html">Grunts</a><a href="list/leaders.html">Leaders</a><button type="button" class="theme-toggle" hidden aria-label="Switch to dark theme"><svg class="moon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7.1 7.1 0 0 0 21 12.8Z"/></svg><svg class="sun" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M19.07 4.93l-1.42 1.42M6.35 17.65l-1.42 1.42"/></svg></button></nav>
-<div class="screen"><header class="screen-title"><h1>Rocket counters · top 3</h1></header>
+<div class="screen"><header class="screen-title"><h1><span class="rmark letter" aria-hidden="true">R</span>Rocket counters · top 3</h1></header>
 <div class="intro-info"><div class="intro-chips"><span class="chip est">every number is an estimate</span><span class="chip warn">2 open checks</span></div><p class="moves">Battles as of 14 Nov 2026 (a chosen date) · battle rules from 12 Mar 2026</p><span class="chip warn">newer than our sources: rules assumed unchanged</span></div><details class="intro" open><summary>How these numbers work</summary><div class="trust"><span class="chip est">every number is an estimate</span><span class="chip ">Validated against 44 pre-Oct-2025 battle targets under venonic-2023 and fugerappi-2023 (flyfunner-old-50-2025: 43 covered, all pass; not covered: F2-cyndaquil-hp); 2 open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip warn">open discrepancies: F3-metagross-remaining, F4-ducklett-shadow-tyranitar</span><span class="chip ">Rocket stats from Oct 2025 on are backed by CP readings only.</span><span class="chip warn">Rankings depend strongly on the modelled Rocket pause after each charged attack (verification ledger row k); its trigger is an owner observation and not measured.</span></div><div class="assume">You: levels 40/50 (per section) · IVs 15/15/15 · trainer level 50 · Mega excluded (unsupported) · elite/legacy included and badged · player uses charged moves when ready (first affordable move) · player shields the first two charged attacks. PvPoke eliteMoves and legacyMoves included</div></details><script>if(matchMedia('(max-width:640px)').matches){
 document.currentScript.previousElementSibling.open=false;
 }</script>

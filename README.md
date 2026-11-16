@@ -385,9 +385,11 @@ python -m http.server 8000 --directory public
 ```
 
 Use `--type-icons DIR` to add local type PNGs; icons are not shipped in the repo and are not fetched by the tool.
+Use `--brand-assets DIR` for `rocket-r.png` and OFL Lato fonts `lato-{400,700,900}.woff2`;
+these assets are not shipped or fetched by the tool. Missing assets use a letter R and system fonts.
 
 Open `http://localhost:8000` to view the site. The output is plain static HTML with
-inline CSS, system fonts, light/dark colors and no remote assets or runtime dependencies.
+inline CSS, optional local fonts, light/dark colors and no remote assets or runtime dependencies.
 The theme toggle remembers your choice per browser and defaults to the device setting.
 Source URLs appear as visible text only. Each build stages a complete site in a temporary
 sibling directory, renames the old output aside, installs the new tree, then removes the

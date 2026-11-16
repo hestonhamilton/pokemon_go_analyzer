@@ -67,9 +67,13 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
         expected.update(f"{kind}/{entry['slug']}.html" for kind in ("list", "counters"))
     assert pages.keys() == expected
     assert build(reports, tmp_path / "site") == pages
+    assert not (tmp_path / "site/fonts").exists()
+    assert not (tmp_path / "site/brand").exists()
     overall = read(reports, "overall.json")
     # Check every page, including both unavailable page types, rather than one sample.
     for path, html in pages.items():
+        assert "@font-face" not in html
+        assert '<h1><span class="rmark letter" aria-hidden="true">R</span>' in html
         head_script = f"<script>{site.THEME_HEAD_JS}</script>"
         assert html.index('<meta charset="utf-8">') < html.index(head_script)
         assert html.index(head_script) < html.index("<style>") < html.index("</head>")
@@ -220,6 +224,115 @@ def test_type_icons_and_placeholder(reports, tmp_path):
     assert not (out / "types").exists()
     assert '<span class="ty ty-steel">steel</span>' in (out / "list/all.html").read_text()
     assert "<img " not in (out / "list/all.html").read_text()
+
+
+def test_brand_assets_copied_referenced_and_pruned(reports, tmp_path):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    # Generated stand-ins at the exact size caps; the renderer never decodes them.
+    png = b"\x89PNG\r\n\x1a\n" + b"x" * (65536 - 8)
+    font = b"wOF2" + b"x" * (131072 - 4)
+    (assets / "rocket-r.png").write_bytes(png)
+    expected = {"brand/rocket-r.png": png}
+    for weight in (400, 700, 900):
+        (assets / f"lato-{weight}.woff2").write_bytes(font)
+        expected[f"fonts/lato-{weight}.woff2"] = font
+    (assets / "other.png").write_bytes(png)
+    (assets / "lato-500.woff2").write_bytes(font)
+    out = tmp_path / "site"
+    assert (
+        cli.main(["site", "--data", str(reports), "--out", str(out), "--brand-assets", str(assets)])
+        == 0
+    )
+    for name, content in expected.items():
+        assert (out / name).read_bytes() == content
+    assert set(read(out, ".pogo-site")["files"]) == {
+        *expected,
+        *(str(p.relative_to(out)) for p in out.rglob("*.html")),
+    }
+    for path in out.rglob("*.html"):
+        html = path.read_text()
+        prefix = "" if path.name == "index.html" else "../"
+        assert (
+            '<h1><span class="rmark" aria-hidden="true">'
+            f'<img src="{prefix}brand/rocket-r.png" alt=""></span>'
+        ) in html
+        assert "rmark letter" not in html
+        assert html.count("@font-face") == 3
+        for weight in (400, 700, 900):
+            assert (
+                f"@font-face{{font-family:Lato;font-weight:{weight};font-display:swap;"
+                f'src:url("{prefix}fonts/lato-{weight}.woff2") format("woff2")}}'
+            ) in html
+    # This also exercises the build API and replacement of a tree containing brand files.
+    count = site.build_site(reports, out, brand_assets=assets)
+    assert count == len(list(out.rglob("*.html")))
+    pages = build(reports, out)
+    assert not (out / "brand").exists()
+    assert not (out / "fonts").exists()
+    assert not any(
+        name.startswith(("brand/", "fonts/")) for name in read(out, ".pogo-site")["files"]
+    )
+    for html in pages.values():
+        assert "@font-face" not in html
+        assert '<h1><span class="rmark letter" aria-hidden="true">R</span>' in html
+        assert "<img src=" not in html
+
+
+@pytest.mark.parametrize(
+    "name", ["rocket-r.png", "lato-400.woff2", "lato-700.woff2", "lato-900.woff2"]
+)
+@pytest.mark.parametrize("mode", ["wrong_signature", "oversize", "symlink", "directory", "fifo"])
+def test_invalid_brand_assets_ignored(tmp_path, name, mode):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    path = assets / name
+    signature, cap = (b"\x89PNG\r\n\x1a\n", 65536) if name.endswith(".png") else (b"wOF2", 131072)
+    if mode == "wrong_signature":
+        path.write_bytes(b"invalid")
+    elif mode == "oversize":
+        path.write_bytes(signature + b"x" * (cap + 1 - len(signature)))
+    elif mode == "symlink":
+        target = tmp_path / "valid"
+        target.write_bytes(signature + b"stand-in")
+        path.symlink_to(target)
+    elif mode == "directory":
+        path.mkdir()
+    else:
+        os.mkfifo(path)
+    assert site.load_brand_assets(assets) == {}
+
+
+def test_partial_brand_fonts(tmp_path):
+    (tmp_path / "lato-700.woff2").write_bytes(b"wOF2stand-in")
+    assets = site.load_brand_assets(tmp_path)
+    html = site.document("Example", {}, "", "", prefix="../", assets=assets)
+    assert html.count("@font-face") == 1
+    assert "font-weight:700;font-display:swap;" in html
+    assert 'src:url("../fonts/lato-700.woff2") format("woff2")' in html
+    assert "lato-400.woff2" not in html
+    assert "lato-900.woff2" not in html
+    assert '<h1><span class="rmark letter" aria-hidden="true">R</span>' in html
+
+
+def test_warning_tokens_stay_amber():
+    blocks = [
+        dict(re.findall(r"(--[\w-]+):([^;}]+)", block))
+        for block in re.findall(r":root[^{}]*\{([^}]+)\}", site.CSS)
+        if "--bg:" in block
+    ]
+    assert len(blocks) == 3
+    for tokens, amber, violet, red in zip(
+        blocks,
+        ("#9a6200", "#e3a646", "#e3a646"),
+        ("#6a4c9c", "#ad94dd", "#ad94dd"),
+        ("#e0302a", "#ff3b30", "#ff3b30"),
+        strict=True,
+    ):
+        assert tokens["--amber"] == amber
+        assert tokens["--violet"] == violet
+        assert tokens["--rocket-red"] == red
+        assert tokens["--amber"] != tokens["--rocket-red"]
 
 
 def test_intro_fold_on_every_page(reports, tmp_path):
