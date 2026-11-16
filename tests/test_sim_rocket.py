@@ -47,7 +47,7 @@ def starts(result, side, kind="fast"):
     ]
 
 
-def test_default_fixture_output_bytes_unchanged():
+def test_default_fixture_output_only_adds_stat_stages_key():
     player, rocket = mon(4, charged=(C,), energy=20), mon(11)
     default = simulate_rocket([player], [rocket], battle_date=None)
     explicit = simulate_rocket(
@@ -58,10 +58,22 @@ def test_default_fixture_output_bytes_unchanged():
         **battle_summary(default, [player]),
         "timeline": [asdict(t) for t in default.timeline],
     }
-    # Captured before adding the override field; covers all summary and timeline bytes.
+    # Default-on adds the stat_stages key; this battle has no stat-changing moves.
+    assert hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest() == (
+        "c6185d31dc5786d5a8861df72ca9f25c56a05707385cbe4d4522152a467235eb"
+    )
+    assert payload["rules"]["turn_rules"].pop("stat_stages") is True
+    # All other bytes still match the snapshot from before pause overrides.
     assert hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest() == (
         "78b0015220aa008bacb702ad45f299c95059b0a9dce4d3e2ffe1c029d5e70882"
     )
+    disabled = simulate_rocket(
+        [player], [rocket], battle_date=None, rules=RocketRules(turn_rules=Rules(stat_stages=False))
+    )
+    assert payload == {
+        **battle_summary(disabled, [player]),
+        "timeline": [asdict(t) for t in disabled.timeline],
+    }
 
 
 @pytest.mark.parametrize("turns,winner", [(6, "rocket"), (8, "player")])

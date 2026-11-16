@@ -1,6 +1,29 @@
 # Stat stages: prior art and recommendations
 
-Researched 2026-11-16. Research only: no engine code changes until the owner picks an option.
+## Decision and implementation
+
+Option A (PvPoke default parity) was chosen on 2026-11-16. Moves now carry self and
+opponent stage fields and effect chances. Both battle engines apply guaranteed effects
+after damage and chance effects on PvPoke's deterministic meter, with clamping, reset
+on replacement, and stages carried by surviving players across Rocket slots. The exact
+solo engine supports the same rules. Stat stages are on by default;
+`Rules(stat_stages=False)` is the alternative that disables them.
+
+Executable PvPoke parity covers 621 1v1 cases (31,517 turns) and five team cases, with
+zero mismatches; see [the parity report](../tests/fixtures/sim/battle_report.md).
+The owner's experience playing Rocket battles supports that move stat changes occur;
+this is an observation, not a measurement. The multipliers are data-mined from the game
+master and have not been measured in Rocket battles. The chance meter is a model choice
+copied from PvPoke; the game rolls chance effects, as the official 2026 rebuild post
+below describes. Ledger row o and result evidence carry these separate grades.
+
+Existing reports need a recompute. That work and the site refresh are sequenced
+separately; this implementation updates only tests and checked-in expected fixtures.
+
+## Research snapshot (before implementation)
+
+Researched 2026-11-16. The research below records the engine and evidence before the
+choice and implementation above; statements about missing support describe that snapshot.
 
 ## The problem
 

@@ -201,6 +201,9 @@ first affordable charged move and first-two shield policy. Every lineup has equa
 no appearance-rate source exists. Rows sort by win rate descending, mean player HP fraction left
 descending, then mean turns ascending. Draws count as not-wins. Timeout outcomes are separate.
 A Rocket faint is credited to the player member active on that turn, including a double knockout.
+Move stat changes follow PvPoke's default: guaranteed effects always apply, while chance effects
+use its fixed meter rather than the game's random roll. The Python API alternative
+`Rules(stat_stages=False)` disables stat changes.
 
 `--per-slot` produces a 1v1 grid and attacker/slot aggregates. It **ignores carried-over shields and
 HP between slots**. Each matchup starts with fresh shields and full HP. `--slot 1|2|3` filters only
@@ -216,8 +219,8 @@ for metric definitions, grade dependencies, pool sizes, runtimes and model choic
 It gives exactly the same results as the reference simulator, including floats.
 `topn` stage 2, the pause band and overall union completion use it for solo teams.
 It supports every era and rank, default policies, and default Rocket rules with any
-valid pause-length override. Multi-member teams, other rules and custom battle
-functions use the reference simulator. The `sim` command uses the reference too.
+valid pause-length override and either stat-stage setting. Multi-member teams, other rules and
+custom battle functions use the reference simulator. The `sim` command uses the reference too.
 When `topn` supplies a trial runner, engine rows report
 `execution: {"mode": "exact solo engine", "workers": 1}`.
 This counts workers within one aggregate; precompute still maps builds across workers.

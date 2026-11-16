@@ -16,7 +16,7 @@ from typing import NamedTuple
 from . import winrate
 from .battle import _advance_meter, _initial_meters
 from .damage import calculate_damage
-from .rocket import DEFAULT_ROCKET_RULES, _era, rule_data, simulate_rocket
+from .rocket import DEFAULT_ROCKET_RULES, _era, _stat_stage_evidence, rule_data, simulate_rocket
 
 
 @lru_cache(maxsize=32768)
@@ -72,7 +72,9 @@ def supports(team, pools, rules=DEFAULT_ROCKET_RULES) -> bool:
         and replace(
             rules,
             pause_turns_override=None,
-            turn_rules=replace(rules.turn_rules, stat_stages=False),
+            turn_rules=replace(
+                rules.turn_rules, stat_stages=DEFAULT_ROCKET_RULES.turn_rules.stat_stages
+            ),
         )
         == DEFAULT_ROCKET_RULES
         and all(
@@ -444,8 +446,8 @@ class _Engine:
                                 species_wins[i][name] += count * scale
                     # Metadata varies with resolved player charges and supplied
                     # Rocket charges, including untouched suffix reserves.
-                    # RocketResult currently omits core ledger row "o" even when
-                    # stages change; retain exact reference metadata here too.
+                    # Static stat-stage dependencies are unioned below, without
+                    # adding reference battles for every stat-move variant.
                     suffix = pools[depth + 1 :]
                     samples = [tuple(p[0] for p in suffix)]
                     uncharged = [tuple(o for o in p if not o.combatant.charged) for p in suffix]
@@ -478,6 +480,12 @@ class _Engine:
             return subtree_wins
 
         visit(self.initial, False)
+        stage_evidence = _stat_stage_evidence(
+            (self.team, tuple(o.combatant for pool in pools for o in pool)), self.rules
+        )
+        if stage_evidence:
+            metadata.rows.add("o")
+            metadata.evidence.update((e.row, e.grade, e.option, e.source) for e in stage_evidence)
         return {
             **metadata.output(),
             "lineups": total,

@@ -152,7 +152,12 @@ def test_stat_stages_self_debuff_carries_into_second_slot():
     )
     kwargs = dict(rank="grunt", battle_date=None)
     enabled = solo._Engine((player,), pools_for(lineup), rules=rules, **kwargs)
-    disabled = solo._Engine((player,), pools_for(lineup), **kwargs)
+    disabled = solo._Engine(
+        (player,),
+        pools_for(lineup),
+        rules=replace(rules, turn_rules=Rules(stat_stages=False)),
+        **kwargs,
+    )
     first = enabled.segment(enabled.initial, 0).end
     first_off = disabled.segment(disabled.initial, 0).end
     assert (first.hp, first.energy) == (first_off.hp, first_off.energy)
@@ -225,7 +230,6 @@ def test_stat_stages_meters_are_part_of_memo_key():
     assert len(engine.memo[0]) == 2
 
 
-@pytest.mark.xfail(strict=True, reason='found, not fixed: RocketResult drops core ledger row "o"')
 def test_reference_rocket_stat_change_ledger_row():
     player = mon(fast=replace(FAST, power=8, self_stages=(1, 0)))
     opponent = mon(hp=1)
@@ -233,6 +237,56 @@ def test_reference_rocket_stat_change_ledger_row():
     assert "o" in simulate(player, opponent, rules=rules.turn_rules).ledger_rows
     result = simulate_rocket((player,), (opponent,) * 3, battle_date=None, rules=rules)
     assert "o" in result.ledger_rows
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("player_effect", [False, True])
+def test_static_stage_evidence_in_untouched_reserves(enabled, player_effect, monkeypatch):
+    # Player dies before any stage move can fire or a Rocket reserve can enter.
+    effect = replace(CHARGE, self_stages=(1, 0))
+    chance = replace(CHARGE, opponent_stages=(0, -1), stage_chance=0.2)
+    player = mon(hp=1, charged=(effect,) if player_effect else ())
+    lead = winrate.Option("lead", mon(fast=replace(FAST, power=100)))
+    plain = winrate.Option("plain", mon())
+    buff = winrate.Option("buff", mon(charged=(effect,)))
+    debuff = winrate.Option("debuff", mon(charged=(chance,)))
+    pools = ((lead,), (plain, buff, debuff), (plain,))
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=enabled))
+    kwargs = dict(rank="grunt", battle_date=None, rules=rules)
+    for reserve in (plain, buff, debuff):
+        result = simulate_rocket(
+            (player,), (lead.combatant, reserve.combatant, plain.combatant), **kwargs
+        )
+        assert result.ledger_rows == tuple(sorted(result.ledger_rows))
+        assert ("o" in result.ledger_rows) == (enabled and (player_effect or reserve != plain))
+        evidence = [e for e in result.evidence if e.row == "o"]
+        assert len(evidence) == (
+            int(enabled and (player_effect or reserve != plain))
+            + int(enabled and reserve == debuff)
+        )
+        if evidence:
+            assert evidence[0].option == "stat_stages"
+            assert evidence[0].grade == (
+                "owner observation (applies in Rocket battles); multipliers data-mined, "
+                "not measured in Rocket"
+            )
+        if enabled and reserve == debuff:
+            assert evidence[1].grade == "model choice"
+            assert evidence[1].option == "chance_schedule:pvpoke_meter"
+    expected = winrate.aggregate((player,), winrate.trials((player,), pools, **kwargs))
+    original = solo.simulate_rocket
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(solo, "simulate_rocket", counted)
+    actual = solo.aggregate((player,), pools, **kwargs)
+    assert actual == expected
+    assert len(calls) <= 4
+    assert actual["rules_grade"] == "unverified"
+    assert actual["rules"]["turn_rules"].get("stat_stages", False) == enabled
 
 
 @pytest.mark.parametrize("rank", ["grunt", "leader", "giovanni"])
@@ -335,7 +389,7 @@ def test_supports_and_fallback(monkeypatch):
             replace(
                 DEFAULT_ROCKET_RULES,
                 pause_turns_override=turn,
-                turn_rules=Rules(stat_stages=True),
+                turn_rules=Rules(stat_stages=False),
             ),
         )
     assert not solo.supports((player,), pools[:2], DEFAULT_ROCKET_RULES)

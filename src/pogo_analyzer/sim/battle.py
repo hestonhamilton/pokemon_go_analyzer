@@ -4,7 +4,8 @@ Ported from PvPoke (MIT, copyright 2019 pvpoke), commit
 426e5e9f39d3a027849698fb2f5edd9df6056cbf. Bare line numbers below cite
 src/js/battle/Battle.js; citations into other files name the file (for
 example Pokemon.js). Full notice: data/PVPoke-LICENSE.
-Stat changes use PvPoke's deterministic chance schedule with Rules(stat_stages=True);
+Stat changes follow PvPoke's default: guaranteed effects always apply and chance
+effects use its deterministic meter. Rules(stat_stages=False) disables both;
 the game itself rolls (see docs/stat-stages-research.md). Forms, switching, Rocket pauses, shield
 inventories and timers are absent from this core.
 """
@@ -129,13 +130,13 @@ class Rules:
     t3 the Rocket's charge hits, t4 no inputs. This is an estimate of ledger j,
     not a measured Rocket timeline.
 
-    stat_stages: apply stat changes on PvPoke's deterministic schedule.
-    This will default to True after parity and the exact solo engine are done.
+    stat_stages: default True matches PvPoke: guaranteed changes always apply,
+    chance changes use its deterministic meter. False disables stat changes.
     """
 
     ledger_j_next_turn_charged: bool = False
     ledger_j_both_charged_fire: bool = False
-    stat_stages: bool = False
+    stat_stages: bool = True
 
 
 PVPOKE_RULES = Rules()

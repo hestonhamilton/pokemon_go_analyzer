@@ -345,21 +345,24 @@ def test_explicit_shadow_flags_both_directions(monkeypatch, shadow):
     assert flags == [(shadow, True), (True, shadow)]
 
 
-def test_stat_stages_opt_in_damage_timing_and_ledger():
+def test_stat_stages_default_damage_timing_and_opt_out_ledger():
     from pogo_analyzer.sim.damage import calculate_damage
 
     charge = replace(fighter().charged[0], self_stages=(0, -2))
     player = replace(fighter(energy=10), charged=(charge,))
     opponent = fighter(power=20)
     options = dict(player_policy=ChargedWhenReady(), max_turns=1)
-    disabled = simulate(player, opponent, **options)
+    disabled = simulate(player, opponent, rules=Rules(stat_stages=False), **options)
     plain = simulate(
-        replace(player, charged=(replace(charge, self_stages=(0, 0)),)), opponent, **options
+        replace(player, charged=(replace(charge, self_stages=(0, 0)),)),
+        opponent,
+        rules=Rules(stat_stages=False),
+        **options,
     )
     assert disabled == plain
     assert "o" not in disabled.ledger_rows
 
-    enabled = simulate(player, opponent, rules=Rules(stat_stages=True), **options)
+    enabled = simulate(player, opponent, **options)
     expected_charge = calculate_damage(
         10,
         100,
@@ -484,9 +487,12 @@ def test_chance_charge_schedule_and_flag_off(monkeypatch, chance, first):
     assert seen[: first + 1] == [0] * first + [1]
     assert "o" in enabled.ledger_rows
     seen.clear()
-    disabled = simulate(player, fighter(hp=1000), **options)
+    disabled = simulate(player, fighter(hp=1000), rules=Rules(stat_stages=False), **options)
     plain = simulate(
-        replace(player, charged=(replace(charge, self_stages=(0, 0)),)), fighter(hp=1000), **options
+        replace(player, charged=(replace(charge, self_stages=(0, 0)),)),
+        fighter(hp=1000),
+        rules=Rules(stat_stages=False),
+        **options,
     )
     assert disabled == plain
     assert "o" not in disabled.ledger_rows
