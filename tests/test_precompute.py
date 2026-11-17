@@ -95,7 +95,8 @@ def test_outputs_compact_provenance_and_every_character(characters, tmp_path, ca
     manifest = run(characters, out)
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert all(line.startswith("estimate:") for line in captured.err.splitlines())
+    assert all(line.startswith(("estimate:", "memory:")) for line in captured.err.splitlines())
+    assert "memory: overall:" in captured.err
     files = report_files(out)
     assert len(manifest["characters"]) == 3
     assert {e["status"] for e in manifest["characters"]} == {"computed", "unavailable"}
