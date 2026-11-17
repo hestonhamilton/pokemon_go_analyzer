@@ -596,12 +596,12 @@ def test_parallel_equals_serial_including_overall_completion(
             entry.pop("runtime_seconds")
         files["manifest.json"] = manifest
     assert first == second
-    # Reports keep both metagross movesets; the site shows each species once per order.
-    assert len(first["overall.json"]["all"]["results"]["40"]) == 3
+    # Reports keep 3 metagross movesets; the site shows one main row per species per order.
+    assert len(first["overall.json"]["all"]["results"]["40"]) == 4
     assert sum(size for function, size in mapped if function is _favor_by_rank) == 10
-    # Three finalist builds (two metagross movesets, kirlia) x three passes, plus three
+    # Four finalist builds (three metagross movesets, kirlia) x three passes, plus four
     # overall-only builds, all use the pool.
-    assert sum(size for function, size in mapped if function is topn.full_result) == 12
+    assert sum(size for function, size in mapped if function is topn.full_result) == 16
 
 
 def test_pause_band_params_invalidate_reuse(cache, tmp_path):

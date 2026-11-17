@@ -91,3 +91,6 @@ levels 50 and 40, both orders):
 Against: this was checked on one date only. 32 lineups can misrank close pairs, and a lineup or
 move change could hit a case the screen gets wrong without anything flagging it. A periodic
 check that battles every pair would catch drift (a separate bead).
+
+Since 17 Nov 2026 (second sets): `MOVESETS` is 3, so the pair screen keeps each species' best 3
+pairs per order, and the lists show a nearly-as-good second set as an indented line.

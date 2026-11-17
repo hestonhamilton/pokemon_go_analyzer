@@ -20,13 +20,13 @@ SCREEN_NOTE = (
     " seed; every lineup once when there are 32 or fewer),"
     " carrying HP, energy and shields from one opponent to the next; its score is the share"
     " of those battles won, draws are not wins, and it is not a lineup win rate."
-    " Per species and level the top 2 movesets in each order go forward. Species are ranked"
+    " Per species and level the top 3 movesets in each order go forward. Species are ranked"
     " by their best moveset; finalists are the union of the top K by fewest turns and the"
     " top K by HP left, and species level with either K-th are kept."
     " The quick 1-on-1 check on each counter is computed for finalists only."
 )
 SAMPLES = 32
-MOVESETS = 2
+MOVESETS = 3
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
     "Characters without a full result are excluded, never counted as zero."

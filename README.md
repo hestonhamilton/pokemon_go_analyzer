@@ -250,21 +250,27 @@ the level, so every build and moveset meets the same battles and runs repeat (ch
 or fewer lineups play each once). HP, energy and
 shields carry from one Rocket Pokémon to the next, as in a real battle. The score is the share of
 those battles won; draws are not wins, and screen scores are not lineup win rates. Per species and
-level, the top 2 movesets by fewest turns and the top 2 by HP left go forward. Species are ranked by
+level, the top 3 movesets by fewest turns and the top 3 by HP left go forward (`topn.MOVESETS`). Species are ranked by
 their best moveset, and the finalists are the union of the top `--k` (default 30) by each order;
 species level with either K-th are kept. On 16 Nov 2026 data (Ghost and Fire grunts, Cliff and
 Giovanni, levels 40 and 50) this kept all of the true top 10 in both orders, where the earlier 1v1
 grid screen kept as few as 2 of 8.
 Stage 2 battles those builds against every full lineup, then ranks by win rate in whole-percent
 bands, then turns (or HP left), following `sim`; lists show each species once per order, with its
-best moveset in that order. The quick 1v1 grid (`screen` on each finalist) is computed for
+best moveset in that order. A second set that is nearly as good appears as an indented line under
+its species, with no rank number or label (owner rulings, 17 Nov 2026): the same whole-percent band
+and at most 3 s slower, or at most 5 HP points less in the HP order, and at most one per species
+(`site.SETS_PER_SPECIES = 2`, `ALT_SECONDS`, `ALT_HP_POINTS`; to be tuned once it is live).
+Keeping 3 movesets per order lets stage 2 hold both sets: on the earlier full search of 4
+characters, the top 3 per order kept the best and the second set for 89 of 91 such species
+(83 with 2). The quick 1v1 grid (`screen` on each finalist) is computed for
 finalists only and shown on Battle details.
 
 Leader and Giovanni lists also include builds with two charged moves, for the finalist
 species and their finalist fast moves. Only pairs that keep one of the species' finalist
 charged moves are tried (that kept 47 of 51 gains in the pgo-c82 experiment). Every such pair is
-first screened on the level's 32 shared sample lineups, and only each species' best 2 pairs
-per order are battled in full (same lists as battling every pair on 17 Nov data, at 24% of
+first screened on the level's 32 shared sample lineups, and only each species' best 3 pairs
+per order (`MOVESETS`) are battled in full (same lists as battling every pair on 17 Nov data, at 24% of
 the cost). They battle with
 the `bait_then_best` player policy, a model of how players play: the cheapest move while the
 leader's two shields last, then only the move that hits the current Rocket Pokémon hardest.
@@ -306,8 +312,8 @@ characters and states how many are covered; an empty resolved slot excludes its 
 than counting it as zero. Overall rows retain the estimate label and union of contributing ledger
 evidence. Incomplete pools and the weakest contributing grades remain explicit. Before battles run,
 stderr shows planned stage-1 sample lineup battles (builds × 32, summed over available characters)
-and maximum stage-2 lineup battles (at most 8K builds per level: the top K species in each of 2
-orders, each sending its top 2 movesets in each order; × levels × lineups, summed over available
+and maximum stage-2 lineup battles (at most 12K builds per level: the top K species in each of 2
+orders, each sending its top 3 movesets in each order; × levels × lineups, summed over available
 characters).
 `--all` adds union completion battles. Screening is serial; full enumeration reuses `sim`'s capped
 workers: at most three workers plus the parent. Progress goes to stderr.

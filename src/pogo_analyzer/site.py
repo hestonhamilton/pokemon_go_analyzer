@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
-from .sim.winrate import SORT_KEYS
+from .sim.winrate import SORT_KEYS, win_band
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -194,6 +194,7 @@ background:radial-gradient(120% 140% at 0 0,#3a2030,#1c2030 60%); color:#fff}
 .hero h1{font-size:2rem} .hero p{color:#c9cdda} .card{background:var(--panel); border-radius:14px;
 padding:14px; margin-top:14px; border:1px solid var(--line)} .rows{margin-top:6px}
 .row{padding:8px 2px; border-bottom:1px solid var(--line)} .row:last-child{border:0}
+.row:has(+ .alt){border-bottom:0} .row.alt{padding-top:0} .row.alt .score b{font-size:1rem}
 .row .score b{color:var(--ink)} .cc{background:var(--panel); border-radius:14px; overflow:hidden;
 border:1px solid var(--line)} .cch{background:linear-gradient(100deg,#1c2030 0 75%,#3a2a3a);
 color:#fff; padding:10px 12px} .cch .ty{color:#fff} .top3{padding:4px 12px 10px}
@@ -311,7 +312,7 @@ s.querySelectorAll('[data-types]').forEach(r=>{
 r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t);
 });
 s.querySelectorAll('ol.rows').forEach(ol=>{
-[...ol.querySelectorAll('[data-types]')].filter(r=>!r.hidden)
+[...ol.querySelectorAll('[data-types]')].filter(r=>!r.hidden&&!r.classList.contains('alt'))
 .forEach((r,i)=>r.querySelector('[data-rank]').textContent=i+1);
 });
 const rows=[...s.querySelectorAll('[data-order="speed"] [data-types]')].filter(r=>!r.hidden);
@@ -804,6 +805,40 @@ def unavailable(reason):
 ORDERS = (("speed", "Fastest"), ("hp", "Most HP left"))
 
 
+# Owner rulings, 17 Nov 2026: show a species' second set when it is "nearly as good" (medium rule:
+# same whole-percent band and at most 3 s slower, or at most 5 HP points less in the HP order),
+# as a sub-row under the species. SETS_PER_SPECIES counts the best set too; tune after review.
+SETS_PER_SPECIES = 2
+ALT_SECONDS = 3
+ALT_HP_POINTS = 5
+
+
+def alternates(rows, order="speed"):
+    """Viable extra sets per species, keyed by id() of the species' best row in this order."""
+    best, extra = {}, {}
+    for r in ordered_all(rows, order):
+        species = r.get("speciesId", id(r))
+        if species not in best:
+            best[species] = r
+            extra[id(r)] = []
+            continue
+        top = best[species]
+        if len(extra[id(top)]) >= SETS_PER_SPECIES - 1:
+            continue
+        if win_band(r["win_rate"]) != win_band(top["win_rate"]):
+            continue
+        if order == "speed":
+            close = (r.get("mean_turns", 0) - top.get("mean_turns", 0)) / 2 <= ALT_SECONDS
+        else:
+            close = (
+                top.get("mean_player_hp_fraction_left", 0)
+                - r.get("mean_player_hp_fraction_left", 0)
+            ) * 100 <= ALT_HP_POINTS
+        if close:
+            extra[id(top)].append(r)
+    return {key: value for key, value in extra.items() if value}
+
+
 def ordered_all(rows, order="speed"):
     """Every row in one order: whole-percent win bands, then speed or HP left."""
     filled = [{"mean_player_hp_fraction_left": 0, "mean_turns": 0, **r, "_row": r} for r in rows]
@@ -824,6 +859,9 @@ def ordered(rows, order="speed"):
 def shown(rows):
     """Every row a list shows in either order, in the default order (Battle details)."""
     kept = {id(r) for order, _ in ORDERS for r in ordered(rows, order)}
+    kept |= {
+        id(a) for order, _ in ORDERS for alts in alternates(rows, order).values() for a in alts
+    }
     return [r for r in ordered_all(rows) if id(r) in kept]
 
 
@@ -886,7 +924,30 @@ def notice(text):
     return f'<p class="notice">{e(text)}</p>'
 
 
-def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=False):
+def alt_row(row, types, prefix=""):
+    """A second set under its species (owner picks: sub-row, no label). Only the indent arrow,
+    the moveset and its own numbers; screen readers hear "second set"."""
+    tint = next((t for t in types if t in TYPES), "normal")
+    hp = row.get("mean_player_hp_fraction_left")
+    turns = row.get("mean_turns")
+    kos = row.get("mean_rocket_knocked_out")
+    time_text = seconds(turns) if turns is not None else "time not recorded"
+    hp_text = f"{hp * 100:.0f}% HP left" if hp is not None else "HP not recorded"
+    ko_text = f"{kos:.1f} KOs" if kos is not None else "KOs not recorded"
+    return (
+        f'<li class="row alt" aria-label="second set" style="--t1:var(--ty-{e(tint)})" '
+        f'data-types="{e(json.dumps(types))}" data-win="{e(row["win_rate"])}">'
+        '<span class="rk" aria-hidden="true"></span><span aria-hidden="true"></span>'
+        f'<div class="who"><div class="mv"><span aria-hidden="true">↳ </span>{moves(row, prefix)}'
+        "</div></div>"
+        f'<div class="sec"><span>{e(time_text)}</span><span>{e(hp_text)}</span>'
+        f"<span>{e(ko_text)}</span></div>"
+        f'<div class="score"><b>{e(percentage(row["win_rate"]))}</b><span>win</span></div></li>'
+    )
+
+
+def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=False, alts=None):
+    alts = alts or {}
     every = all_timing_sensitive(rows)
     body = (timing_line(prefix) if every else "") + '<ol class="rows">'
     for rank, row in enumerate(rows, 1):
@@ -930,6 +991,8 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
             f"<span>{e(ko_text)}</span></div>"
             f'<div class="score"><b>{e(percentage(row["win_rate"]))}</b><span>win</span></div></li>'
         )
+        for alt in alts.get(id(row), []):
+            body += alt_row(alt, types, prefix)
     return body + "</ol>"
 
 
@@ -1003,8 +1066,13 @@ def list_body(
                 "</p></noscript>"
             )
         body += order_blocks(
-            lambda order, by=by: counter_rows(
-                by(order), sprites, icons=icons, prefix=prefix, toughest=not overall
+            lambda order, by=by, level_rows=level_rows: counter_rows(
+                by(order),
+                sprites,
+                icons=icons,
+                prefix=prefix,
+                toughest=not overall,
+                alts=alternates(level_rows, order),
             )
         )
         body += (
@@ -1365,6 +1433,14 @@ def how_badges(icons):
             "The move needs an Elite TM, or came from a Community Day or event.",
         ),
         ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
+        (
+            "second-set",
+            '<span class="pill">↳ Waterfall · Surf</span>',
+            "Indented line",
+            f"Another moveset for the Pokémon just above that's nearly as good: the same whole % "
+            f"and at most {ALT_SECONDS} s slower (or at most {ALT_HP_POINTS} points less HP left "
+            "in the Most HP left order). Use whichever moves your Pokémon already has.",
+        ),
         (
             "two-charged",
             tag("2 charged", "two"),

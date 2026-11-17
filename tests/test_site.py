@@ -1027,13 +1027,19 @@ def test_filter_js_and_progressive_controls(reports, tmp_path):
             assert filters == ["", *sorted(types)], (path, level)
             if rows:
                 assert set(orders) == {"speed", "hp"}, (path, level)
-                assert len(orders["speed"]) == len(orders["hp"]) == len(rows) // 2
+                assert len(orders["speed"]) + len(orders["hp"]) == len(rows)
+                # One main row per species in each order; second sets (sub-rows) may differ.
+                main = {
+                    o: [r for r in v if "alt" not in r["class"].split()] for o, v in orders.items()
+                }
+                assert len(main["speed"]) == len(main["hp"])
                 assert '<div data-order="hp" hidden>' in body
             sections.append({"speed": orders["speed"], "hp": orders["hp"], "filters": filters})
     assert len(sections) >= 8  # Overall and character lists, at both levels.
     actual_harness = r"""
 const specs=SPECS;
 const mk=list=>list.map(r=>({dataset:{types:r['data-types'],win:r['data-win']},
+  classList:{contains(c){return r['class'].split(' ').includes(c);}},
   hidden:false,rank:{textContent:''},querySelector(){return this.rank;}}));
 const sections=specs.map(spec=>{
  const speed=mk(spec.speed),hp=mk(spec.hp),rows=[...speed,...hp];
@@ -1060,7 +1066,9 @@ for(const s of sections){
   for(const list of [s.speed,s.hp]){
    const visible=shown(list);
    assert.deepEqual(list.filter(r=>!r.hidden),visible);
-   assert.deepEqual(visible.map(r=>r.rank.textContent),visible.map((r,i)=>i+1));
+   const main=visible.filter(r=>!r.classList.contains('alt'));
+   assert.deepEqual(main.map(r=>r.rank.textContent),main.map((r,i)=>i+1));
+   assert.ok(visible.filter(r=>r.classList.contains('alt')).every(r=>r.rank.textContent===''));
   }
   const visible=shown(s.speed);
   assert.equal(s.warning.hidden,visible.length===0||Number(visible[0].dataset.win)>=.5);
@@ -1073,6 +1081,7 @@ for(const s of sections){
     harness = r"""
 const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
  dataset:{types:JSON.stringify([t]),win:String(v)},hidden:false,rank:{textContent:''},
+ classList:{contains(){return false;}},
  querySelector(){return this.rank;}}));
 const controls={hidden:true},warning={hidden:true};
 const label={textContent:''};
@@ -2065,3 +2074,49 @@ def test_two_charged_moves_tag_and_anchor():
         )
         == 1
     )
+
+
+def test_second_sets_rule_and_sub_rows():
+    def row(name, win, turns, hp, fast="WATERFALL", charged="SURF"):
+        return {
+            "speciesId": name,
+            "win_rate": win,
+            "mean_turns": turns,
+            "mean_player_hp_fraction_left": hp,
+            "fast_move": fast,
+            "charged_move": charged,
+            "charged_moves": [charged],
+            "types": ["water"],
+        }
+
+    best = row("kyogre", 1.0, 30, 0.5)
+    near = row("kyogre", 0.996, 30 + 2 * site.ALT_SECONDS, 0.5, charged="BLIZZARD")  # 100 band
+    slow = row("kyogre", 1.0, 31 + 2 * site.ALT_SECONDS, 0.5, charged="THUNDER")
+    third = row("kyogre", 1.0, 31, 0.5, charged="HYDRO_PUMP")
+    other_band = row("palkia", 0.98, 20, 0.9)
+    rows = [best, near, slow, third, other_band]
+    alts = site.alternates(rows, "speed")
+    # Same whole % and at most ALT_SECONDS slower; best plus SETS_PER_SPECIES - 1 sets.
+    assert site.SETS_PER_SPECIES == 2
+    assert alts == {id(best): [third]}
+    assert [r["charged_move"] for r in alts[id(best)]] == ["HYDRO_PUMP"]
+    hp_alts = site.alternates([best, row("kyogre", 1.0, 99, 0.5 - site.ALT_HP_POINTS / 100)], "hp")
+    assert list(hp_alts) == [id(best)]
+    assert site.alternates([best, row("kyogre", 1.0, 30, 0.44)], "hp") == {}
+    # Battle details lists every row either order shows, sub-rows included.
+    assert third in site.shown(rows) and slow not in site.shown(rows)
+    html = site.counter_rows(site.ordered(rows), site.Sprites(), alts=alts)
+    sub = html.split('class="row alt"')[1].split("</li>")[0]
+    assert 'aria-label="second set"' in sub
+    assert "↳" in sub and "Hydro Pump" in sub
+    assert "data-rank" not in sub and "Also good" not in html
+    assert html.count('class="row alt"') == 1
+    assert html.index("Surf") < html.index('class="row alt"') < html.index("Palkia")
+
+
+def test_how_page_explains_the_indented_line(reports, tmp_path):
+    how = build(reports, tmp_path / "site")["how.html"]
+    card = how.split('id="second-set"')[1].split("</div></div>")[0]
+    assert "Indented line" in card and "nearly as good" in card
+    assert f"at most {site.ALT_SECONDS} s slower" in card
+    assert "Also good" not in how
