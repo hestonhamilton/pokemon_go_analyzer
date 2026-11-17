@@ -3,6 +3,7 @@
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from datetime import date
 from fractions import Fraction
 from functools import partial
@@ -1106,3 +1107,82 @@ def test_overall_excludes_two_charged(cache, capsys):
         for rows in view["results"].values()
         for r in rows
     )
+
+
+def test_two_charged_pairs_are_screened_to_the_best_two_per_order(cache):
+    base = next(c for c in candidates(cache) if c.species_id == "metagross")
+    item, fast, (move,) = base.attacker
+    # Six synthetic pairs for one species: distinct keys, no battles (the screen is injected).
+    every = [
+        topn.Candidate(
+            "metagross",
+            (item, fast, (replace(move, id=f"A{i}"), replace(move, id=f"B{i}"))),
+            base.move_flags,
+        )
+        for i in range(6)
+    ]
+    order = sorted(c.key for c in every)
+    rank_of = {key: i for i, key in enumerate(order)}
+
+    def sampler(candidate, pools, **kwargs):
+        i = rank_of[candidate.key]
+        # Fastest is i=0; most HP left is i=5.
+        return {"score": 1.0, "hp_left": i / 10, "turns": i + 1, "samples": 32}
+
+    kept = topn.screen_pairs(every, [], rank="leader", battle_date="2026-11-14", sampler=sampler)
+    assert {c.key for c in kept} == {*order[:2], *order[-2:]}  # fastest 2 + most HP left 2
+    weak = dict(sampler(every[0], []), score=None)
+    assert (
+        topn.screen_pairs(
+            every[:1], [], rank="leader", battle_date="2026-11-14", sampler=lambda *a, **k: weak
+        )
+        == []
+    )
+
+
+def test_rank_character_battles_only_screened_pairs(cache):
+    _, species, moves, _ = calc_cli.load_sources(cache)
+    builds = [c for c in candidates(cache) if c.species_id == "metagross"]
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+    every = topn.two_charged_candidates(species, moves, {40.0: builds})
+    drop = max(c.key for c in every)
+
+    def sampler(candidate, pools, **kwargs):
+        # Two pairs per fast move here, so give one a losing screen and a 3-way field.
+        return {"score": 0.0 if candidate.key == drop else 1.0, "hp_left": 0.5, "turns": 10}
+
+    ranked = topn.rank_character(
+        builds,
+        pools,
+        k=1,
+        rank="leader",
+        battle_date="2026-11-14",
+        two_charged=True,
+        pair_sampler=sampler,
+        species=species,
+        moves=moves,
+    )
+    pairs = {topn.row_key(r) for r in ranked[40] if len(r["charged_moves"]) == 2}
+    # Only screened pairs reach full battles; the losing pair is dropped when a better one
+    # exists for its species, and no species sends more than 2 per order (4 in all).
+    assert pairs and pairs <= {c.key for c in every}
+    assert len(pairs) <= 4
+    assert drop not in pairs or len({c.key for c in every}) <= 2
+
+
+def test_pair_screen_uses_the_bait_rule_and_shared_lineups(cache, monkeypatch):
+    _, species, moves, _ = calc_cli.load_sources(cache)
+    builds = [c for c in candidates(cache) if c.species_id == "metagross"]
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+    every = topn.two_charged_candidates(species, moves, {40.0: builds})
+    seen = []
+    original = topn.two_charged_battle
+
+    def battle(team, lineup, **kwargs):
+        seen.append(lineup)
+        return original(team, lineup, **kwargs)
+
+    monkeypatch.setattr(topn, "two_charged_battle", battle)
+    topn.screen_pairs(every, pools, rank="leader", battle_date="2026-11-14")
+    lineups = topn.screen_lineups(pools, 40.0)
+    assert len(seen) == len(every) * len(lineups)

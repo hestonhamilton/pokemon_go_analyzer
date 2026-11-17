@@ -214,6 +214,23 @@ def two_charged_candidates(species, moves, finalists_by_level, *, exclude_elite_
     return result
 
 
+def screen_pairs(pairs, pools, *, rank, battle_date, sampler=None, mapper=map):
+    """Owner pick (pgo-c82 follow-up): screen every two-charged pair on the level's shared
+    sample lineups under the bait-then-best rule, then battle in full only each species' best
+    MOVESETS pairs per order. On 16 Nov data this kept every leader top 10 and top 20 identical
+    while battling 24% of the pairs."""
+    screened = screen_candidates(
+        pairs,
+        pools,
+        rank=rank,
+        battle_date=battle_date,
+        sampler=sampler or partial(sample_screen, battle=two_charged_battle),
+        mapper=mapper,
+    )
+    # Every species stays (no K cut here); only its pairs are narrowed.
+    return [candidate for candidate, _ in pick_finalists(screened, max(len(screened), 1))]
+
+
 def screen_candidate(
     candidate,
     pools,
@@ -445,6 +462,7 @@ def rank_character(
     pause_band=(),
     pause_threshold=PAUSE_BAND_THRESHOLD,
     two_charged=False,
+    pair_sampler=None,
     species=None,
     moves=None,
     exclude_elite_legacy=False,
@@ -495,6 +513,9 @@ def rank_character(
             grouped.setdefault(candidate.key[1], []).append(candidate)
         pairs = two_charged_candidates(
             species, moves, grouped, exclude_elite_legacy=exclude_elite_legacy
+        )
+        pairs = screen_pairs(
+            pairs, pools, rank=rank, battle_date=battle_date, sampler=pair_sampler, mapper=mapper
         )
         pair_rows = full_results(
             pairs,

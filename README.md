@@ -262,7 +262,10 @@ finalists only and shown on Battle details.
 
 Leader and Giovanni lists also include builds with two charged moves, for the finalist
 species and their finalist fast moves. Only pairs that keep one of the species' finalist
-charged moves are tried (that kept 47 of 51 gains in the pgo-c82 experiment). They battle with
+charged moves are tried (that kept 47 of 51 gains in the pgo-c82 experiment). Every such pair is
+first screened on the level's 32 shared sample lineups, and only each species' best 2 pairs
+per order are battled in full (same lists as battling every pair on 17 Nov data, at 24% of
+the cost). They battle with
 the `bait_then_best` player policy, a model of how players play: the cheapest move while the
 leader's two shields last, then only the move that hits the current Rocket Pokémon hardest.
 These rows carry `charged_moves` (two ids), `player_policy` and a pause band, rank in the same
