@@ -866,3 +866,36 @@ def test_changed_code_hash_invalidates(cache, tmp_path, monkeypatch):
     second = run(cache, out)
     assert second["characters"][0]["status"] == "computed"
     assert first["characters"][0]["key"] != second["characters"][0]["key"]
+
+
+def test_main_process_drops_written_calc_rows_and_overall_screens(cache, tmp_path, monkeypatch):
+    # Memory study (17 Nov 2026): calc_rows are on disk once a character file is written, and
+    # overall-only rows never needed a screen grid. Output files must not change.
+    seen = []
+    real = topn_cli.complete_overall
+
+    def spy(data, *args, **kwargs):
+        seen.extend(
+            row
+            for report in data["characters"]
+            for rows in report.get("finalists", {}).values()
+            for row in rows
+        )
+        return real(data, *args, **kwargs)
+
+    monkeypatch.setattr(topn_cli, "complete_overall", spy)
+    calls = []
+    screen = topn.screen_candidate
+    monkeypatch.setattr(
+        topn, "screen_candidate", lambda *a, **k: calls.append(1) or screen(*a, **k)
+    )
+    out = tmp_path / "reports"
+    manifest = run(cache, out)
+    assert seen and not any("calc_rows" in row for row in seen)
+    for entry in manifest["characters"]:
+        if entry["status"] == "computed":
+            data = json.loads((out / entry["file"]).read_text())
+            rows = [r for rs in data["character"]["finalists"].values() for r in rs]
+            assert rows and all(r["calc_rows"] for r in rows)
+    finalists = len(seen)
+    assert len(calls) <= finalists  # no screen grids for overall-only builds
