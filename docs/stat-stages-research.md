@@ -14,7 +14,9 @@ zero mismatches; see [the parity report](../tests/fixtures/sim/battle_report.md)
 The owner's experience playing Rocket battles supports that move stat changes occur;
 this is an observation, not a measurement. The multipliers are data-mined from the game
 master and have not been measured in Rocket battles. The chance meter is a model choice
-copied from PvPoke; the game rolls chance effects, as the official 2026 rebuild post
+copied from PvPoke's 1v1 battles. Carrying the player's meter across Rocket slots is
+this project's choice: PvPoke's 3v3 mode (`Battle.emulate`, Battle.js 674–677) rolls chance
+effects instead, and the team parity cases cover guaranteed effects only. The game rolls chance effects, as the official 2026 rebuild post
 below describes. Ledger row o and result evidence carry these separate grades.
 
 Existing reports need a recompute. That work and the site refresh are sequenced

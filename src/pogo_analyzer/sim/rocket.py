@@ -1,7 +1,9 @@
 """Offline, estimated fixed-order Rocket teams, using battle.py's turn core.
 
-Move stat changes follow PvPoke's default, including its deterministic chance
-meter; Rules(stat_stages=False) disables them. No lineup fetching, voluntary
+Move stat changes follow PvPoke's default, including the deterministic chance
+meter of its 1v1 battles; carrying the player's meters across Rocket slots is
+this project's model choice (PvPoke's 3v3 mode rolls instead).
+Rules(stat_stages=False) disables them. No lineup fetching, voluntary
 switches or player AI. Supplied Combatants have unmodified stats; use
 rocket_combatant for stats.rocket_stats.
 Sources and evidence grades are also recorded in data/rocket_rules.json and
@@ -237,6 +239,8 @@ def _damage(own: State, opponent: State, move: Move, actor: int) -> DamageResult
         opponent.combatant.types,
         attacker_shadow=actor == 1 or own.combatant.shadow,
         defender_shadow=actor == 0 or opponent.combatant.shadow,
+        attack_stage=own.stages[0],
+        defence_stage=opponent.stages[1],
         charged=bool(move.energy),
     )
 

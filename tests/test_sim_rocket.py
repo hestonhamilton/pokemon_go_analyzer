@@ -821,3 +821,32 @@ def test_chance_meters_carry_for_survivor_and_reset_on_replacement(monkeypatch):
     assert result.timeline[0].replacements == (None, 2)
     assert [stage for shadow, charged, stage in seen if shadow and charged] == [0, 0]
     assert [stage for shadow, charged, stage in seen if shadow and not charged] == [0]
+
+
+def test_threshold_shield_prediction_uses_current_stages():
+    # Reviewer case: the player's charge drops its own defence to -4 on turn 1, then the
+    # Rocket's 60-power charge resolves the same turn. The threshold must predict the hit
+    # at the new stage (and shield), not at stage 0 (and get knocked out).
+
+    fast = Move("F", "normal", 0, 1, energy_gain=20)
+    self_debuff = Move("PC", "normal", 1, 1, energy=20, self_stages=(0, -4))
+    nuke = Move("RC", "normal", 60, 1, energy=100)
+    rocket_fast = Move("RF", "normal", 0, 1, energy_gain=0)
+    outcomes = {}
+    for stages in (True, False):
+        player = Combatant(100, 100, 100, ("normal",), fast, (self_debuff,), energy=20)
+        rocket = Combatant(100, 100, 1000, ("normal",), rocket_fast, (nuke,), energy=100)
+        rules = RocketRules(
+            pauses=False,
+            player_shield_policy="threshold",
+            player_shield_threshold=0.9,
+            turn_rules=Rules(stat_stages=stages),
+        )
+        result = simulate_rocket(
+            [player], [rocket], battle_date=None, rank="grunt", rules=rules, max_turns=6
+        )
+        outcomes[stages] = result.timeline[0]
+    # Stage 0 predicts 57 < 90: no shield. At -4 defence the real hit is 113 >= 90: shield.
+    assert outcomes[False].shields[0] == 2
+    assert outcomes[True].shields[0] == 1
+    assert outcomes[True].core.hp[0] > 0

@@ -82,6 +82,7 @@ class State:
     hp: int
     energy: int
     cooldown: int
+    stages: tuple[int, int] = (0, 0)  # Current attack, defence stages.
 
 
 class ShieldPolicy(Protocol):
@@ -287,7 +288,10 @@ def _simulate(
         events: list[list[str]] = [[], []]
         dealt = [0, 0]
         cooldown = [max(0, c - 1) for c in cooldown]  # 303–311.
-        views = tuple(State(p, hp[i], energy[i], cooldown[i]) for i, p in enumerate(combatants))
+        views = tuple(
+            State(p, hp[i], energy[i], cooldown[i], tuple(stages[i]))
+            for i, p in enumerate(combatants)
+        )
         for i, p in enumerate(combatants):
             # 332–383, 732: simultaneous decisions before any damage/energy changes.
             # 341–343: the turn after a charged sequence accepts no attack inputs.
@@ -362,8 +366,8 @@ def _simulate(
                 events[i].append(f"{kind}:cancel:{move.id}")
                 continue
             shielded = charged and shields[other].shield(
-                State(opponent, hp[other], energy[other], cooldown[other]),
-                State(p, hp[i], energy[i], cooldown[i]),
+                State(opponent, hp[other], energy[other], cooldown[other], tuple(stages[other])),
+                State(p, hp[i], energy[i], cooldown[i], tuple(stages[i])),
                 move,
                 turn,
             )

@@ -203,7 +203,8 @@ checks, calculator grading and rendering. Other characters' runtimes were not me
 - Table scalar floats display two decimals using the calculator's rendering helper. JSON and CSV
   retain Python numeric precision. Nested distributions and evidence retain their full records.
 - Move stat changes follow PvPoke's default: guaranteed effects always apply, and chance effects
-  use its fixed schedule rather than the game's random roll. Their occurrence in Rocket battles
+  use its 1v1 fixed schedule rather than the game's random roll; carrying the player's schedule
+  across Rocket slots is a model choice (PvPoke's 3v3 mode rolls). Their occurrence in Rocket battles
   is supported by owner observation; multipliers are data-mined and unmeasured in Rocket.
   Voluntary switching, Mega and special-move mechanics remain unsupported.
   Rocket charged timing/damage, pauses, timer interpretations, post-2025 battle stats and the

@@ -202,7 +202,9 @@ no appearance-rate source exists. Rows sort by win rate descending, mean player 
 descending, then mean turns ascending. Draws count as not-wins. Timeout outcomes are separate.
 A Rocket faint is credited to the player member active on that turn, including a double knockout.
 Move stat changes follow PvPoke's default: guaranteed effects always apply, while chance effects
-use its fixed meter rather than the game's random roll. The Python API alternative
+use its fixed meter rather than the game's random roll. PvPoke uses that meter in 1v1 battles;
+carrying the player's meter across the three Rocket Pokémon is this project's model choice
+(PvPoke's 3v3 mode rolls instead). The Python API alternative
 `Rules(stat_stages=False)` disables stat changes.
 
 `--per-slot` produces a 1v1 grid and attacker/slot aggregates. It **ignores carried-over shields and
