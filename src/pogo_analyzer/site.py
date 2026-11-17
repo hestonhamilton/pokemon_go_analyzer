@@ -154,7 +154,9 @@ border-radius:50%;background:var(--line);display:inline-grid; place-items:center
 color:var(--muted); font-size:.7rem} .mini{width:22px; height:22px; vertical-align:middle}
 .tag{font-size:.68rem; font-weight:700; border-radius:4px; padding:0 5px; vertical-align:2px;
 margin-left:4px} .tag.sh{background:#7b4fb0; color:#fff} .tag.el{background:#e9e3c8; color:#5a4b00}
-.tag.warn{background:#f6e2b8; color:#7a4c00} .rows{list-style:none; margin:0; padding:0}
+.tag.warn{background:#f6e2b8; color:#7a4c00}
+.tag.two{background:transparent; color:inherit; border:1px solid currentColor; opacity:.75;
+text-decoration:none} .rows{list-style:none; margin:0; padding:0}
 .row{display:grid; grid-template-columns:20px 44px minmax(0,1fr) 58px; gap:2px 10px;
 align-items:center} .row .spr{width:44px; height:44px} .row .rk{font-weight:900;
 color:var(--muted); text-align:right} .row .nm{font-weight:900} .row .mv{font-size:.8rem;
@@ -699,7 +701,7 @@ def moves(row, prefix=""):
 
     charged = row.get("charged_moves", [row.get("charged_move", "not recorded")])
     badge = (
-        f'<a class="tag el" href="{e(prefix)}how.html#two-charged" '
+        f'<a class="tag two" href="{e(prefix)}how.html#two-charged" '
         'title="Model: cheap move into the leader\'s shields, then the hardest hit">2 charged</a>'
         if len(charged) == 2
         else ""
@@ -1268,13 +1270,6 @@ FAQ = (
         "or an event. To teach one now you need an Elite TM.",
     ),
     (
-        "What does “2 charged” mean?",
-        "The counter uses two charged attacks. We assume you fire the cheap one into the leader's "
-        "two shields, then save for the move that hits hardest. This is a model of how players "
-        "play, so results may differ if you fire differently. It only appears for leaders and "
-        "Giovanni.",
-    ),
-    (
         "Should I look at level 50 or 40?",
         "Level 50 if your Pokémon is, or can be, powered up with XL Candy; level 40 otherwise. "
         "The site remembers your choice.",
@@ -1371,6 +1366,15 @@ def how_badges(icons):
         ),
         ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
         (
+            "two-charged",
+            tag("2 charged", "two"),
+            "2 charged",
+            "Leaders and Giovanni only: the counter uses two charged attacks. We assume you fire "
+            "the cheap one into the leader's two shields, then save for the one that hits "
+            "hardest. That's a model of how players play, so results can differ if you fire "
+            "differently.",
+        ),
+        (
             "",
             "".join(type_chip(t, icons, small=True) for t in ("steel", "water", "fighting")),
             "Type icons",
@@ -1446,8 +1450,7 @@ def how_explainer(data, *, featured=None, sprites=None, icons=frozenset()):
     """Owner ruling (option A): lede, 3 scoring steps, badge cards, FAQ, setup and sources."""
     sprites = sprites or Sprites()
     faq = "".join(
-        f"<details{' id="two-charged"' if q == 'What does “2 charged” mean?' else ''}"
-        f"{' open' if i == 0 else ''}><summary>{e(q)}</summary><p>{e(a)}</p></details>"
+        f"<details{' open' if i == 0 else ''}><summary>{e(q)}</summary><p>{e(a)}</p></details>"
         for i, (q, a) in enumerate(FAQ)
     )
     return (

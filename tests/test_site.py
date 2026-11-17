@@ -1797,6 +1797,9 @@ def test_how_is_an_explainer_with_faq_then_one_collapsed_tech_section(reports, t
         assert title in plain, title
     for anchor in ("pause", "elite-tm", "shadow", "two-charged"):
         assert f'id="{anchor}"' in plain
+    # The 2 charged tag's link lands on a visible badge card, not a collapsed FAQ question.
+    card = plain.index('id="two-charged"')
+    assert plain.rfind('class="badge"', 0, card + 40) > plain.rfind("<details", 0, card)
     for question, _ in site.FAQ:
         assert escape(question) in plain, question
     assert plain.count("<details") == len(site.FAQ)
@@ -2050,6 +2053,7 @@ def test_two_charged_moves_tag_and_anchor():
     assert 'href="../how.html#two-charged"' in markup
     assert 'title="Model: cheap move into the leader\'s shields, then the hardest hit"' in markup
     assert ">2 charged</a>" in markup
+    assert 'class="tag two"' in markup  # its own neutral style, not the Elite TM tag
     assert (
         len(
             site.ordered(
