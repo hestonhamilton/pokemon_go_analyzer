@@ -8,8 +8,8 @@ from math import prod
 from pathlib import Path
 
 from . import calc_cli as calc
+from . import memlog, topn
 from . import sim_cli as sim
-from . import topn
 from .sim.calculator import calculate_matchup
 from .sim.grades import GRADES, grade_row, weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, _era, rule_data, rules_dict
@@ -321,6 +321,7 @@ def complete_overall(data, planned, candidates, args, *, mapper=map, trial_runne
             continue
         pending = [key for key in union if key not in results[name]]
         print(f"estimate: {name}: completing {len(pending)} overall builds.", file=sys.stderr)
+        memlog.log(f"overall, before {name}")
         builds = [by_key[key] for key in pending]
         rows = topn.full_results(
             builds,

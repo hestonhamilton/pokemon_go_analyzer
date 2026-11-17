@@ -136,6 +136,12 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
     assert 'data-filter="none"' not in html
 
 
+TWO_TAG_CSS = (
+    ".tag.two{background:transparent; color:inherit; border:1px solid currentColor; opacity:.75;\n"
+    "text-decoration:none} "
+)
+
+
 def test_index_golden(characters, reports, tmp_path, monkeypatch):
     # The golden is the pre-trial site: with second sets off (and MOVESETS back to 2), the
     # whole pipeline must reproduce it exactly.
@@ -146,7 +152,9 @@ def test_index_golden(characters, reports, tmp_path, monkeypatch):
     if os.environ.get("POGO_UPDATE_SITE_GOLDEN") == "1":
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(html)
-    assert html == GOLDEN.read_text()
+    # Off is the pre-trial site minus the "2 charged" tag, which the owner dropped for good
+    # (17 Nov 2026); the superset collapse is also permanent but has no pairs in this fixture.
+    assert html == GOLDEN.read_text().replace(TWO_TAG_CSS, "", 1)
     # Trial on: sub-rows and their CSS are added; nothing else on the page changes.
     monkeypatch.setattr(topn, "SECOND_SETS", True)
     monkeypatch.setattr(topn, "MOVESETS", 3)
@@ -1821,9 +1829,8 @@ def test_how_is_an_explainer_with_faq_then_one_collapsed_tech_section(reports, t
         assert title in plain, title
     for anchor in ("pause", "elite-tm", "shadow", "two-charged"):
         assert f'id="{anchor}"' in plain
-    # The 2 charged tag's link lands on a visible badge card, not a collapsed FAQ question.
-    card = plain.index('id="two-charged"')
-    assert plain.rfind('class="badge"', 0, card + 40) > plain.rfind("<details", 0, card)
+    # One plain line in place of the old "2 charged" badge card.
+    assert f'<p id="two-charged">{escape(site.TWO_CHARGED_LINE)}</p>' in plain
     for question, _ in site.FAQ:
         assert escape(question) in plain, question
     assert plain.count("<details") == len(site.FAQ)
@@ -2065,7 +2072,7 @@ def test_character_card_top3_picks_each_orders_best_moveset():
     assert hp_block.index("Goodra") < hp_block.index("Palkia")
 
 
-def test_two_charged_moves_tag_and_anchor():
+def test_two_charged_moves_have_no_tag():
     row = {
         "speciesId": "metagross",
         "fast_move": "BULLET_PUNCH",
@@ -2073,11 +2080,9 @@ def test_two_charged_moves_tag_and_anchor():
         "charged_moves": ["EARTHQUAKE", "METEOR_MASH"],
     }
     markup = site.moves(row, "../")
+    # Owner, 17 Nov 2026: the "2 charged" tag told players nothing; the moves say it.
     assert "Earthquake</span> + <span" in markup
-    assert 'href="../how.html#two-charged"' in markup
-    assert 'title="Model: cheap move into the leader\'s shields, then the hardest hit"' in markup
-    assert ">2 charged</a>" in markup
-    assert 'class="tag two"' in markup  # its own neutral style, not the Elite TM tag
+    assert "2 charged" not in markup and "tag two" not in markup and "two" not in site.CSS
     assert (
         len(
             site.ordered(
@@ -2089,6 +2094,41 @@ def test_two_charged_moves_tag_and_anchor():
         )
         == 1
     )
+
+
+@pytest.mark.parametrize("second_sets", [False, True])
+def test_superset_pair_is_the_species_row(monkeypatch, second_sets):
+    monkeypatch.setattr(topn, "SECOND_SETS", second_sets)
+
+    def row(name, win, turns, fast, *charged):
+        return {
+            "speciesId": name,
+            "win_rate": win,
+            "mean_turns": turns,
+            "mean_player_hp_fraction_left": 0.5,
+            "fast_move": fast,
+            "charged_move": "+".join(charged),
+            "charged_moves": list(charged),
+        }
+
+    single = row("keldeo", 1.0, 30, "LOW_KICK", "SECRET_SWORD")
+    pair = row("keldeo", 0.996, 34, "LOW_KICK", "SECRET_SWORD", "X_SCISSOR")
+    other = row("keldeo", 1.0, 31, "LOW_KICK", "HYDRO_PUMP", "X_SCISSOR")
+    faster = row("palkia", 1.0, 32, "DRAGON_TAIL", "SPACIAL_REND")
+    rows = [single, pair, other, faster]
+    # The species carries both moves (same band), and is re-sorted on the pair's own time.
+    assert site.ordered(rows) == [faster, pair]
+    # Only a genuinely different set can be a sub-row: the subset single and the pair sharing
+    # X-Scissor are not; a pair outside the band does not replace the single.
+    alts = site.alternates(rows)
+    assert alts == {}
+    lower = {**pair, "win_rate": 0.98}
+    assert site.ordered([single, lower]) == [single]
+    if second_sets:
+        new = row("keldeo", 1.0, 35, "POISON_JAB", "SECRET_SWORD")
+        assert site.alternates([single, pair, new]) == {id(pair): [new]}
+    # Grunt lists have no pair rows, so nothing changes there.
+    assert site.ordered([single, faster]) == [single, faster]
 
 
 def test_second_sets_rule_and_sub_rows():
@@ -2115,9 +2155,10 @@ def test_second_sets_rule_and_sub_rows():
     assert site.SETS_PER_SPECIES == 2
     assert alts == {id(best): [third]}
     assert [r["charged_move"] for r in alts[id(best)]] == ["HYDRO_PUMP"]
-    hp_alts = site.alternates([best, row("kyogre", 1.0, 99, 0.5 - site.ALT_HP_POINTS / 100)], "hp")
+    hp_alt = row("kyogre", 1.0, 99, 0.5 - site.ALT_HP_POINTS / 100, charged="ICE_BEAM")
+    hp_alts = site.alternates([best, hp_alt], "hp")
     assert list(hp_alts) == [id(best)]
-    assert site.alternates([best, row("kyogre", 1.0, 30, 0.44)], "hp") == {}
+    assert site.alternates([best, row("kyogre", 1.0, 30, 0.44, charged="ICE_BEAM")], "hp") == {}
     # Battle details lists every row either order shows, sub-rows included.
     assert third in site.shown(rows) and slow not in site.shown(rows)
     html = site.counter_rows(site.ordered(rows), site.Sprites(), alts=alts)
@@ -2125,6 +2166,8 @@ def test_second_sets_rule_and_sub_rows():
     assert 'aria-label="second set"' in sub
     assert "↳" in sub and "Hydro Pump" in sub
     assert "data-rank" not in sub and "Also good" not in html
+    # Owner: no % or time on the sub-row, on any screen.
+    assert "%" not in sub and 'class="sec"' not in sub and 'class="score"' not in sub
     assert html.count('class="row alt"') == 1
     assert html.index("Surf") < html.index('class="row alt"') < html.index("Palkia")
 

@@ -12,7 +12,7 @@ import time
 from contextlib import nullcontext
 from pathlib import Path
 
-from . import __version__, sim_cli, topn_cli
+from . import __version__, memlog, sim_cli, topn_cli
 from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
 
@@ -293,6 +293,7 @@ def _run_locked(args, start, niceness):
             if "reason" in report:
                 status = "unavailable"
             print(f"estimate: {report['name']}: {status} ({file}).", file=sys.stderr)
+            memlog.log(report["name"])
             entries.append(
                 {
                     "name": report["name"],
@@ -320,6 +321,7 @@ def _run_locked(args, start, niceness):
                 **_provenance(header if need_overall else cached_overall),
             }
             print(f"estimate: overall: {overall['status']}.", file=sys.stderr)
+            memlog.log("overall")
     if existing is not None:
         merged = {entry["name"]: entry for entry in existing["characters"]}
         entries_changed = changed or any(
