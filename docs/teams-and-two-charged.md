@@ -69,3 +69,25 @@ a player "has".
 - PvPoke's Team Builder grades a reader-entered team on Coverage, Bulk, Safety and
   Consistency.
 - Most guides list counters by slot.
+
+## Screening the pairs (17 Nov 2026)
+
+Owner pick: screen first. Every two-charged pair now plays the level's 32 shared sample lineups
+with the bait-then-best rule (the same screen as stage 1), and only each species' best 2 pairs
+per order go to full battles.
+
+Comparison against the 7b18b8f reports, where every pair was battled in full (4 leaders,
+levels 50 and 40, both orders):
+
+- The top 10 and top 20 were identical in all 16 lists, and so was the top-10 order.
+- 2 of 320 top-20 rows showed a different pair. Both had the same win % and stayed at the same
+  rank, and each differed by about 1 s or less:
+  - Cliff L50 Gogoat: Leaf Blade alone, 0.2 s slower.
+  - Arlo L40 Shadow Ursaluna: Swift + High Horsepower instead of Swift + Fire Punch, 1 s
+    faster.
+- Full battles drop to 565 of 2,345 pairs (24%). That is about 6.5 CPU-hours instead of
+  about 27. The screen takes seconds.
+
+Against: this was checked on one date only. 32 lineups can misrank close pairs, and a lineup or
+move change could hit a case the screen gets wrong without anything flagging it. A periodic
+check that battles every pair would catch drift (a separate bead).
