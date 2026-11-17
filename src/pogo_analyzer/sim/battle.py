@@ -14,6 +14,7 @@ import math
 from dataclasses import dataclass
 from typing import Protocol
 
+from . import damage
 from .calculator import Move
 from .damage import DamageResult, calculate_damage
 
@@ -98,6 +99,39 @@ class NeverShield:
 
     def shield(self, own: State, opponent: State, move: Move, turn: int) -> bool:
         return False
+
+
+class BaitThenBest(NeverShield):
+    """A model of player behavior against leaders' first two shields, not a measurement."""
+
+    name = "bait_then_best"
+
+    def __init__(self, baits=2):
+        self.baits, self.used = baits, 0
+
+    def choose_charged(self, own, opponent, turn):
+        moves = own.combatant.charged
+        affordable = [i for i, m in enumerate(moves) if own.energy >= m.energy]
+        if not affordable:
+            return None
+        if len(moves) == 1:
+            return 0
+        if self.used < self.baits:
+            choice = min(affordable, key=lambda i: moves[i].energy)
+        else:
+            choice = max(
+                range(len(moves)),
+                key=lambda i: (
+                    moves[i].power
+                    * (damage.STAB if moves[i].type in own.combatant.types else 1)
+                    * damage.effectiveness(moves[i].type, opponent.combatant.types),
+                    -moves[i].energy,
+                ),
+            )
+            if choice not in affordable:
+                return None
+        self.used += 1
+        return choice
 
 
 class FastOnly(NeverShield):

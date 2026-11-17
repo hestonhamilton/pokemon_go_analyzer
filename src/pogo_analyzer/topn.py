@@ -4,12 +4,14 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import partial
+from itertools import combinations
 from math import prod
 from random import Random
 from statistics import mean
 
 from . import calc_cli as calc
 from .sim import solo, winrate
+from .sim.battle import BaitThenBest
 from .sim.grades import weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
@@ -78,7 +80,8 @@ class Candidate:
     @property
     def key(self):
         item, fast, charged = self.attacker
-        return self.species_id, item["level"], fast.id, charged[0].id
+        charged = sorted(charged, key=lambda m: (m.energy, m.id))
+        return self.species_id, item["level"], fast.id, "+".join(m.id for m in charged)
 
     @property
     def team(self):
@@ -86,6 +89,7 @@ class Candidate:
 
     def output(self):
         item, fast, charged = self.attacker
+        charged = sorted(charged, key=lambda m: (m.energy, m.id))
         return {
             "speciesId": self.species_id,
             "species": item["speciesId"],
@@ -94,7 +98,8 @@ class Candidate:
             "level": item["level"],
             "ivs": dict(item["ivs"]),
             "fast_move": fast.id,
-            "charged_move": charged[0].id,
+            "charged_move": "+".join(m.id for m in charged),
+            "charged_moves": [m.id for m in charged],
             "move_flags": self.move_flags,
         }
 
@@ -161,6 +166,52 @@ def build_candidates(species, moves, levels, *, selectors=None, exclude_elite_le
                     continue
                 candidates.append(candidate)
     return candidates, skipped
+
+
+def two_charged_battle(team, lineup, **kwargs):
+    return simulate_rocket(team, lineup, player_policy=BaitThenBest(2), **kwargs)
+
+
+def two_charged_candidates(species, moves, finalists_by_level, *, exclude_elite_legacy=False):
+    """Build pairs retaining at least one finalist move for the same fast move."""
+    sources = {s["speciesId"]: s for s in species}
+    selected = {}
+    for level, finalists in finalists_by_level.items():
+        for candidate in finalists:
+            selected.setdefault((level, candidate.species_id, candidate.key[2]), set()).add(
+                candidate.key[3]
+            )
+    result = []
+    for (level, name, fast), keep in selected.items():
+        source = sources[name]
+        pairs = winrate.moveset_ids(source, exclude_elite_legacy=exclude_elite_legacy)
+        ids = sorted({charged for f, charged in pairs if f == fast})
+        flags = {m["move"]: m for group in ("fast", "charged") for m in calc._pool(source)[group]}
+        shadow = "_shadow" in name
+        for pair in combinations(ids, 2):
+            if not keep.intersection(pair):
+                continue
+            config = {
+                "species": name.replace("_shadow", "", 1) if shadow else name,
+                "level": level,
+                "ivs": dict(IVS),
+                "fast": fast,
+                "charged": list(pair),
+                "shadow": shadow,
+                "form": "shadow" if shadow else "normal",
+            }
+            try:
+                (attacker,) = calc.build_attackers([config], species, moves)
+                item, fast_move, charged = attacker
+                charged = tuple(sorted(charged, key=lambda m: (m.energy, m.id)))
+                candidate = Candidate(
+                    name, (item, fast_move, charged), {m: flags[m] for m in (fast, *pair)}
+                )
+                _ = candidate.team
+            except ValueError:
+                continue
+            result.append(candidate)
+    return result
 
 
 def screen_candidate(
@@ -356,7 +407,13 @@ def full_result(
             )
         else:
             trials = trial_runner(
-                team, pools, rank=rank, battle_date=battle_date, execution=execution, rules=rules
+                team,
+                pools,
+                rank=rank,
+                battle_date=battle_date,
+                execution=execution,
+                rules=rules,
+                **({"battle": battle} if battle is not simulate_rocket else {}),
             )
         row = winrate.aggregate(team, trials)
     if trial_runner is not None:
@@ -387,6 +444,10 @@ def rank_character(
     mapper=map,
     pause_band=(),
     pause_threshold=PAUSE_BAND_THRESHOLD,
+    two_charged=False,
+    species=None,
+    moves=None,
+    exclude_elite_legacy=False,
 ):
     """Stage 2 (full battles) for the top movesets of the top K species per level and order."""
     if k < 1:
@@ -427,6 +488,44 @@ def rank_character(
         levels[candidate.key[1]].append(
             {**row, **candidate.output(), "screen": grid_screen, "sample_screen": sample}
         )
+    pairs = []
+    if two_charged:
+        grouped = {}
+        for candidate, _ in finalists:
+            grouped.setdefault(candidate.key[1], []).append(candidate)
+        pairs = two_charged_candidates(
+            species, moves, grouped, exclude_elite_legacy=exclude_elite_legacy
+        )
+        pair_rows = full_results(
+            pairs,
+            pools,
+            mapper=mapper,
+            rank=rank,
+            battle_date=battle_date,
+            battle=two_charged_battle,
+            trial_runner=trial_runner,
+        )
+        pair_grids = mapper(
+            partial(
+                screen_candidate,
+                pools=pools,
+                rank=rank,
+                battle_date=battle_date,
+                grid=partial(grid, battle=two_charged_battle),
+                stats_grade=stats_grade if stats_grade is not None else "model",
+                pool_complete=pool_complete,
+            ),
+            pairs,
+        )
+        for candidate, row, grid_screen in zip(pairs, pair_rows, pair_grids, strict=True):
+            levels[candidate.key[1]].append(
+                {
+                    **row,
+                    **candidate.output(),
+                    "screen": grid_screen,
+                    "player_policy": "bait_then_best",
+                }
+            )
     if pause_band and finalists:
         era_turns = era["charged"]
         turns = sorted({era_turns, *pause_band})
@@ -449,6 +548,19 @@ def rank_character(
             )
             for candidate, row in zip(builds, band_rows, strict=True):
                 runs[candidate.key][str(turn)] = row
+            if pairs:
+                pair_band = full_results(
+                    pairs,
+                    pools,
+                    mapper=mapper,
+                    rank=rank,
+                    battle_date=battle_date,
+                    battle=two_charged_battle,
+                    trial_runner=trial_runner,
+                    rules=replace(DEFAULT_ROCKET_RULES, pause_turns_override=turn),
+                )
+                for candidate, row in zip(pairs, pair_band, strict=True):
+                    runs[candidate.key][str(turn)] = row
         for key, row in by_key.items():
             band_rows = {str(turn): runs[key][str(turn)] for turn in turns}
             values = {turn: result["win_rate"] for turn, result in band_rows.items()}

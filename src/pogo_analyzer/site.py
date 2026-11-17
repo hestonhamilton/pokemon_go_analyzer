@@ -154,7 +154,9 @@ border-radius:50%;background:var(--line);display:inline-grid; place-items:center
 color:var(--muted); font-size:.7rem} .mini{width:22px; height:22px; vertical-align:middle}
 .tag{font-size:.68rem; font-weight:700; border-radius:4px; padding:0 5px; vertical-align:2px;
 margin-left:4px} .tag.sh{background:#7b4fb0; color:#fff} .tag.el{background:#e9e3c8; color:#5a4b00}
-.tag.warn{background:#f6e2b8; color:#7a4c00} .rows{list-style:none; margin:0; padding:0}
+.tag.warn{background:#f6e2b8; color:#7a4c00}
+.tag.two{background:transparent; color:inherit; border:1px solid currentColor; opacity:.75;
+text-decoration:none} .rows{list-style:none; margin:0; padding:0}
 .row{display:grid; grid-template-columns:20px 44px minmax(0,1fr) 58px; gap:2px 10px;
 align-items:center} .row .spr{width:44px; height:44px} .row .rk{font-weight:900;
 color:var(--muted); text-align:right} .row .nm{font-weight:900} .row .mv{font-size:.8rem;
@@ -686,9 +688,8 @@ def content_tags(row, prefix="", *, timing=True):
     return body
 
 
-def moves(row):
-    def move(key):
-        name = row.get(key, "not recorded")
+def moves(row, prefix=""):
+    def move(name):
         flags = row.get("move_flags", {}).get(name, {})
         kinds = [k for k in ("elite", "legacy") if flags.get(k)]
         badge = (
@@ -698,7 +699,16 @@ def moves(row):
         )
         return f'<span title="{e(name)}">{e(heading(name))}</span>' + badge
 
-    return f"{move('fast_move')} · {move('charged_move')}"
+    charged = row.get("charged_moves", [row.get("charged_move", "not recorded")])
+    badge = (
+        f'<a class="tag two" href="{e(prefix)}how.html#two-charged" '
+        'title="Model: cheap move into the leader\'s shields, then the hardest hit">2 charged</a>'
+        if len(charged) == 2
+        else ""
+    )
+    return (
+        f"{move(row.get('fast_move', 'not recorded'))} · " + " + ".join(map(move, charged)) + badge
+    )
 
 
 def counter_name(row, prefix=""):
@@ -706,7 +716,7 @@ def counter_name(row, prefix=""):
     return (
         f'<span class="mon" title="{e(species)}">{e(heading(species))}</span> '
         + content_tags(row, prefix)
-        + f'<span class="moves" style="display:block">{moves(row)}</span>'
+        + f'<span class="moves" style="display:block">{moves(row, prefix)}</span>'
     )
 
 
@@ -891,7 +901,7 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
             f'<div class="nm">{e(heading(species))} <span class="tys">'
             + "".join(type_chip(t, icons, prefix=prefix, small=True) for t in types)
             + f"</span>{content_tags(row, prefix, timing=not every)}</div>"
-            + f'<div class="mv">{moves(row)}</div>'
+            + f'<div class="mv">{moves(row, prefix)}</div>'
         )
         worst = (
             min(
@@ -1355,6 +1365,15 @@ def how_badges(icons):
             "The move needs an Elite TM, or came from a Community Day or event.",
         ),
         ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
+        (
+            "two-charged",
+            tag("2 charged", "two"),
+            "2 charged",
+            "Leaders and Giovanni only: the counter uses two charged attacks. We assume you fire "
+            "the cheap one into the leader's two shields, then save for the one that hits "
+            "hardest. That's a model of how players play, so results can differ if you fire "
+            "differently.",
+        ),
         (
             "",
             "".join(type_chip(t, icons, small=True) for t in ("steel", "water", "fighting")),

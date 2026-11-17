@@ -87,7 +87,7 @@ def _decorate(row, candidate, context, pools, records, args, validation):
             "level": attacker["level"],
             "ivs": dict(attacker["ivs"]),
             "fast": fast.id,
-            "charged": [charged[0].id],
+            "charged": [move.id for move in charged],
             "form": attacker["form"],
             "shadow": attacker["form"] == "shadow",
         }
@@ -255,6 +255,9 @@ def rank_report(
         args.battle_date if args.battle_date is not None else date.today().isoformat()
     )
     by_key = {c.key: c for c in candidates}
+    species = moves = None
+    if context["rank"] != "grunt":
+        _, species, moves, _ = calc.load_sources(args.cache_dir)
     ranked = topn.rank_character(
         candidates,
         pools,
@@ -275,7 +278,20 @@ def rank_report(
             validation=validation,
         ),
         pool_complete=context["pool_complete"],
+        two_charged=context["rank"] != "grunt",
+        species=species,
+        moves=moves,
+        exclude_elite_legacy=args.exclude_elite_legacy,
     )
+    if species is not None:
+        grouped = {
+            level: [by_key[topn.row_key(row)] for row in rows if len(row["charged_moves"]) == 1]
+            for level, rows in ranked.items()
+        }
+        pairs = topn.two_charged_candidates(
+            species, moves, grouped, exclude_elite_legacy=args.exclude_elite_legacy
+        )
+        by_key.update({c.key: c for c in pairs})
     for level, rows in ranked.items():
         for row in rows:
             key = topn.row_key(row)
@@ -290,7 +306,10 @@ def complete_overall(data, planned, candidates, args, *, mapper=map, trial_runne
     by_key = {c.key: c for c in candidates}
     results = {
         report["name"]: {
-            topn.row_key(row): row for rows in report["finalists"].values() for row in rows
+            topn.row_key(row): row
+            for rows in report["finalists"].values()
+            for row in rows
+            if len(row.get("charged_moves", [row["charged_move"]])) == 1
         }
         for report in reports
     }
