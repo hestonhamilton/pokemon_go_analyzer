@@ -95,4 +95,15 @@ check that battles every pair would catch drift (a separate bead).
 Since 17 Nov 2026, second sets are on trial (`topn.SECOND_SETS`). With the trial on, `MOVESETS` is
 3, so the pair screen keeps each species' best 3 pairs per order, and the lists show a set that is
 nearly as good as an indented line. The owner framed it as a test: if it can't be done well, it
-gets tabled. Turning the switch off restores 2 movesets per order and the earlier site exactly.
+gets tabled. Turning the switch off restores 2 movesets per order and drops the indented lines.
+
+After the first live check (17 Nov 2026), the owner ruled:
+- The indented line shows only the moves, with no % or time. Phones hide the time column, so the
+  line only repeated "100.0% win".
+- The "2 charged" tag is gone for good ("does not tell the user anything useful"). A plain line on
+  the how page says leader sets can list two charged moves.
+- A second charged move is not an alternative: "There's no opportunity cost lost to have 2 charged
+  moves". When the same set plus one charged move is in the same band, that pair is the species'
+  row, and an indented line is only for a genuinely different set. On the 17 Nov reports this
+  took Giovanni from 7–9 indented lines per list to none. Grunt lists, which have no pairs, were
+  unchanged.

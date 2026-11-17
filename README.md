@@ -257,14 +257,21 @@ Giovanni, levels 40 and 50) this kept all of the true top 10 in both orders, whe
 grid screen kept as few as 2 of 8.
 Stage 2 battles those builds against every full lineup, then ranks by win rate in whole-percent
 bands, then turns (or HP left), following `sim`; lists show each species once per order, with its
-best moveset in that order. A second set that is nearly as good appears as an indented line under
-its species, with no rank number or label (owner rulings, 17 Nov 2026): the same whole-percent band
+best moveset in that order. When a leader list's best set has one charged move and the same set
+plus a second charged move is in the same whole-percent band, the species' row is that pair
+(owner: a second charged move "should basically be the default"; `site.main_row`). Lists show two
+charged moves as `Fast · A + B`, with no tag; the how page explains them in one line.
+A second set that is nearly as good appears as an indented line under
+its species, showing only the moves, with no rank number, label, % or time (owner rulings, 17 Nov
+2026): a genuinely different set (another fast move, or no charged move in common with the row),
+in the same whole-percent band
 and at most 3 s slower, or at most 5 HP points less in the HP order, and at most one per species
 (`site.SETS_PER_SPECIES = 2`, `ALT_SECONDS`, `ALT_HP_POINTS`; to be tuned once it is live).
 This is a **trial** (owner, 17 Nov 2026: "we're just testing multiple movesets"). Setting
-`topn.SECOND_SETS = False` turns it off everywhere: one row per species, `MOVESETS` back to 2,
-and the pre-trial site and refresh cost exactly (a test rebuilds the pre-trial golden with it
-off).
+`topn.SECOND_SETS = False` turns the indented lines off and puts `MOVESETS` back to 2, which is
+the pre-trial refresh cost. The site is then the pre-trial one, except that the "2 charged" tag
+is gone and the pair collapse applies (both permanent); a test checks that against the
+pre-trial golden.
 Keeping 3 movesets per order lets stage 2 hold both sets: on the earlier full search of 4
 characters, the top 3 per order kept the best and the second set for 89 of 91 such species
 (83 with 2). The quick 1v1 grid (`screen` on each finalist) is computed for

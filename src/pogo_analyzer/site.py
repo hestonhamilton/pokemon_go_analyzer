@@ -156,8 +156,7 @@ color:var(--muted); font-size:.7rem} .mini{width:22px; height:22px; vertical-ali
 .tag{font-size:.68rem; font-weight:700; border-radius:4px; padding:0 5px; vertical-align:2px;
 margin-left:4px} .tag.sh{background:#7b4fb0; color:#fff} .tag.el{background:#e9e3c8; color:#5a4b00}
 .tag.warn{background:#f6e2b8; color:#7a4c00}
-.tag.two{background:transparent; color:inherit; border:1px solid currentColor; opacity:.75;
-text-decoration:none} .rows{list-style:none; margin:0; padding:0}
+.rows{list-style:none; margin:0; padding:0}
 .row{display:grid; grid-template-columns:20px 44px minmax(0,1fr) 58px; gap:2px 10px;
 align-items:center} .row .spr{width:44px; height:44px} .row .rk{font-weight:900;
 color:var(--muted); text-align:right} .row .nm{font-weight:900} .row .mv{font-size:.8rem;
@@ -701,15 +700,7 @@ def moves(row, prefix=""):
         return f'<span title="{e(name)}">{e(heading(name))}</span>' + badge
 
     charged = row.get("charged_moves", [row.get("charged_move", "not recorded")])
-    badge = (
-        f'<a class="tag two" href="{e(prefix)}how.html#two-charged" '
-        'title="Model: cheap move into the leader\'s shields, then the hardest hit">2 charged</a>'
-        if len(charged) == 2
-        else ""
-    )
-    return (
-        f"{move(row.get('fast_move', 'not recorded'))} · " + " + ".join(map(move, charged)) + badge
-    )
+    return f"{move(row.get('fast_move', 'not recorded'))} · " + " + ".join(map(move, charged))
 
 
 def counter_name(row, prefix=""):
@@ -807,7 +798,7 @@ ORDERS = (("speed", "Fastest"), ("hp", "Most HP left"))
 
 # Trial switch lives in topn.SECOND_SETS; with it off, nothing below changes the output.
 ALT_CSS = (
-    ".row:has(+ .alt){border-bottom:0} .row.alt{padding-top:0} .row.alt .score b{font-size:1rem}\n"
+    ".row:has(+ .alt){border-bottom:0} .row.alt{padding-top:0} .row.alt .who{grid-column:3/-1}\n"
 )
 
 
@@ -832,32 +823,78 @@ ALT_SECONDS = 3
 ALT_HP_POINTS = 5
 
 
+def charged_of(row):
+    return row.get("charged_moves", [row.get("charged_move")])
+
+
+def superset_pair(pair, single):
+    """A two-charged set that is a single set plus one more charged move."""
+    return (
+        len(charged_of(pair)) == 2
+        and len(charged_of(single)) == 1
+        and pair.get("fast_move") == single.get("fast_move")
+        and set(charged_of(single)) <= set(charged_of(pair))
+    )
+
+
+def by_species(rows, order):
+    """Each species' rows in one order, species in order of their best row."""
+    groups = {}
+    for r in ordered_all(rows, order):
+        groups.setdefault(r.get("speciesId", id(r)), []).append(r)
+    return groups
+
+
+def main_row(group):
+    """Owner, 17 Nov 2026: a second charged move "should basically be the default". When a
+    species' best set has one charged move and the same set plus a second one is in the same
+    whole-percent band, the species carries both moves: that pair is its row."""
+    best = group[0]
+    return next(
+        (
+            r
+            for r in group
+            if superset_pair(r, best) and win_band(r["win_rate"]) == win_band(best["win_rate"])
+        ),
+        best,
+    )
+
+
+def different_set(row, top):
+    """A sub-row is only for a genuinely different set: another fast move, or no charged move
+    in common with the species' row."""
+    return row.get("fast_move") != top.get("fast_move") or not set(charged_of(row)) & set(
+        charged_of(top)
+    )
+
+
 def alternates(rows, order="speed"):
-    """Viable extra sets per species, keyed by id() of the species' best row in this order."""
+    """Viable extra sets per species, keyed by id() of the species' row in this order."""
     if not topn.SECOND_SETS:
         return {}
-    best, extra = {}, {}
-    for r in ordered_all(rows, order):
-        species = r.get("speciesId", id(r))
-        if species not in best:
-            best[species] = r
-            extra[id(r)] = []
-            continue
-        top = best[species]
-        if len(extra[id(top)]) >= SETS_PER_SPECIES - 1:
-            continue
-        if win_band(r["win_rate"]) != win_band(top["win_rate"]):
-            continue
-        if order == "speed":
-            close = (r.get("mean_turns", 0) - top.get("mean_turns", 0)) / 2 <= ALT_SECONDS
-        else:
-            close = (
-                top.get("mean_player_hp_fraction_left", 0)
-                - r.get("mean_player_hp_fraction_left", 0)
-            ) * 100 <= ALT_HP_POINTS
-        if close:
-            extra[id(top)].append(r)
-    return {key: value for key, value in extra.items() if value}
+    extra = {}
+    for group in by_species(rows, order).values():
+        top = main_row(group)
+        found = []
+        for r in group:
+            if len(found) >= SETS_PER_SPECIES - 1:
+                break
+            if r is top or not different_set(r, top):
+                continue
+            if win_band(r["win_rate"]) != win_band(top["win_rate"]):
+                continue
+            if order == "speed":
+                close = (r.get("mean_turns", 0) - top.get("mean_turns", 0)) / 2 <= ALT_SECONDS
+            else:
+                close = (
+                    top.get("mean_player_hp_fraction_left", 0)
+                    - r.get("mean_player_hp_fraction_left", 0)
+                ) * 100 <= ALT_HP_POINTS
+            if close:
+                found.append(r)
+        if found:
+            extra[id(top)] = found
+    return extra
 
 
 def ordered_all(rows, order="speed"):
@@ -867,14 +904,8 @@ def ordered_all(rows, order="speed"):
 
 
 def ordered(rows, order="speed"):
-    """The list in one order; each species once, with its best moveset in that order."""
-    seen, kept = set(), []
-    for r in ordered_all(rows, order):
-        species = r.get("speciesId", id(r))
-        if species not in seen:
-            seen.add(species)
-            kept.append(r)
-    return kept
+    """The list in one order; each species once, with its row in that order (main_row)."""
+    return ordered_all([main_row(g) for g in by_species(rows, order).values()], order)
 
 
 def shown(rows):
@@ -946,24 +977,15 @@ def notice(text):
 
 
 def alt_row(row, types, prefix=""):
-    """A second set under its species (owner picks: sub-row, no label). Only the indent arrow,
-    the moveset and its own numbers; screen readers hear "second set"."""
+    """A second set under its species (owner picks: sub-row, no label). Only the indent arrow
+    and the moves (owner: no % or time); screen readers hear "second set"."""
     tint = next((t for t in types if t in TYPES), "normal")
-    hp = row.get("mean_player_hp_fraction_left")
-    turns = row.get("mean_turns")
-    kos = row.get("mean_rocket_knocked_out")
-    time_text = seconds(turns) if turns is not None else "time not recorded"
-    hp_text = f"{hp * 100:.0f}% HP left" if hp is not None else "HP not recorded"
-    ko_text = f"{kos:.1f} KOs" if kos is not None else "KOs not recorded"
     return (
         f'<li class="row alt" aria-label="second set" style="--t1:var(--ty-{e(tint)})" '
         f'data-types="{e(json.dumps(types))}" data-win="{e(row["win_rate"])}">'
         '<span class="rk" aria-hidden="true"></span><span aria-hidden="true"></span>'
         f'<div class="who"><div class="mv"><span aria-hidden="true">↳ </span>{moves(row, prefix)}'
-        "</div></div>"
-        f'<div class="sec"><span>{e(time_text)}</span><span>{e(hp_text)}</span>'
-        f"<span>{e(ko_text)}</span></div>"
-        f'<div class="score"><b>{e(percentage(row["win_rate"]))}</b><span>win</span></div></li>'
+        "</div></div></li>"
     )
 
 
@@ -1455,15 +1477,6 @@ def how_badges(icons):
         ),
         ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
         (
-            "two-charged",
-            tag("2 charged", "two"),
-            "2 charged",
-            "Leaders and Giovanni only: the counter uses two charged attacks. We assume you fire "
-            "the cheap one into the leader's two shields, then save for the one that hits "
-            "hardest. That's a model of how players play, so results can differ if you fire "
-            "differently.",
-        ),
-        (
             "",
             "".join(type_chip(t, icons, small=True) for t in ("steel", "water", "fighting")),
             "Type icons",
@@ -1505,7 +1518,14 @@ def how_badges(icons):
             f'<div class="badge"{anchor_id}><div class="ex" aria-hidden="true">{example}</div>'
             f"<p><b>{e(title)}</b><br>{e(text)}</p></div>"
         )
-    return body + "</div>"
+    return body + "</div>" + f'<p id="two-charged">{e(TWO_CHARGED_LINE)}</p>'
+
+
+# Owner, 17 Nov 2026: the "2 charged" tag told players nothing; one plain line instead.
+TWO_CHARGED_LINE = (
+    "Leader and Giovanni sets can list two charged moves: fire the cheaper one into the "
+    "leader's two shields, then save up for the one that hits hardest."
+)
 
 
 def how_tables(data):
