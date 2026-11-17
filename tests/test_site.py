@@ -8,6 +8,7 @@ import subprocess
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_precompute import cache as cache
@@ -15,15 +16,13 @@ from test_precompute import characters as characters
 from test_precompute import priority as priority
 from test_precompute import run
 
-from pogo_analyzer import cli, site
+from pogo_analyzer import cli, site, topn
 
 GOLDEN = Path(__file__).parent / "fixtures" / "site" / "expected_index.html"
 FETCHED = "2026-11-14T00:00:00+00:00"
 
 
-@pytest.fixture
-def reports(characters, tmp_path):
-    root = tmp_path / "reports"
+def make_reports(characters, root):
     run(characters, root, "--level", "50")
     # Source fetch times are provenance; freeze them for a reproducible golden.
     for path in root.rglob("*.json"):
@@ -32,6 +31,11 @@ def reports(characters, tmp_path):
             source["fetched_at"] = FETCHED
         path.write_text(json.dumps(data))
     return root
+
+
+@pytest.fixture
+def reports(characters, tmp_path):
+    return make_reports(characters, tmp_path / "reports")
 
 
 def read(root, relative):
@@ -132,13 +136,24 @@ def test_pages_labels_resources_and_rerun(reports, tmp_path):
     assert 'data-filter="none"' not in html
 
 
-def test_index_golden(reports, tmp_path):
-    html = build(reports, tmp_path / "site")["index.html"]
+def test_index_golden(characters, reports, tmp_path, monkeypatch):
+    # The golden is the pre-trial site: with second sets off (and MOVESETS back to 2), the
+    # whole pipeline must reproduce it exactly.
+    monkeypatch.setattr(topn, "SECOND_SETS", False)
+    monkeypatch.setattr(topn, "MOVESETS", 2)
+    html = build(make_reports(characters, tmp_path / "off-reports"), tmp_path / "off")["index.html"]
     # Deliberate update command is documented in README's site section.
     if os.environ.get("POGO_UPDATE_SITE_GOLDEN") == "1":
         GOLDEN.parent.mkdir(parents=True, exist_ok=True)
         GOLDEN.write_text(html)
     assert html == GOLDEN.read_text()
+    # Trial on: sub-rows and their CSS are added; nothing else on the page changes.
+    monkeypatch.setattr(topn, "SECOND_SETS", True)
+    monkeypatch.setattr(topn, "MOVESETS", 3)
+    on = build(reports, tmp_path / "on")["index.html"]
+    assert site.ALT_CSS in on
+    stripped = re.sub(r'<li class="row alt".*?</li>', "", on.replace(site.ALT_CSS, "", 1))
+    assert stripped.count('class="row"') == html.count('class="row"')
 
 
 def test_type_icons_and_placeholder(reports, tmp_path):
@@ -1001,7 +1016,7 @@ def test_filter_js_and_progressive_controls(reports, tmp_path):
     for path, html in pages.items():
         if not path.startswith("list/"):
             continue
-        assert site.FILTER_JS in html, path
+        assert site.filter_js() in html, path
         for level, body in re.findall(
             r'<section id="level-([^"]+)" data-level="[^"]+">(.*?)</section>', html, re.S
         ):
@@ -1076,7 +1091,7 @@ for(const s of sections){
   assert.deepEqual(sections.filter(x=>x!==s).map(x=>x.rows.map(r=>[r.hidden,r.rank.textContent])),others);
  }
 }
-""".replace("SPECS", json.dumps(sections)).replace("SCRIPT", site.FILTER_JS)
+""".replace("SPECS", json.dumps(sections)).replace("SCRIPT", site.filter_js())
     subprocess.run(["node", "-e", actual_harness], check=True, capture_output=True, text=True)
     harness = r"""
 const rows=[['water',.9],['fire',.4],['fire',.2]].map(([t,v])=>({
@@ -1095,7 +1110,7 @@ SCRIPT
 button.onclick();
 console.log(JSON.stringify({hidden:controls.hidden,warning:warning.hidden,label:label.textContent,
  rows:rows.map(r=>[r.hidden,r.rank.textContent])}));
-""".replace("SCRIPT", site.FILTER_JS)
+""".replace("SCRIPT", site.filter_js())
     result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
     assert json.loads(result.stdout) == {
         "hidden": False,
@@ -2120,3 +2135,33 @@ def test_how_page_explains_the_indented_line(reports, tmp_path):
     assert "Indented line" in card and "nearly as good" in card
     assert f"at most {site.ALT_SECONDS} s slower" in card
     assert "Also good" not in how
+
+
+def test_second_sets_switch_off_restores_one_row_per_species(reports, tmp_path, monkeypatch):
+    monkeypatch.setattr(topn, "SECOND_SETS", False)
+    monkeypatch.setattr(topn, "MOVESETS", 2)
+    pages = build(reports, tmp_path / "off")
+    assert all('class="row alt"' not in html for html in pages.values())
+    assert 'id="second-set"' not in pages["how.html"]
+    assert site.filter_js() == site.FILTER_JS and site.page_css() == site.CSS
+    rows = [
+        {"speciesId": "a", "win_rate": 1.0, "mean_turns": t, "mean_player_hp_fraction_left": 0.5}
+        for t in (10, 11)
+    ]
+    assert site.alternates(rows) == {} and len(site.shown(rows)) == 1
+    # Stage 2 keeps 2 movesets per order again (the pre-trial cost).
+    fast = SimpleNamespace(id="F")
+    items = [
+        (
+            topn.Candidate(
+                "a", ({"level": 40.0}, fast, (SimpleNamespace(id=f"M{i}", energy=50),)), {}
+            ),
+            {"score": 1.0, "hp_left": i / 10, "turns": i},
+        )
+        for i in range(6)
+    ]
+    assert len(topn.pick_finalists(items, 1, orders=("speed",))) == 2
+    monkeypatch.setattr(topn, "SECOND_SETS", True)
+    monkeypatch.setattr(topn, "MOVESETS", 3)
+    assert len(topn.pick_finalists(items, 1, orders=("speed",))) == 3
+    assert "classList.contains('alt')" in site.filter_js()

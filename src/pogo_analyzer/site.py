@@ -15,6 +15,7 @@ from html import escape
 from math import floor
 from pathlib import Path
 
+from . import topn
 from .lineups import PVPOKE_GM_URL
 from .sim.rocket import rule_data
 from .sim.winrate import SORT_KEYS, win_band
@@ -194,7 +195,6 @@ background:radial-gradient(120% 140% at 0 0,#3a2030,#1c2030 60%); color:#fff}
 .hero h1{font-size:2rem} .hero p{color:#c9cdda} .card{background:var(--panel); border-radius:14px;
 padding:14px; margin-top:14px; border:1px solid var(--line)} .rows{margin-top:6px}
 .row{padding:8px 2px; border-bottom:1px solid var(--line)} .row:last-child{border:0}
-.row:has(+ .alt){border-bottom:0} .row.alt{padding-top:0} .row.alt .score b{font-size:1rem}
 .row .score b{color:var(--ink)} .cc{background:var(--panel); border-radius:14px; overflow:hidden;
 border:1px solid var(--line)} .cch{background:linear-gradient(100deg,#1c2030 0 75%,#3a2a3a);
 color:#fff; padding:10px 12px} .cch .ty{color:#fff} .top3{padding:4px 12px 10px}
@@ -312,7 +312,7 @@ s.querySelectorAll('[data-types]').forEach(r=>{
 r.hidden=t!==''&&!JSON.parse(r.dataset.types).includes(t);
 });
 s.querySelectorAll('ol.rows').forEach(ol=>{
-[...ol.querySelectorAll('[data-types]')].filter(r=>!r.hidden&&!r.classList.contains('alt'))
+[...ol.querySelectorAll('[data-types]')].filter(r=>!r.hidden)
 .forEach((r,i)=>r.querySelector('[data-rank]').textContent=i+1);
 });
 const rows=[...s.querySelectorAll('[data-order="speed"] [data-types]')].filter(r=>!r.hidden);
@@ -636,13 +636,13 @@ def document(title, data, body, nav=None, *, script=False, prefix="", assets=fro
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         f"<script>{THEME_HEAD_JS}</script>\n"
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f"<title>{e(title)}</title>\n<style>{fonts}{CSS}</style>\n</head>\n<body>\n"
+        f"<title>{e(title)}</title>\n<style>{fonts}{page_css()}</style>\n</head>\n<body>\n"
         '<div class="topwrap"><nav class="top" aria-label="Pages">'
         f"{navigation(prefix) if nav is None else nav}{THEME_TOGGLE}</nav></div>\n"
         '<div class="disc"><b>Simulator estimates.</b> Not yet checked against in-game battles. '
         f'<a href="{e(prefix)}how.html">How these numbers work</a>{when}</div>\n'
         f"<main>{body}</main>\n"
-        + (f"<script>{FILTER_JS}</script>\n" if script else "")
+        + (f"<script>{filter_js()}</script>\n" if script else "")
         + f"<script>{LEVEL_JS}</script>\n<script>{ORDER_JS}</script>\n"
         + f"<script>{THEME_JS}</script>\n"
         + "</body>\n</html>\n"
@@ -805,6 +805,25 @@ def unavailable(reason):
 ORDERS = (("speed", "Fastest"), ("hp", "Most HP left"))
 
 
+# Trial switch lives in topn.SECOND_SETS; with it off, nothing below changes the output.
+ALT_CSS = (
+    ".row:has(+ .alt){border-bottom:0} .row.alt{padding-top:0} .row.alt .score b{font-size:1rem}\n"
+)
+
+
+def page_css():
+    return CSS + ALT_CSS if topn.SECOND_SETS else CSS
+
+
+def filter_js():
+    if not topn.SECOND_SETS:
+        return FILTER_JS
+    return FILTER_JS.replace(
+        ".filter(r=>!r.hidden)\n.forEach((r,i)=>",
+        ".filter(r=>!r.hidden&&!r.classList.contains('alt'))\n.forEach((r,i)=>",
+    )
+
+
 # Owner rulings, 17 Nov 2026: show a species' second set when it is "nearly as good" (medium rule:
 # same whole-percent band and at most 3 s slower, or at most 5 HP points less in the HP order),
 # as a sub-row under the species. SETS_PER_SPECIES counts the best set too; tune after review.
@@ -815,6 +834,8 @@ ALT_HP_POINTS = 5
 
 def alternates(rows, order="speed"):
     """Viable extra sets per species, keyed by id() of the species' best row in this order."""
+    if not topn.SECOND_SETS:
+        return {}
     best, extra = {}, {}
     for r in ordered_all(rows, order):
         species = r.get("speciesId", id(r))
@@ -1434,14 +1455,6 @@ def how_badges(icons):
         ),
         ("pause", tag("Timing-sensitive", "warn"), "Timing-sensitive", PAUSE_PLAIN),
         (
-            "second-set",
-            '<span class="pill">↳ Waterfall · Surf</span>',
-            "Indented line",
-            f"Another moveset for the Pokémon just above that's nearly as good: the same whole % "
-            f"and at most {ALT_SECONDS} s slower (or at most {ALT_HP_POINTS} points less HP left "
-            "in the Most HP left order). Use whichever moves your Pokémon already has.",
-        ),
-        (
             "two-charged",
             tag("2 charged", "two"),
             "2 charged",
@@ -1471,6 +1484,20 @@ def how_badges(icons):
             "at the end, and how many Rocket Pokémon it beats on average.",
         ),
     )
+    if topn.SECOND_SETS:
+        cards = (
+            *cards[:3],
+            (
+                "second-set",
+                '<span class="pill">↳ Waterfall · Surf</span>',
+                "Indented line",
+                "Another moveset for the Pokémon just above that's nearly as good: the same "
+                f"whole % and at most {ALT_SECONDS} s slower (or at most {ALT_HP_POINTS} points "
+                "less HP left in the Most HP left order). Use whichever moves your Pokémon "
+                "already has.",
+            ),
+            *cards[3:],
+        )
     body = '<div class="badges">'
     for anchor, example, title, text in cards:
         anchor_id = f' id="{e(anchor)}"' if anchor else ""

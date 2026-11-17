@@ -92,5 +92,7 @@ Against: this was checked on one date only. 32 lineups can misrank close pairs, 
 move change could hit a case the screen gets wrong without anything flagging it. A periodic
 check that battles every pair would catch drift (a separate bead).
 
-Since 17 Nov 2026 (second sets): `MOVESETS` is 3, so the pair screen keeps each species' best 3
-pairs per order, and the lists show a nearly-as-good second set as an indented line.
+Since 17 Nov 2026, second sets are on trial (`topn.SECOND_SETS`). With the trial on, `MOVESETS` is
+3, so the pair screen keeps each species' best 3 pairs per order, and the lists show a set that is
+nearly as good as an indented line. The owner framed it as a test: if it can't be done well, it
+gets tabled. Turning the switch off restores 2 movesets per order and the earlier site exactly.
