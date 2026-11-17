@@ -15,18 +15,22 @@ from .sim.battle import BaitThenBest
 from .sim.grades import weakest
 from .sim.rocket import DEFAULT_ROCKET_RULES, RocketRules, _era, rule_data, simulate_rocket
 
+# Trial (owner, 17 Nov 2026: "we're just testing multiple movesets"). False turns second sets
+# off everywhere: the site shows one row per species again and MOVESETS goes back to 2, which
+# reproduces the pre-trial site and refresh cost exactly.
+SECOND_SETS = True
+MOVESETS = 3 if SECOND_SETS else 2
 SCREEN_NOTE = (
     "Stage 1 plays each build against the same 32 real lineups per level (drawn with a fixed"
     " seed; every lineup once when there are 32 or fewer),"
     " carrying HP, energy and shields from one opponent to the next; its score is the share"
     " of those battles won, draws are not wins, and it is not a lineup win rate."
-    " Per species and level the top 2 movesets in each order go forward. Species are ranked"
-    " by their best moveset; finalists are the union of the top K by fewest turns and the"
+    f" Per species and level the top {MOVESETS} movesets in each order go forward. Species are"
+    " ranked by their best moveset; finalists are the union of the top K by fewest turns and the"
     " top K by HP left, and species level with either K-th are kept."
     " The quick 1-on-1 check on each counter is computed for finalists only."
 )
 SAMPLES = 32
-MOVESETS = 2
 WEIGHTING_NOTE = (
     "Equal weight per character is a model choice; no encounter-rate source exists. "
     "Characters without a full result are excluded, never counted as zero."
@@ -363,10 +367,12 @@ def screen_candidates(candidates, pools, *, rank, battle_date, sampler=None, map
     ]
 
 
-def pick_finalists(screened, k, *, movesets=MOVESETS, orders=("speed", "hp")):
+def pick_finalists(screened, k, *, movesets=None, orders=("speed", "hp")):
     """Top movesets per species in each order; then, per level, the top K species in each
     order (by their best moveset) plus exact ties with each K-th. Returns every kept moveset
     of every kept species, in screen order."""
+
+    movesets = movesets or MOVESETS
 
     def order_key(index, order):
         candidate, screen = screened[index]

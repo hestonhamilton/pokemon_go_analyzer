@@ -99,7 +99,7 @@ def test_cli_k_limits_stage_two(cache, capsys, monkeypatch, k):
     # Union of the speed-first and HP-first top K per level (two levels).
     for character in data["characters"]:
         for rows in character["finalists"].values():
-            assert k <= len(rows) <= 2 * k
+            assert k <= len(rows) <= 2 * topn.MOVESETS * k
     assert len(calls) == 3 * len(finalists(data))  # Era result plus two sensitivity passes.
     assert data["params"]["k"] == k
     assert data["params"]["levels"] == [40, 50]
@@ -274,12 +274,13 @@ def test_screen_top_k_and_moves_ties_are_deterministic(cache, monkeypatch):
         trial_runner=trial_runner,
     )
     # kirlia and snubbull tie exactly at the K=2 cut, so both are kept (no alphabetical cut).
-    # Metagross's four movesets tie on the screen; its first two by key go forward.
-    assert len(calls) == 8
+    # Metagross's four movesets tie on the screen; its first MOVESETS (3) by key go forward.
+    assert len(calls) == 10
     assert {key[0] for key in calls} == {"metagross", "kirlia", "snubbull"}
     assert {key[2:] for key in calls if key[0] == "metagross"} == {
         ("BULLET_PUNCH", "EARTHQUAKE"),
         ("BULLET_PUNCH", "METEOR_MASH"),
+        ("ZEN_HEADBUTT", "EARTHQUAKE"),
     }
     assert set(ranked) == {40, 50}
     for rows in ranked.values():
@@ -398,7 +399,7 @@ def test_json_provenance_grades_and_calc_cells_match_sim(cache, capsys):
     assert "not a lineup win rate" in data["screen_note"]
     assert "no encounter-rate source" in data["weighting_note"]
     rows = finalists(data)
-    assert len(rows) == 2  # the top 2 movesets of the one species go to full battles
+    assert len(rows) == topn.MOVESETS  # the top movesets of the one species go to full battles
     row = rows[0]
     assert row["grade"] == "estimate; unverified (l); extrapolated forward; stats parity-only"
     screen = row["screen"]
@@ -489,9 +490,9 @@ def test_overall_union_coverage_and_incomplete_grades(cache, capsys, monkeypatch
 
     monkeypatch.setattr(solo, "aggregate", counted)
     data = output(cache, capsys, ["--k", "1", "--level", "40"], all_characters=True)
-    # 4 finalist builds (2 metagross movesets, kirlia twice) x 3 passes, plus 5 overall-only
-    # results with no band (kirlia for the grunt, 2 metagross for each leader).
-    assert len(calls) == 17
+    # 5 finalist builds (3 metagross movesets, kirlia twice) x 3 passes, plus 7 overall-only
+    # results with no band (kirlia for the grunt, 3 metagross for each leader).
+    assert len(calls) == 22
     coverage = data["overall"]["coverage"]
     assert coverage["characters_with_result"] == 3 and coverage["total"] == 4
     assert coverage["missing"] == [
@@ -570,7 +571,7 @@ def test_candidates_shadow_mega_unreleased_and_rejections(cache, capsys):
     assert "invalid fast move" in skipped["rejected"]
     assert data["params"]["candidate_count"] == 4
     shadow = [r for r in finalists(data) if r["speciesId"] == "metagross_shadow"]
-    assert len(shadow) == 4  # top 2 movesets at each of two levels
+    assert len(shadow) == 6  # top 3 movesets at each of two levels
     assert all(r["species"] == "metagross" and r["form"] == "shadow" for r in shadow)
     assert all(r["team"][0]["shadow"] for r in shadow)
     assert all(m["form"]["value"] == "shadow" for r in shadow for m in r["calc_rows"])
@@ -640,7 +641,7 @@ def test_planned_totals_are_printed_before_ranking(cache, capsys, monkeypatch):
         if not calls:
             assert capsys.readouterr().err == (
                 "estimate: planned stage-1 sample lineup battles: 512; "
-                "maximum stage-2 lineup battles: 96. --all adds union completion battles.\n"
+                "maximum stage-2 lineup battles: 144. --all adds union completion battles.\n"
             )
         calls.append(kwargs["rank"])
         return {}
@@ -998,7 +999,7 @@ def test_pick_finalists_keeps_top_movesets_per_order(cache):
     ]
     assert len(topn.pick_finalists(items, 1)) == 4
     assert len(topn.pick_finalists(items, 1, movesets=1)) == 2
-    assert {c.key for c, _ in topn.pick_finalists(items, 1, orders=("speed",))} == {
+    assert {c.key for c, _ in topn.pick_finalists(items, 1, movesets=2, orders=("speed",))} == {
         builds[0].key,
         builds[1].key,
     }
@@ -1112,14 +1113,14 @@ def test_overall_excludes_two_charged(cache, capsys):
 def test_two_charged_pairs_are_screened_to_the_best_two_per_order(cache):
     base = next(c for c in candidates(cache) if c.species_id == "metagross")
     item, fast, (move,) = base.attacker
-    # Six synthetic pairs for one species: distinct keys, no battles (the screen is injected).
+    # Synthetic pairs for one species: distinct keys, no battles (the screen is injected).
     every = [
         topn.Candidate(
             "metagross",
             (item, fast, (replace(move, id=f"A{i}"), replace(move, id=f"B{i}"))),
             base.move_flags,
         )
-        for i in range(6)
+        for i in range(2 * topn.MOVESETS + 2)
     ]
     order = sorted(c.key for c in every)
     rank_of = {key: i for i, key in enumerate(order)}
@@ -1130,7 +1131,8 @@ def test_two_charged_pairs_are_screened_to_the_best_two_per_order(cache):
         return {"score": 1.0, "hp_left": i / 10, "turns": i + 1, "samples": 32}
 
     kept = topn.screen_pairs(every, [], rank="leader", battle_date="2026-11-14", sampler=sampler)
-    assert {c.key for c in kept} == {*order[:2], *order[-2:]}  # fastest 2 + most HP left 2
+    m = topn.MOVESETS
+    assert {c.key for c in kept} == {*order[:m], *order[-m:]}  # fastest m + most HP left m
     weak = dict(sampler(every[0], []), score=None)
     assert (
         topn.screen_pairs(
