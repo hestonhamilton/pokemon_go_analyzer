@@ -187,6 +187,15 @@ def _peak_memory():
     }
 
 
+def _drop_written_detail(report):
+    """Once a character file is on disk, drop its finalists' calc_rows from memory: they are
+    about 90% of a report's size, and the overall step never reads them (it pops them from its
+    own rows too). Held for every character, they made the main process the memory peak."""
+    for rows in report.get("finalists", {}).values():
+        for row in rows:
+            row.pop("calc_rows", None)
+
+
 def _run_locked(args, start, niceness):
     args.all = args.character is None
     data, planned, candidates = topn_cli.prepare_output(args)
@@ -233,6 +242,7 @@ def _run_locked(args, start, niceness):
         key = _character_key(shared_key, report, planned[report["name"]], data["unresolved"])
         cached = _cached(args.out / file, key, args.force)
         if cached is not None:
+            _drop_written_detail(cached["character"])
             data["characters"][index] = cached["character"]
         jobs.append((file, slug, key, cached))
 
@@ -293,6 +303,7 @@ def _run_locked(args, start, niceness):
             if "reason" in report:
                 status = "unavailable"
             print(f"estimate: {report['name']}: {status} ({file}).", file=sys.stderr)
+            _drop_written_detail(report)
             memlog.log(report["name"])
             entries.append(
                 {

@@ -332,19 +332,10 @@ def complete_overall(data, planned, candidates, args, *, mapper=map, trial_runne
             trial_runner=trial_runner,
         )
         for candidate, row in zip(builds, rows, strict=True):
-            row.update(
-                candidate.output(),
-                screen=topn.screen_candidate(
-                    candidate,
-                    pools,
-                    rank=context["rank"],
-                    battle_date=stamp,
-                    stats_grade=_screen_stats_grade(
-                        candidate, context, pools, records, args, validation
-                    ),
-                    pool_complete=context["pool_complete"],
-                ),
-            )
+            # Overall-only builds need no 1v1 screen grid: overall_view never reads it and it
+            # was never written, but each one was computed here in the main process and held
+            # until the end of the run.
+            row.update(candidate.output())
             row = _decorate(row, candidate, context, pools, records, args, validation)
             # Overall-only builds keep their grade, not the per-option calc cells.
             row.pop("calc_rows")
