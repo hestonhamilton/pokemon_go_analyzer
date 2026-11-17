@@ -4,8 +4,10 @@ Ported from PvPoke (MIT, copyright 2019 pvpoke), commit
 426e5e9f39d3a027849698fb2f5edd9df6056cbf. Bare line numbers below cite
 src/js/battle/Battle.js; citations into other files name the file (for
 example Pokemon.js). Full notice: data/PVPoke-LICENSE.
-Only ordinary, unbuffed moves are represented by calculator.Move. Forms,
-move effects, switching, Rocket pauses, shield inventories and timers are absent.
+Stat changes follow PvPoke's default: guaranteed effects always apply and chance
+effects use its deterministic meter. Rules(stat_stages=False) disables both;
+the game itself rolls (see docs/stat-stages-research.md). Forms, switching, Rocket pauses, shield
+inventories and timers are absent from this core.
 """
 
 import math
@@ -80,6 +82,7 @@ class State:
     hp: int
     energy: int
     cooldown: int
+    stages: tuple[int, int] = (0, 0)  # Current attack, defence stages.
 
 
 class ShieldPolicy(Protocol):
@@ -127,10 +130,14 @@ class Rules:
     Example: t1 player submits, t2 player's charge hits and the Rocket submits,
     t3 the Rocket's charge hits, t4 no inputs. This is an estimate of ledger j,
     not a measured Rocket timeline.
+
+    stat_stages: default True matches PvPoke: guaranteed changes always apply,
+    chance changes use its deterministic meter. False disables stat changes.
     """
 
     ledger_j_next_turn_charged: bool = False
     ledger_j_both_charged_fire: bool = False
+    stat_stages: bool = True
 
 
 PVPOKE_RULES = Rules()
@@ -165,6 +172,23 @@ class _Action:
     turn: int
     move: Move
     priority: int
+    move_index: int | None
+
+
+def _initial_meters(combatant: Combatant) -> dict[int | None, float]:
+    # Pokemon.js 737–746: charged moves only; 50% starts at zero, others at chance.
+    # A fast move has no meter, so with buffChanceModifier -1 its chance never fires
+    # (Battle.js 1397, 1408, 1419).
+    return {
+        index: 0.0 if move.stage_chance == 0.5 else move.stage_chance
+        for index, move in enumerate(combatant.charged)
+        if move.stage_chance < 1.0
+    }
+
+
+def _advance_meter(meter: float, chance: float) -> tuple[float, bool]:
+    updated = meter + chance
+    return updated, math.floor(meter) < math.floor(updated)
 
 
 class _BattleHooks:
@@ -249,6 +273,8 @@ def _simulate(
     shields = (player_shield_policy or policies[0], rocket_shield_policy or policies[1])
     hp = [p.hp for p in combatants]
     energy = [p.energy for p in combatants]
+    stages = [[0, 0], [0, 0]]  # Per side: attack, defence.
+    meters = [_initial_meters(p) for p in combatants]
     cooldown = [0, 0]  # Pokemon.js 1924–1931, 1944–1947.
     faint_source = ["", ""]
     queue: list[_Action] = []
@@ -257,11 +283,15 @@ def _simulate(
     previous_charged = False
     used_charged = [False, False]
     used_shield = False
+    changed_stage = False
     for turn in range(1, max_turns + 1):
         events: list[list[str]] = [[], []]
         dealt = [0, 0]
         cooldown = [max(0, c - 1) for c in cooldown]  # 303–311.
-        views = tuple(State(p, hp[i], energy[i], cooldown[i]) for i, p in enumerate(combatants))
+        views = tuple(
+            State(p, hp[i], energy[i], cooldown[i], tuple(stages[i]))
+            for i, p in enumerate(combatants)
+        )
         for i, p in enumerate(combatants):
             # 332–383, 732: simultaneous decisions before any damage/energy changes.
             # 341–343: the turn after a charged sequence accepts no attack inputs.
@@ -287,7 +317,7 @@ def _simulate(
             cooldown[i] += 1 if move.energy else int(move.turns)
             # 780–785, 434: charged first, then higher *unmodified* attack. Stable ties.
             priority = 10 + int(p.attack > combatants[1 - i].attack) if move.energy else 0
-            queue.append(_Action(i, turn, move, priority))
+            queue.append(_Action(i, turn, move, priority, choice))
             kind = "charged" if move.energy else "fast"
             stage = "queue" if move.energy and rules.ledger_j_next_turn_charged else "start"
             events[i].append(f"{kind}:{stage}:{move.id}")
@@ -336,8 +366,8 @@ def _simulate(
                 events[i].append(f"{kind}:cancel:{move.id}")
                 continue
             shielded = charged and shields[other].shield(
-                State(opponent, hp[other], energy[other], cooldown[other]),
-                State(p, hp[i], energy[i], cooldown[i]),
+                State(opponent, hp[other], energy[other], cooldown[other], tuple(stages[other])),
+                State(p, hp[i], energy[i], cooldown[i], tuple(stages[i])),
                 move,
                 turn,
             )
@@ -352,6 +382,11 @@ def _simulate(
                 defender_shadow=True if other == 1 else combatants[0].shadow,
                 charged=charged,
                 shielded=shielded,
+                **(
+                    {"attack_stage": stages[i][0], "defence_stage": stages[other][1]}
+                    if rules.stat_stages
+                    else {}
+                ),
             )
             damage = hooks.damage(i, move, calculation, shielded) if hooks else calculation.damage
             if charged:
@@ -371,6 +406,17 @@ def _simulate(
             else:
                 energy[i] = min(ENERGY_CAP, energy[i] + move.energy_gain)  # 1329–1340.
             hp[other] = max(0, hp[other] - damage)  # 1365.
+            apply_stages = rules.stat_stages and move.stage_chance == 1.0
+            if rules.stat_stages and move.stage_chance < 1.0 and action.move_index is not None:
+                meters[i][action.move_index], apply_stages = _advance_meter(
+                    meters[i][action.move_index], move.stage_chance
+                )
+            if apply_stages:
+                for side, deltas in ((i, move.self_stages), (other, move.opponent_stages)):
+                    for stat, delta in enumerate(deltas):
+                        new_stage = max(-4, min(4, stages[side][stat] + delta))
+                        changed_stage |= new_stage != stages[side][stat]
+                        stages[side][stat] = new_stage
             if hp[other] <= 0:
                 faint_source[other] = kind  # 1683–1684.
             dealt[i] += damage
@@ -398,6 +444,8 @@ def _simulate(
                             replacement if n == i else p for n, p in enumerate(combatants)
                         )
                         hp[i], energy[i] = replacement.hp, replacement.energy
+                        stages[i] = [0, 0]
+                        meters[i] = _initial_meters(replacement)
                         faint_source[i] = ""
         elif min(hp) <= 0:
             break
@@ -408,6 +456,8 @@ def _simulate(
         rows += ("l",)
     if used_shield:
         rows += ("m",)
+    if changed_stage:
+        rows += ("o",)
     if used_charged[0]:
         rows += ("p",)
     return Result(

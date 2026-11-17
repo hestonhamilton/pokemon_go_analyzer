@@ -1,7 +1,11 @@
 """Offline, estimated fixed-order Rocket teams, using battle.py's turn core.
 
-No lineup fetching, voluntary switches, move effects or player AI. Supplied
-Combatants have unmodified stats; use rocket_combatant for stats.rocket_stats.
+Move stat changes follow PvPoke's default, including the deterministic chance
+meter of its 1v1 battles; carrying the player's meters across Rocket slots is
+this project's model choice (PvPoke's 3v3 mode rolls instead).
+Rules(stat_stages=False) disables them. No lineup fetching, voluntary
+switches or player AI. Supplied Combatants have unmodified stats; use
+rocket_combatant for stats.rocket_stats.
 Sources and evidence grades are also recorded in data/rocket_rules.json and
 tests/fixtures/sim/rocket_report.md. No Rocket-only acceptance targets exist.
 """
@@ -105,10 +109,13 @@ DEFAULT_ROCKET_RULES = RocketRules()
 
 
 def rules_dict(rules: RocketRules) -> dict:
-    """Keep default JSON unchanged; record overrides only when supplied."""
+    """Record enabled stat stages; preserve absent-means-off historical JSON."""
     result = asdict(rules)
     if rules.pause_turns_override is None:
         result.pop("pause_turns_override")
+    if not rules.turn_rules.stat_stages:
+        # Outputs from before stat stages carry no key; absent means off.
+        result["turn_rules"].pop("stat_stages")
     return result
 
 
@@ -118,6 +125,37 @@ class Evidence:
     grade: str
     option: str
     source: str
+
+
+def _stat_stage_evidence(teams, rules):
+    """Static input dependencies, including moves on untouched reserves."""
+    if not rules.turn_rules.stat_stages:
+        return ()
+    moves = [
+        move
+        for team in teams
+        for member in team
+        for move in (member.fast, *member.charged)
+        if any(move.self_stages) or any(move.opponent_stages)
+    ]
+    if not moves:
+        return ()
+    evidence = [
+        Evidence(
+            "o",
+            "owner observation (applies in Rocket battles); multipliers data-mined, "
+            "not measured in Rocket",
+            "stat_stages",
+            "docs/simulator-verification.md#ledger",
+        )
+    ]
+    if any(move.stage_chance < 1 for move in moves):
+        evidence.append(
+            Evidence(
+                "o", "model choice", "chance_schedule:pvpoke_meter", "docs/stat-stages-research.md"
+            )
+        )
+    return tuple(evidence)
 
 
 @dataclass(frozen=True)
@@ -201,6 +239,8 @@ def _damage(own: State, opponent: State, move: Move, actor: int) -> DamageResult
         opponent.combatant.types,
         attacker_shadow=actor == 1 or own.combatant.shadow,
         defender_shadow=actor == 0 or opponent.combatant.shadow,
+        attack_stage=own.stages[0],
+        defence_stage=opponent.stages[1],
         charged=bool(move.energy),
     )
 
@@ -536,13 +576,14 @@ def simulate_rocket(
             data["timer"]["era_note"],
             "Timeout HP fraction is the sum of each team member's current HP / maximum HP.",
         ]
+    evidence.extend(_stat_stage_evidence(teams, rules))
     # Dates past the newest source run the newest era's rules, flagged as such.
     forward = stamp is not None and stamp > data["latest_source_date"]
     if forward:
         interpretations.append(data["forward_note"])
     rows = (
         *BASE_LEDGER_ROWS,
-        *(r for r in ("k", "l", "m", "n") if any(e.row == r for e in evidence)),
+        *(r for r in ("k", "l", "m", "n", "o") if any(e.row == r for e in evidence)),
     )
     if battle.fired[0]:
         rows += ("p",)

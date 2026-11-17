@@ -47,7 +47,7 @@ def starts(result, side, kind="fast"):
     ]
 
 
-def test_default_fixture_output_bytes_unchanged():
+def test_default_fixture_output_only_adds_stat_stages_key():
     player, rocket = mon(4, charged=(C,), energy=20), mon(11)
     default = simulate_rocket([player], [rocket], battle_date=None)
     explicit = simulate_rocket(
@@ -58,10 +58,22 @@ def test_default_fixture_output_bytes_unchanged():
         **battle_summary(default, [player]),
         "timeline": [asdict(t) for t in default.timeline],
     }
-    # Captured before adding the override field; covers all summary and timeline bytes.
+    # Default-on adds the stat_stages key; this battle has no stat-changing moves.
+    assert hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest() == (
+        "c6185d31dc5786d5a8861df72ca9f25c56a05707385cbe4d4522152a467235eb"
+    )
+    assert payload["rules"]["turn_rules"].pop("stat_stages") is True
+    # All other bytes still match the snapshot from before pause overrides.
     assert hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest() == (
         "78b0015220aa008bacb702ad45f299c95059b0a9dce4d3e2ffe1c029d5e70882"
     )
+    disabled = simulate_rocket(
+        [player], [rocket], battle_date=None, rules=RocketRules(turn_rules=Rules(stat_stages=False))
+    )
+    assert payload == {
+        **battle_summary(disabled, [player]),
+        "timeline": [asdict(t) for t in disabled.timeline],
+    }
 
 
 @pytest.mark.parametrize("turns,winner", [(6, "rocket"), (8, "player")])
@@ -722,3 +734,119 @@ def test_switch_in_pause_replaces_charge_pause(stamp, charge, faint):
     assert ko.pause_through == ko.core.number + faint
     # Before the owner test, the charge pause (t + 1 + charge) could outlast the switch-in.
     assert (ko.core.number + 1 + charge > ko.core.number + faint) is (charge >= faint)
+
+
+def test_stat_stages_carry_for_survivor_and_reset_for_replacement():
+    from pogo_analyzer.sim.damage import calculate_damage
+
+    debuff = replace(C, self_stages=(0, -2))
+    hit = replace(F, power=20)
+    rules = RocketRules(turn_rules=Rules(stat_stages=True), pauses=False)
+    player = mon(1000, charged=(debuff,), energy=20)
+    result = simulate_rocket(
+        [player], [mon(1), mon(1000, fast=hit)], battle_date=None, rules=rules, max_turns=3
+    )
+    expected = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("normal",),
+        ("normal",),
+        attacker_shadow=True,
+        defender_shadow=False,
+        defence_stage=-2,
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert result.timeline[2].core.damage[1] == expected.damage
+
+    rocket = mon(1, charged=(debuff,), energy=20, attack=101)
+    result = simulate_rocket(
+        [mon(1000, fast=hit)],
+        [rocket, mon(1000)],
+        battle_date=None,
+        rules=rules,
+        max_turns=3,
+        player_policy=FastOnly(),
+    )
+    expected = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("normal",),
+        ("normal",),
+        attacker_shadow=False,
+        defender_shadow=True,
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert result.timeline[2].core.damage[0] == expected.damage
+
+
+def test_chance_meters_carry_for_survivor_and_reset_on_replacement(monkeypatch):
+    from pogo_analyzer.sim import battle
+
+    seen = []
+    original = battle.calculate_damage
+
+    def capture(*args, **kwargs):
+        seen.append((kwargs["attacker_shadow"], kwargs["charged"], kwargs["attack_stage"]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(battle, "calculate_damage", capture)
+    chance = replace(C, self_stages=(1, 0), stage_chance=0.5)
+    rules = RocketRules(
+        turn_rules=Rules(stat_stages=True),
+        pauses=False,
+        rocket_shields=False,
+        player_shield_policy="never",
+    )
+    player = mon(1000, fast=replace(F, energy_gain=20), charged=(chance,), energy=20)
+    result = simulate_rocket(
+        [player], [mon(1), mon(1000)], battle_date=None, rules=rules, max_turns=10
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert [stage for shadow, charged, stage in seen if not shadow and charged][:3] == [0, 0, 1]
+
+    seen.clear()
+    rocket = mon(1, charged=(chance,), energy=20, attack=101)
+    result = simulate_rocket(
+        [mon(1000)],
+        [rocket, replace(rocket, hp=1000)],
+        battle_date=None,
+        rules=rules,
+        max_turns=5,
+        player_policy=FastOnly(),
+    )
+    assert result.timeline[0].replacements == (None, 2)
+    assert [stage for shadow, charged, stage in seen if shadow and charged] == [0, 0]
+    assert [stage for shadow, charged, stage in seen if shadow and not charged] == [0]
+
+
+def test_threshold_shield_prediction_uses_current_stages():
+    # Reviewer case: the player's charge drops its own defence to -4 on turn 1, then the
+    # Rocket's 60-power charge resolves the same turn. The threshold must predict the hit
+    # at the new stage (and shield), not at stage 0 (and get knocked out).
+
+    fast = Move("F", "normal", 0, 1, energy_gain=20)
+    self_debuff = Move("PC", "normal", 1, 1, energy=20, self_stages=(0, -4))
+    nuke = Move("RC", "normal", 60, 1, energy=100)
+    rocket_fast = Move("RF", "normal", 0, 1, energy_gain=0)
+    outcomes = {}
+    for stages in (True, False):
+        player = Combatant(100, 100, 100, ("normal",), fast, (self_debuff,), energy=20)
+        rocket = Combatant(100, 100, 1000, ("normal",), rocket_fast, (nuke,), energy=100)
+        rules = RocketRules(
+            pauses=False,
+            player_shield_policy="threshold",
+            player_shield_threshold=0.9,
+            turn_rules=Rules(stat_stages=stages),
+        )
+        result = simulate_rocket(
+            [player], [rocket], battle_date=None, rank="grunt", rules=rules, max_turns=6
+        )
+        outcomes[stages] = result.timeline[0]
+    # Stage 0 predicts 57 < 90: no shield. At -4 defence the real hit is 113 >= 90: shield.
+    assert outcomes[False].shields[0] == 2
+    assert outcomes[True].shields[0] == 1
+    assert outcomes[True].core.hp[0] > 0

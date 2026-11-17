@@ -37,8 +37,11 @@ LIMITATIONS = (
     "Rocket lineups and movesets are weighted equally because no appearance-rate source exists "
     "(model choice). Player ChargedWhenReady (first affordable move in supplied order) and "
     "first_two shields are model choices. Both sides start at full HP and zero energy. "
-    "Every ledger flag applies. Move effects, voluntary switching, Mega and special moves are "
-    "unsupported. Battle date selects rules, not historical moves: cached moves and the explicit "
+    "Every ledger flag applies. Stat changes from moves follow PvPoke's default: guaranteed "
+    "effects always apply; chance effects use PvPoke's 1v1 fixed schedule rather than a roll, "
+    "and the player's schedule carries across Rocket slots (model choice). "
+    "Voluntary switching, Mega and special moves remain unsupported. "
+    "Battle date selects rules, not historical moves: cached moves and the explicit "
     "rCPM table are used. Purified IVs must already include their gain."
 )
 STAT_CELLS = (

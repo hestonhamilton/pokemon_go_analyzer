@@ -14,8 +14,9 @@ from math import prod
 from typing import NamedTuple
 
 from . import winrate
+from .battle import _advance_meter, _initial_meters
 from .damage import calculate_damage
-from .rocket import DEFAULT_ROCKET_RULES, _era, rule_data, simulate_rocket
+from .rocket import DEFAULT_ROCKET_RULES, _era, _stat_stage_evidence, rule_data, simulate_rocket
 
 
 @lru_cache(maxsize=32768)
@@ -58,7 +59,7 @@ def _damage_cached(
 
 
 def supports(team, pools, rules=DEFAULT_ROCKET_RULES) -> bool:
-    """Accept a solo player, full pools and default rules plus a pause override.
+    """Accept default solo rules plus pause and stat-stage overrides.
 
     Implements the default ChargedWhenReady player and Rocket policies only.
     Callers must separately check their battle function is simulate_rocket.
@@ -68,7 +69,14 @@ def supports(team, pools, rules=DEFAULT_ROCKET_RULES) -> bool:
         len(team) == 1
         and len(pools) == 3
         and all(pools)
-        and replace(rules, pause_turns_override=None) == DEFAULT_ROCKET_RULES
+        and replace(
+            rules,
+            pause_turns_override=None,
+            turn_rules=replace(
+                rules.turn_rules, stat_stages=DEFAULT_ROCKET_RULES.turn_rules.stat_stages
+            ),
+        )
+        == DEFAULT_ROCKET_RULES
         and all(
             not o.combatant.shadow and len(o.combatant.charged) <= 1 for pool in pools for o in pool
         )
@@ -88,6 +96,8 @@ class _Boundary(NamedTuple):
     pause_through: int
     deadline: int
     slot: int  # zero-based new Rocket slot; queue/cooldowns reset at this point
+    stages: tuple[int, int]
+    meters: tuple[tuple[int, float], ...]
 
 
 class _Terminal(NamedTuple):
@@ -126,6 +136,8 @@ class _Engine:
             0,
             self.data["timer"]["base_turns"],
             0,
+            (0, 0),
+            tuple(_initial_meters(self.player).items()),
         )
         self.combatants, ids = [], {}
         self.option_ids = []
@@ -188,11 +200,25 @@ class _Engine:
     def _segment(self, state, option_id):
         """Follow sim/battle.py::_simulate and sim/rocket.py::_RocketBattle order."""
         cs, moves, damages = self.packet(option_id)
-        turn, player_hp, player_energy, source, previous_charged, ps, rs, pause, deadline, slot = (
-            state
-        )
+        (
+            turn,
+            player_hp,
+            player_energy,
+            source,
+            previous_charged,
+            ps,
+            rs,
+            pause,
+            deadline,
+            slot,
+            player_stages,
+            player_meters,
+        ) = state
         hp = [player_hp, cs[1].hp]
         energy = [player_energy, cs[1].energy]
+        stages = [list(player_stages), [0, 0]]
+        meters = [dict(player_meters), _initial_meters(cs[1])]
+        stat_stages = self.rules.turn_rules.stat_stages
         faint_source = [source, ""]
         cooldown, shields, fired = [0, 0], [ps, rs], [0, 0]
         queue = []  # (actor, submission turn, move index, priority)
@@ -257,6 +283,25 @@ class _Engine:
                 if shielded:
                     shields[other] -= 1
                 damage = damages[i][choice][int(shielded)]
+                if stat_stages and (stages[i][0] or stages[other][1]):
+                    p, opponent = cs[i], cs[other]
+                    damage = _damage_cached(
+                        move.power,
+                        p.attack,
+                        opponent.defence,
+                        move.type,
+                        p.types,
+                        opponent.types,
+                        attacker_shadow=i == 1 or p.shadow,
+                        defender_shadow=i == 0 or opponent.shadow,
+                        attack_stage=stages[i][0],
+                        defence_stage=stages[other][1],
+                        charged=charged,
+                        shielded=shielded,
+                        attacker_mega=False,
+                        is_mega_move=False,
+                        mega_level=3,
+                    ).damage
                 if charged:
                     energy[i] -= move.energy
                     charged_used = True
@@ -274,6 +319,16 @@ class _Engine:
                 else:
                     energy[i] = min(100, energy[i] + move.energy_gain)
                 hp[other] = max(0, hp[other] - damage)
+                # Same apply order and unreduced float meters as battle._simulate.
+                apply_stages = stat_stages and move.stage_chance == 1.0
+                if stat_stages and move.stage_chance < 1.0 and choice:
+                    meters[i][choice - 1], apply_stages = _advance_meter(
+                        meters[i][choice - 1], move.stage_chance
+                    )
+                if apply_stages:
+                    for side, deltas in ((i, move.self_stages), (other, move.opponent_stages)):
+                        for stat, delta in enumerate(deltas):
+                            stages[side][stat] = max(-4, min(4, stages[side][stat] + delta))
                 if hp[other] <= 0:
                     faint_source[other] = "charged" if charged else "fast"
             if charged_used:
@@ -310,6 +365,8 @@ class _Engine:
                     pause,
                     deadline,
                     slot + 1,
+                    tuple(stages[0]),
+                    tuple(meters[0].items()),
                 )
                 return _Segment(end, tuple(fired))
         return _Segment(_Terminal(None, "observation_limit", turn, hp[0], slot), tuple(fired))
@@ -389,6 +446,8 @@ class _Engine:
                                 species_wins[i][name] += count * scale
                     # Metadata varies with resolved player charges and supplied
                     # Rocket charges, including untouched suffix reserves.
+                    # Static stat-stage dependencies are unioned below, without
+                    # adding reference battles for every stat-move variant.
                     suffix = pools[depth + 1 :]
                     samples = [tuple(p[0] for p in suffix)]
                     uncharged = [tuple(o for o in p if not o.combatant.charged) for p in suffix]
@@ -421,6 +480,12 @@ class _Engine:
             return subtree_wins
 
         visit(self.initial, False)
+        stage_evidence = _stat_stage_evidence(
+            (self.team, tuple(o.combatant for pool in pools for o in pool)), self.rules
+        )
+        if stage_evidence:
+            metadata.rows.add("o")
+            metadata.evidence.update((e.row, e.grade, e.option, e.source) for e in stage_evidence)
         return {
             **metadata.output(),
             "lineups": total,

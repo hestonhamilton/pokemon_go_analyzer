@@ -343,3 +343,183 @@ def test_explicit_shadow_flags_both_directions(monkeypatch, shadow):
     monkeypatch.setattr(battle, "calculate_damage", record)
     simulate(replace(fighter(), shadow=shadow), fighter(), max_turns=1)
     assert flags == [(shadow, True), (True, shadow)]
+
+
+def test_stat_stages_default_damage_timing_and_opt_out_ledger():
+    from pogo_analyzer.sim.damage import calculate_damage
+
+    charge = replace(fighter().charged[0], self_stages=(0, -2))
+    player = replace(fighter(energy=10), charged=(charge,))
+    opponent = fighter(power=20)
+    options = dict(player_policy=ChargedWhenReady(), max_turns=1)
+    disabled = simulate(player, opponent, rules=Rules(stat_stages=False), **options)
+    plain = simulate(
+        replace(player, charged=(replace(charge, self_stages=(0, 0)),)),
+        opponent,
+        rules=Rules(stat_stages=False),
+        **options,
+    )
+    assert disabled == plain
+    assert "o" not in disabled.ledger_rows
+
+    enabled = simulate(player, opponent, **options)
+    expected_charge = calculate_damage(
+        10,
+        100,
+        100,
+        "normal",
+        ("water",),
+        ("water",),
+        attacker_shadow=False,
+        defender_shadow=True,
+        charged=True,
+    )
+    expected_fast = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("water",),
+        ("water",),
+        attacker_shadow=True,
+        defender_shadow=False,
+        defence_stage=-2,
+    )
+    assert enabled.timeline[0].damage == (expected_charge.damage, expected_fast.damage)
+    assert enabled.ledger_rows[-2:] == ("o", "p")
+
+
+@pytest.mark.parametrize("delta,expected", [((0, -4), [0, -4, -4]), ((1, 0), [0, 1, 2, 3, 4, 4])])
+def test_stat_stages_clamp(monkeypatch, delta, expected):
+    from pogo_analyzer.sim import battle
+
+    original = battle.calculate_damage
+    seen = []
+
+    # Observe the user's attack stage on its hits, or its defence on the opponent's hits.
+    def capture(*args, **kwargs):
+        if delta[0] and not kwargs["attacker_shadow"]:
+            seen.append(kwargs["attack_stage"])
+        if delta[1] and kwargs["attacker_shadow"]:
+            seen.append(kwargs["defence_stage"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(battle, "calculate_damage", capture)
+    move = replace(fighter().fast, self_stages=delta)
+    simulate(
+        replace(fighter(hp=1000), fast=move),
+        fighter(hp=1000),
+        rules=Rules(stat_stages=True),
+        max_turns=len(expected),
+    )
+    # The player's fast resolves first, so defence is observed after each change.
+    assert seen == (expected if delta[0] else [-4, -4, -4])
+
+
+def test_shielded_opponent_debuff_and_chance_ignored():
+    from pogo_analyzer.sim.damage import calculate_damage
+
+    class Shield:
+        def shield(self, own, opponent, move, turn):
+            return True
+
+    charge = replace(fighter().charged[0], opponent_stages=(-2, 0))
+    player = replace(fighter(energy=10), charged=(charge,))
+    opponent = fighter(power=20)
+    options = dict(
+        player_policy=ChargedWhenReady(),
+        rocket_shield_policy=Shield(),
+        max_turns=1,
+        rules=Rules(stat_stages=True),
+    )
+    result = simulate(player, opponent, **options)
+    expected = calculate_damage(
+        20,
+        100,
+        100,
+        "normal",
+        ("water",),
+        ("water",),
+        attacker_shadow=True,
+        defender_shadow=False,
+        attack_stage=-2,
+    )
+    assert result.timeline[0].damage == (1, expected.damage)
+    assert result.ledger_rows[-3:] == ("m", "o", "p")
+    chance = simulate(
+        replace(player, charged=(replace(charge, stage_chance=0.5),)), opponent, **options
+    )
+    assert "o" not in chance.ledger_rows
+    assert chance.timeline[0].damage[1] > expected.damage
+
+
+@pytest.mark.parametrize(
+    "chance,first", [(0.1, 10), (0.125, 7), (0.2, 4), (0.3, 3), (0.5, 2), (1 / 3, 2)]
+)
+def test_chance_meter_schedule(chance, first):
+    from pogo_analyzer.sim.battle import _advance_meter, _initial_meters
+
+    base = fighter()
+    move = replace(base.charged[0], stage_chance=chance, opponent_stages=(0, -1))
+    meter = _initial_meters(replace(base, charged=(move,)))[0]
+    for use in range(1, first + 1):
+        meter, applies = _advance_meter(meter, chance)
+        assert applies is (use == first)
+
+
+@pytest.mark.parametrize("chance,first", [(0.5, 2), (0.2, 4)])
+def test_chance_charge_schedule_and_flag_off(monkeypatch, chance, first):
+    from pogo_analyzer.sim import battle
+
+    seen = []
+    original = battle.calculate_damage
+
+    def capture(*args, **kwargs):
+        if not kwargs["attacker_shadow"] and kwargs["charged"]:
+            seen.append(kwargs.get("attack_stage", 0))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(battle, "calculate_damage", capture)
+    charge = replace(fighter().charged[0], power=0, self_stages=(1, 0), stage_chance=chance)
+    player = replace(fighter(hp=1000, energy=100), charged=(charge,))
+    options = dict(player_policy=ChargedWhenReady(), max_turns=first * 2 + 1)
+    enabled = simulate(player, fighter(hp=1000), rules=Rules(stat_stages=True), **options)
+    assert seen[: first + 1] == [0] * first + [1]
+    assert "o" in enabled.ledger_rows
+    seen.clear()
+    disabled = simulate(player, fighter(hp=1000), rules=Rules(stat_stages=False), **options)
+    plain = simulate(
+        replace(player, charged=(replace(charge, self_stages=(0, 0)),)),
+        fighter(hp=1000),
+        rules=Rules(stat_stages=False),
+        **options,
+    )
+    assert disabled == plain
+    assert "o" not in disabled.ledger_rows
+
+
+def test_shielded_chance_charge_advances_meter():
+    class Shield:
+        def shield(self, own, opponent, move, turn):
+            return True
+
+    charge = replace(fighter().charged[0], power=0, self_stages=(1, 0), stage_chance=0.5)
+    result = simulate(
+        replace(fighter(hp=1000, energy=20), charged=(charge,)),
+        fighter(hp=1000),
+        player_policy=ChargedWhenReady(),
+        rocket_shield_policy=Shield(),
+        rules=Rules(stat_stages=True),
+        max_turns=3,
+    )
+    assert [row.damage[0] for row in result.timeline] == [1, 0, 1]
+    assert "o" in result.ledger_rows
+
+
+def test_fast_move_has_no_chance_meter():
+    """Pokemon.js 737-746 meters charged moves only; with modifier -1 a fast chance never fires."""
+    from pogo_analyzer.sim.battle import _initial_meters
+
+    base = fighter()
+    fast = replace(base.fast, stage_chance=0.5, opponent_stages=(0, -1))
+    assert _initial_meters(replace(base, fast=fast)) == {}

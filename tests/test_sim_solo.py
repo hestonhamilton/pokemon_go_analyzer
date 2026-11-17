@@ -10,7 +10,7 @@ import pytest
 
 from pogo_analyzer import topn
 from pogo_analyzer.sim import solo, winrate
-from pogo_analyzer.sim.battle import Combatant, Rules
+from pogo_analyzer.sim.battle import Combatant, Rules, simulate
 from pogo_analyzer.sim.calculator import Move
 from pogo_analyzer.sim.rocket import DEFAULT_ROCKET_RULES, rule_data, simulate_rocket
 
@@ -98,6 +98,195 @@ def test_aggregate_exact(rank, stamp, override):
             team, winrate.trials(team, pools, rank=rank, battle_date=stamp, rules=rules)
         )
         assert actual == expected
+
+
+STAGE_EFFECTS = [
+    {"self_stages": (0, -4)},
+    {"self_stages": (0, -2)},
+    {"self_stages": (1, 0)},
+    {"opponent_stages": (-1, 0)},
+    {"opponent_stages": (0, -1)},
+]
+
+
+@pytest.mark.parametrize("chance", [1.0, 0.5, 0.2, 0.1])
+@pytest.mark.parametrize("rank", ["grunt", "leader"])
+@pytest.mark.parametrize("stamp", DATES)
+def test_stat_stages_seeded_lineups_and_aggregate(chance, rank, stamp):
+    rng = random.Random(20261116)
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+
+    def combatant(effect):
+        return mon(
+            hp=rng.choice([300, 700, 1000]),
+            energy=100,
+            fast=replace(FAST, power=6, energy_gain=12, **rng.choice(STAGE_EFFECTS)),
+            charged=(replace(CHARGE, power=35, stage_chance=chance, **effect),),
+        )
+
+    options = [winrate.Option(str(i), combatant(effect)) for i, effect in enumerate(STAGE_EFFECTS)]
+    pools = tuple(tuple(rng.sample(options, n)) for n in (2, 3, 2))
+    for effect in STAGE_EFFECTS:
+        player = combatant(effect)
+        kwargs = dict(rank=rank, battle_date=stamp, rules=rules)
+        engine = solo._Engine((player,), pools, **kwargs)
+        for lineup in winrate.lineups(pools):
+            expected, _ = reference((player,), lineup, **kwargs)
+            assert engine.outcome(lineup) == expected
+        assert engine.aggregate() == winrate.aggregate(
+            (player,), winrate.trials((player,), pools, **kwargs)
+        )
+
+
+def test_stat_stages_self_debuff_carries_into_second_slot():
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+    player = mon(
+        hp=100,
+        energy=35,
+        fast=replace(FAST, power=10),
+        charged=(replace(CHARGE, self_stages=(0, -4)),),
+    )
+    lineup = tuple(
+        winrate.Option(str(i), mon(hp=hp, fast=replace(FAST, power=15)))
+        for i, hp in enumerate([1, 200, 200])
+    )
+    kwargs = dict(rank="grunt", battle_date=None)
+    enabled = solo._Engine((player,), pools_for(lineup), rules=rules, **kwargs)
+    disabled = solo._Engine(
+        (player,),
+        pools_for(lineup),
+        rules=replace(rules, turn_rules=Rules(stat_stages=False)),
+        **kwargs,
+    )
+    first = enabled.segment(enabled.initial, 0).end
+    first_off = disabled.segment(disabled.initial, 0).end
+    assert (first.hp, first.energy) == (first_off.hp, first_off.energy)
+    assert first.stages == (0, -4)
+    assert enabled.segment(first, 1) != disabled.segment(first_off, 1)
+    expected, _ = reference((player,), lineup, rules=rules, **kwargs)
+    assert enabled.outcome(lineup) == expected
+    assert enabled.outcome(lineup) != disabled.outcome(lineup)
+
+
+def test_stat_stages_distinct_prefixes_are_not_merged():
+    player = mon(fast=replace(FAST, power=8))
+    plain = winrate.Option("plain", mon(hp=1))
+    debuff = winrate.Option("debuff", mon(hp=1, fast=replace(FAST, opponent_stages=(-1, 0))))
+    target = winrate.Option("target", mon(hp=100, fast=replace(FAST, power=8)))
+    pools = ((plain, debuff), (target,), (target,))
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+    kwargs = dict(rank="grunt", battle_date=None, rules=rules)
+    engine = solo._Engine((player,), pools, **kwargs)
+    first, second = (engine.segment(engine.initial, i).end for i in (0, 1))
+    assert first.stages == (0, 0) and second.stages == (-1, 0)
+    assert first._replace(stages=second.stages) == second
+    assert engine.segment(first, 2) != engine.segment(second, 2)
+    assert len(engine.memo[1]) == 2
+    outcomes = []
+    for lead in (plain, debuff):
+        lineup = (lead, target, target)
+        expected, _ = reference((player,), lineup, **kwargs)
+        outcomes.append(engine.outcome(lineup))
+        assert outcomes[-1] == expected
+    assert outcomes[0] != outcomes[1]
+    assert engine.aggregate() == winrate.aggregate(
+        (player,), winrate.trials((player,), pools, **kwargs)
+    )
+
+
+def test_stat_stages_boundary_preserves_unreduced_float_meters():
+    player = mon(
+        hp=1000,
+        energy=100,
+        charged=(
+            replace(CHARGE, power=0, energy=1, stage_chance=0.1, opponent_stages=(0, -1)),
+            replace(CHARGE, energy=2, stage_chance=0.5),
+        ),
+    )
+    lineup = tuple(winrate.Option(str(i), mon(hp=10)) for i in range(3))
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+    kwargs = dict(rank="grunt", battle_date=None, rules=rules)
+    engine = solo._Engine((player,), pools_for(lineup), **kwargs)
+    assert engine.initial.meters == ((0, 0.1), (1, 0.0))
+    part = engine.segment(engine.initial, 0)
+    assert part.fired[0] == 10
+    assert part.end.meters == ((0, 1.0999999999999999), (1, 0.0))
+    assert engine.outcome(lineup) == reference((player,), lineup, **kwargs)[0]
+
+
+def test_stat_stages_meters_are_part_of_memo_key():
+    player = mon(
+        energy=35,
+        fast=replace(FAST, power=8),
+        charged=(replace(CHARGE, power=0, self_stages=(1, 0), stage_chance=0.5),),
+    )
+    target = winrate.Option("target", mon(hp=100, fast=replace(FAST, power=8)))
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+    engine = solo._Engine((player,), ((target,),) * 3, rank="grunt", battle_date=None, rules=rules)
+    fresh = engine.initial
+    advanced = fresh._replace(meters=((0, 0.5),))
+    assert fresh.stages == advanced.stages
+    assert engine.segment(fresh, 0) != engine.segment(advanced, 0)
+    assert len(engine.memo[0]) == 2
+
+
+def test_reference_rocket_stat_change_ledger_row():
+    player = mon(fast=replace(FAST, power=8, self_stages=(1, 0)))
+    opponent = mon(hp=1)
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=True))
+    assert "o" in simulate(player, opponent, rules=rules.turn_rules).ledger_rows
+    result = simulate_rocket((player,), (opponent,) * 3, battle_date=None, rules=rules)
+    assert "o" in result.ledger_rows
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("player_effect", [False, True])
+def test_static_stage_evidence_in_untouched_reserves(enabled, player_effect, monkeypatch):
+    # Player dies before any stage move can fire or a Rocket reserve can enter.
+    effect = replace(CHARGE, self_stages=(1, 0))
+    chance = replace(CHARGE, opponent_stages=(0, -1), stage_chance=0.2)
+    player = mon(hp=1, charged=(effect,) if player_effect else ())
+    lead = winrate.Option("lead", mon(fast=replace(FAST, power=100)))
+    plain = winrate.Option("plain", mon())
+    buff = winrate.Option("buff", mon(charged=(effect,)))
+    debuff = winrate.Option("debuff", mon(charged=(chance,)))
+    pools = ((lead,), (plain, buff, debuff), (plain,))
+    rules = replace(DEFAULT_ROCKET_RULES, turn_rules=Rules(stat_stages=enabled))
+    kwargs = dict(rank="grunt", battle_date=None, rules=rules)
+    for reserve in (plain, buff, debuff):
+        result = simulate_rocket(
+            (player,), (lead.combatant, reserve.combatant, plain.combatant), **kwargs
+        )
+        assert result.ledger_rows == tuple(sorted(result.ledger_rows))
+        assert ("o" in result.ledger_rows) == (enabled and (player_effect or reserve != plain))
+        evidence = [e for e in result.evidence if e.row == "o"]
+        assert len(evidence) == (
+            int(enabled and (player_effect or reserve != plain))
+            + int(enabled and reserve == debuff)
+        )
+        if evidence:
+            assert evidence[0].option == "stat_stages"
+            assert evidence[0].grade == (
+                "owner observation (applies in Rocket battles); multipliers data-mined, "
+                "not measured in Rocket"
+            )
+        if enabled and reserve == debuff:
+            assert evidence[1].grade == "model choice"
+            assert evidence[1].option == "chance_schedule:pvpoke_meter"
+    expected = winrate.aggregate((player,), winrate.trials((player,), pools, **kwargs))
+    original = solo.simulate_rocket
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(solo, "simulate_rocket", counted)
+    actual = solo.aggregate((player,), pools, **kwargs)
+    assert actual == expected
+    assert len(calls) <= 4
+    assert actual["rules_grade"] == "unverified"
+    assert actual["rules"]["turn_rules"].get("stat_stages", False) == enabled
 
 
 @pytest.mark.parametrize("rank", ["grunt", "leader", "giovanni"])
@@ -194,6 +383,15 @@ def test_supports_and_fallback(monkeypatch):
         assert solo.supports(
             (player,), pools, replace(DEFAULT_ROCKET_RULES, pause_turns_override=turn)
         )
+        assert solo.supports(
+            (player,),
+            pools,
+            replace(
+                DEFAULT_ROCKET_RULES,
+                pause_turns_override=turn,
+                turn_rules=Rules(stat_stages=False),
+            ),
+        )
     assert not solo.supports((player,), pools[:2], DEFAULT_ROCKET_RULES)
     assert not solo.supports((player,), ((), *pools[1:]), DEFAULT_ROCKET_RULES)
     cases = [((player, player), DEFAULT_ROCKET_RULES)]
@@ -204,6 +402,9 @@ def test_supports_and_fallback(monkeypatch):
     monkeypatch.setattr(solo, "aggregate", lambda *a, **k: pytest.fail("must fall back"))
     for team, rules in cases:
         assert not solo.supports(team, pools, rules)
+        assert not solo.supports(
+            team, pools, replace(rules, turn_rules=replace(rules.turn_rules, stat_stages=True))
+        )
         kwargs = dict(rank="leader", battle_date="2026-11-14", rules=rules)
         assert topn.full_result(SimpleNamespace(team=team), pools, **kwargs) == winrate.aggregate(
             team, winrate.trials(team, pools, **kwargs)
@@ -260,7 +461,16 @@ def test_bounded_damage_cache():
 FUZZ_TYPES = ["normal", "fire", "water", "grass", "steel", "fairy", "dragon", "ghost"]
 
 
-def _fuzz_mon(rng, rocket):
+def _fuzz_mon(rng, rocket, stat_stages=False):
+    def effect():
+        if not stat_stages:
+            return {}
+        return dict(
+            self_stages=rng.choice([(0, 0), (0, -4), (0, -2), (1, 0)]),
+            opponent_stages=rng.choice([(0, 0), (-1, 0), (0, -1)]),
+            stage_chance=rng.choice([1.0, 0.5, 0.2, 0.1]),
+        )
+
     def fast():
         return Move(
             "F",
@@ -268,6 +478,7 @@ def _fuzz_mon(rng, rocket):
             rng.choice([0, 1, 3, 5, 10]),
             rng.choice([1, 2, 3, 4, 5]),
             energy_gain=rng.choice([0, 3, 8, 12]),
+            **effect(),
         )
 
     def charged():
@@ -277,6 +488,7 @@ def _fuzz_mon(rng, rocket):
             rng.choice([10, 40, 90, 150]),
             1,
             energy=rng.choice([35, 45, 50, 100]),
+            **effect(),
         )
 
     count = rng.choice([0, 1] if rocket else [0, 1, 2])
@@ -292,16 +504,16 @@ def _fuzz_mon(rng, rocket):
     )
 
 
-@pytest.mark.parametrize("seed", [1, 2, 3])
-def test_fuzz_random_pools_whole_aggregate(seed, monkeypatch):
+@pytest.mark.parametrize(("seed", "stat_stages"), [(1, False), (2, False), (3, False), (3, True)])
+def test_fuzz_random_pools_whole_aggregate(seed, stat_stages, monkeypatch):
     """Random players and 1-3 option pools with duplicate combatants, so equal boundary
     states are also reached through distinct prefixes. Whole-dict ==, errors by message."""
     rng = random.Random(seed)
     dates = [*DATES, None]
     hits = 0
     for _ in range(100):
-        team = (_fuzz_mon(rng, False),)
-        base = [_fuzz_mon(rng, True) for _ in range(4)]
+        team = (_fuzz_mon(rng, False, stat_stages),)
+        base = [_fuzz_mon(rng, True, stat_stages) for _ in range(4)]
         pools = tuple(
             tuple(
                 winrate.Option(str(rng.randrange(3)), rng.choice(base))
@@ -311,7 +523,11 @@ def test_fuzz_random_pools_whole_aggregate(seed, monkeypatch):
         )
         rank = rng.choice(["grunt", "leader", "giovanni"])
         stamp = rng.choice(dates)
-        rules = replace(DEFAULT_ROCKET_RULES, pause_turns_override=rng.choice([None, 1, 3, 20]))
+        rules = replace(
+            DEFAULT_ROCKET_RULES,
+            pause_turns_override=rng.choice([None, 1, 3, 20]),
+            turn_rules=Rules(stat_stages=stat_stages),
+        )
         kwargs = dict(rank=rank, battle_date=stamp, rules=rules)
         try:
             expected = winrate.aggregate(team, winrate.trials(team, pools, **kwargs))

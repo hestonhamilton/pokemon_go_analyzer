@@ -14,7 +14,7 @@ import urllib.request
 from dataclasses import asdict
 from pathlib import Path
 
-from pogo_analyzer.sim.battle import ChargedWhenReady, Combatant, FastOnly, simulate
+from pogo_analyzer.sim.battle import ChargedWhenReady, Combatant, FastOnly, Rules, simulate
 from pogo_analyzer.sim.calculator import BattlePredictor, Move
 from pogo_analyzer.sim.stats import player_stats
 
@@ -66,12 +66,28 @@ const wrap = `function P(c, index) {
  self.startHp = c.hp; self.startEnergy = c.energy; self.startCooldown = 0;
  self.startingShields = 0; self.startStatBuffs = [0,0]; self.nativeStatBuffs = [0,0];
  self.priority = 0; self.hasTag = () => false; self.setBattle = () => {};
- self.resetMoves = () => {}; // Supplied ordinary moves already initialized below.
+ // Pokemon.js 737-746: initialize the chance meter for supplied charged moves.
+ self.resetMoves = () => {
+  for (const m of self.chargedMoves) {
+   if (m && m.buffs && m.buffApplyChance < 1) {
+    m.buffApplyMeter = m.buffApplyChance;
+    if (m.buffApplyChance == 0.5) m.buffApplyMeter = 0;
+   }
+  }
+ };
  ${['getEffectiveStat','getStatBuffMultiplier','getStab','applyStatBuffs','reset'].map(method).join('\n')}
  function move(m) {
   const out = {...m,moveId:m.id,name:m.id,cooldown:m.turns*500,
                energyGain:m.energy_gain,category:m.energy ? 'charged' : 'fast',
                hasTag:() => false};
+  const own = m.self_stages.some(v => v !== 0);
+  const other = m.opponent_stages.some(v => v !== 0);
+  if (own || other) {
+   out.buffTarget = own && other ? 'both' : own ? 'self' : 'opponent';
+   out.buffs = own ? m.self_stages : m.opponent_stages;
+   if (own && other) { out.buffsSelf = m.self_stages; out.buffsOpponent = m.opponent_stages; }
+   out.buffApplyChance = m.stage_chance;
+  }
   out.stab = self.getStab(out); return out;
  }
  self.fastMove = move(c.fast); self.chargedMoves = c.charged.map(move);
@@ -217,7 +233,7 @@ const output = input.map(c => {
  while(!finished && steps++ < 100000) tick();
  if(!finished) throw new Error('emulator callback limit: '+c.name);
  // This projection checks components, not emulator wall time or turn parity.
- return {activations,charges:charges.map(cs=>cs.slice(0,3)),
+ return {activations,charges:charges.map(cs=>cs.slice(0,12)),
          shields:players.map(p=>p.getShields())};
 });
 console.log(JSON.stringify(output));
@@ -327,6 +343,60 @@ def build_cases():
             )
             add(f"CMP-{atk}-{hp}", sides, "charged_when_ready")
             add(f"overflow-or-double-KO-{atk}-{hp}", sides)
+    # Long battles expose repeated activations, the stage caps, and chance meters.
+    shapes = [
+        ((0, -4), (0, 0)),
+        ((0, -2), (0, 0)),
+        ((0, -3), (0, 0)),
+        ((-1, -1), (0, 0)),
+        ((1, 0), (0, 0)),
+        ((0, 1), (0, 0)),
+        ((0, 0), (-1, 0)),
+        ((0, 0), (0, -1)),
+        ((0, 0), (0, -2)),
+        ((0, 1), (0, -1)),
+    ]
+    chances = (1, 0.5, 0.3, 0.2, 0.125, 0.1)
+
+    def stage_case(name, own, other, chance):
+        fast = Move("F", "normal", 0, 1, energy_gain=100)
+        charged = (
+            Move(
+                "C",
+                "normal",
+                5,
+                1,
+                energy=20,
+                self_stages=own,
+                opponent_stages=other,
+                stage_chance=chance,
+            ),
+        )
+        # The opponent's fast move needs power, or defence and attack changes are invisible.
+        hitter = Move("H", "normal", 20, 2, energy_gain=5)
+        add(
+            name,
+            (
+                Combatant(100, 100, 2000, ("normal",), fast, charged),
+                Combatant(100, 100, 2000, ("normal",), hitter),
+            ),
+            "charged_when_ready",
+            max_turns=100,
+        )
+
+    for name, own, other, chance in (
+        ("mind-blown", (0, -4), (0, 0), 1),
+        ("close-combat", (0, -2), (0, 0), 1),
+        ("power-up-punch", (1, 0), (0, 0), 1),
+        ("crunch-20", (0, 0), (0, -1), 0.2),
+        ("crunch-50", (0, 0), (0, -1), 0.5),
+        ("crunch-10", (0, 0), (0, -1), 0.1),
+        ("obstruct", (0, 1), (0, -1), 1),
+    ):
+        stage_case(name, own, other, chance)
+    for n in range(100):
+        own, other = rng.choice(shapes)
+        stage_case(f"stage-seed-{n}", own, other, rng.choice(chances))
     # Both complete old tables; F1 observes exactly seven Bullet Punches (turn 14).
     rows = json.loads(Path("tests/fixtures/sim/battles.json").read_text())
     for table in ("venonic-2023", "fugerappi-2023"):
@@ -348,28 +418,57 @@ def python_result(case):
         sides.append(Combatant(**side))
     policy = FastOnly if case["policy"] == "fast_only" else ChargedWhenReady
     return simulate(
-        *sides, player_policy=policy(), rocket_policy=policy(), max_turns=case["max_turns"]
+        *sides,
+        player_policy=policy(),
+        rocket_policy=policy(),
+        max_turns=case["max_turns"],
+        rules=Rules(stat_stages=True),
     )
 
 
 def team_cases():
-    """Three native 3v3s exercise each side's replacements and shared shields."""
+    """Native 3v3s exercise replacements, shared shields, and guaranteed stages."""
     from pogo_analyzer.sim.rocket import RocketRules, simulate_rocket
 
     cases, expected = [], []
     fast = Move("F", "normal", 0, 1, energy_gain=20)
     charged = (Move("C", "normal", 20, 1, energy=20),)
-    for name, player_hp, rocket_hp, policies in (
-        ("player-sweep", 1000, 30, ("charged_when_ready", "fast_only")),
-        ("rocket-sweep", 30, 1000, ("fast_only", "charged_when_ready")),
-        ("both-replace", 120, 120, ("charged_when_ready", "charged_when_ready")),
+    for name, player_hp, rocket_hp, policies, effect in (
+        ("player-sweep", 1000, 30, ("charged_when_ready", "fast_only"), None),
+        ("rocket-sweep", 30, 1000, ("fast_only", "charged_when_ready"), None),
+        ("both-replace", 120, 120, ("charged_when_ready", "charged_when_ready"), None),
+        ("self-debuff-carries", 1000, 30, ("charged_when_ready", "fast_only"), "self"),
+        (
+            "shielded-opponent-debuff",
+            1000,
+            1000,
+            ("charged_when_ready", "charged_when_ready"),
+            "opponent",
+        ),
     ):
+        effect_move = (
+            Move(
+                "C",
+                "normal",
+                20,
+                1,
+                energy=20,
+                self_stages=(-1, -1) if effect == "self" else (0, 0),
+                opponent_stages=(-1, 0) if effect == "opponent" else (0, 0),
+            ),
+        )
         teams = tuple(
-            tuple(Combatant(100, 100, hp, ("normal",), fast, charged) for _ in range(3))
-            for hp in (player_hp, rocket_hp)
+            tuple(
+                Combatant(
+                    100, 100, hp, ("normal",), fast, effect_move if i == 0 and effect else charged
+                )
+                for _ in range(3)
+            )
+            for i, hp in enumerate((player_hp, rocket_hp))
         )
         rules = RocketRules(
             pauses=False,
+            turn_rules=Rules(stat_stages=True),
             timer=False,
             # Native PvPoke comparison: no 9db era rows.
             era_turn_rules=False,
@@ -411,7 +510,7 @@ def team_cases():
         expected.append(
             dict(
                 activations=activations,
-                charges=[cs[:3] for cs in charges],
+                charges=[cs[:12] for cs in charges],
                 shields=list(result.shields),
             )
         )
@@ -423,6 +522,12 @@ def team_cases():
                 shields=[True, True],
             )
         )
+    # Guard the scenarios themselves as well as comparing their oracle projections.
+    carry, shield = expected[-2:]
+    assert len(carry["activations"][1]) == 3
+    assert [hit["damage"] for hit in carry["charges"][0][5:9]] == [10, 7, 10, 10]
+    assert shield["charges"][0][0]["shielded"]
+    assert shield["charges"][1][2]["damage"] == 11
     return cases, expected
 
 
@@ -453,7 +558,7 @@ def team_parity():
     ]
     print(
         f"Battle.js 3v3 component parity: {len(cases)} cases; {len(mismatches)} mismatches "
-        "(activation order, per-side shields, first three charged hit/shield outcomes)"
+        "(activation order, per-side shields, first twelve charged hit/shield outcomes)"
     )
     for mismatch in mismatches:
         print(json.dumps(mismatch))
