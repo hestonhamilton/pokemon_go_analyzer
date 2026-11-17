@@ -1,5 +1,6 @@
 """Resumable, atomic static reports from the offline top-N engine."""
 
+import ast
 import fcntl
 import hashlib
 import json
@@ -41,11 +42,49 @@ def _hash(value):
     return hashlib.sha256(_json_bytes(value)).hexdigest()
 
 
+def _relative_imports(path, root):
+    """Package modules one file imports with relative imports (`from . import x`, `from .a import
+    b`), resolved to files under root."""
+    package = list(path.relative_to(root).parent.parts)
+    found = set()
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.ImportFrom) or not node.level:
+            continue
+        base = package[: len(package) - (node.level - 1)] + (
+            node.module.split(".") if node.module else []
+        )
+        for parts in (base, *(base + [alias.name] for alias in node.names)):
+            for candidate in (
+                root.joinpath(*parts).with_suffix(".py"),
+                root.joinpath(*parts, "__init__.py"),
+            ):
+                if parts and candidate.is_file():
+                    found.add(candidate)
+        found.add(root / "__init__.py")
+    return found
+
+
+def result_modules(root=None):
+    """The package files results depend on: precompute.py and everything it imports, followed
+    through relative imports. The site renderer and the CLI wrappers are outside it, so a
+    site-only change keeps the reuse key (bead pgo-r8d)."""
+    root = Path(root or Path(__file__).resolve().parent)
+    seen, todo = set(), [root / "precompute.py"]
+    while todo:
+        path = todo.pop()
+        if path not in seen:
+            seen.add(path)
+            todo.extend(_relative_imports(path, root))
+    return sorted(seen)
+
+
 def code_hash():
-    """Hash package code and data from the installed package, independent of cwd."""
+    """Hash the result code (result_modules) and the package's data JSON, independent of cwd."""
     root = Path(__file__).resolve().parent
     digest = hashlib.sha256()
-    for path in sorted(p for p in root.rglob("*") if p.suffix in (".py", ".json")):
+    files = [*result_modules(root), *(p for p in root.rglob("*.json"))]
+    for path in sorted(set(files)):
+        digest.update(path.relative_to(root).as_posix().encode() + b"\0")
         digest.update(path.read_bytes())
     return digest.hexdigest()
 
