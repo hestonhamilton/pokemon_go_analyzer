@@ -7,7 +7,10 @@ import json
 import multiprocessing
 import os
 import stat
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
 
 import pytest
 from test_cli_topn import cache as cache
@@ -812,15 +815,48 @@ def test_candidate_filter_including_skipped_entries_invalidates(cache, tmp_path)
 def test_code_hash_uses_installed_package_code_and_json(tmp_path, monkeypatch):
     package = tmp_path / "package"
     (package / "data").mkdir(parents=True)
-    (package / "precompute.py").write_bytes(b"code")
+    (package / "__init__.py").write_text("")
+    (package / "precompute.py").write_text("from . import engine\n")
+    (package / "engine.py").write_text("from .data import x\n")
+    (package / "site.py").write_text("from . import engine\n")
     (package / "data" / "rules.json").write_bytes(b'{"rules":true}')
     (package / "ignored.txt").write_bytes(b"not part of the hash")
     monkeypatch.setattr(precompute, "__file__", str(package / "precompute.py"))
     monkeypatch.chdir(tmp_path)
-    expected = hashlib.sha256(b'{"rules":true}code').hexdigest()
+    assert [p.name for p in precompute.result_modules(package)] == [
+        "__init__.py",
+        "engine.py",
+        "precompute.py",
+    ]
+    expected = precompute.code_hash()
+    # Site-only and non-code changes keep the key (pgo-r8d) ...
+    (package / "site.py").write_text("from . import engine\nCSS = 'new'\n")
+    (package / "ignored.txt").write_bytes(b"changed")
+    assert precompute.code_hash() == expected
+    # ... result code and data JSON change it.
+    (package / "engine.py").write_text("from .data import x\nY = 1\n")
+    assert precompute.code_hash() != expected
+    (package / "engine.py").write_text("from .data import x\n")
     assert precompute.code_hash() == expected
     (package / "data" / "rules.json").write_bytes(b'{"rules":false}')
     assert precompute.code_hash() != expected
+
+
+def test_result_modules_cover_everything_precompute_loads():
+    # Guard: a module precompute imports at run time (even dynamically) must be in the hash.
+    script = (
+        "import sys, pogo_analyzer.precompute as p\n"
+        "print('\\n'.join(m.__file__ for n, m in sys.modules.items()"
+        " if n.startswith('pogo_analyzer') and getattr(m, '__file__', None)))"
+    )
+    loaded = subprocess.run(
+        [sys.executable, "-c", script], check=True, capture_output=True, text=True
+    ).stdout.split()
+    hashed = {str(p) for p in precompute.result_modules()}
+    assert loaded and set(loaded) <= hashed
+    names = {Path(p).name for p in hashed}
+    assert {"topn.py", "topn_cli.py", "winrate.py", "battle.py"} <= names
+    assert not names & {"site.py", "cli.py", "rocket_counters.py"}
 
 
 def test_changed_code_hash_invalidates(cache, tmp_path, monkeypatch):

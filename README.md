@@ -362,6 +362,12 @@ runs union completion. The manifest records `skip_overall` separately from `para
 reuse keys. A weekly full run reuses unchanged character files without screening again.
 The retained overall has status `reused` when its file matches the current inputs,
 `stale` when an older overall remains, or `skipped` when no previous overall is available.
+The reuse key's code hash covers only the code results depend on: `precompute.py` and every
+package module it imports, followed through relative imports (`precompute.result_modules`), plus
+the package's data JSON. The site renderer (`site.py`) and the CLI wrappers are outside it, so a
+site-only merge rebuilds the site from the existing reports instead of recomputing them (bead
+pgo-r8d; 21 of the 32 key-changing merges from 1 to 17 Nov 2026 were site or CLI only). A test
+checks that every package module `precompute` loads is in the hash.
 With `--force`, character files recompute and an existing overall is marked `stale`.
 The site shows a matching stale overall with a warning and its own computed-for battle
 date. It explains that the per-type lists have changed since the overall was computed.
