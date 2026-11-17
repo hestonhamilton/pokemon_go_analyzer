@@ -14,7 +14,6 @@ updates:
     cooldown:
       default-days: 3
     open-pull-requests-limit: 3
-    labels: ["dependencies", "github-actions"]
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -32,7 +31,6 @@ updates:
     cooldown:
       default-days: 3
     open-pull-requests-limit: 3
-    labels: ["dependencies", "pre-commit"]
     commit-message:
       prefix: "chore"
       include: "scope"
