@@ -1795,7 +1795,7 @@ def test_how_is_an_explainer_with_faq_then_one_collapsed_tech_section(reports, t
     assert plain.count('class="step"') == 3
     for title in ("Quick check", "Full battles", "Win %"):
         assert title in plain, title
-    for anchor in ("pause", "elite-tm", "shadow"):
+    for anchor in ("pause", "elite-tm", "shadow", "two-charged"):
         assert f'id="{anchor}"' in plain
     for question, _ in site.FAQ:
         assert escape(question) in plain, question
@@ -2036,3 +2036,28 @@ def test_character_card_top3_picks_each_orders_best_moveset():
     # Speed: goodra (fast) then palkia. HP: goodra (bulky, 95%) still first, then palkia.
     assert speed_block.index("Goodra") < speed_block.index("Palkia")
     assert hp_block.index("Goodra") < hp_block.index("Palkia")
+
+
+def test_two_charged_moves_tag_and_anchor():
+    row = {
+        "speciesId": "metagross",
+        "fast_move": "BULLET_PUNCH",
+        "charged_move": "EARTHQUAKE+METEOR_MASH",
+        "charged_moves": ["EARTHQUAKE", "METEOR_MASH"],
+    }
+    markup = site.moves(row, "../")
+    assert "Earthquake</span> + <span" in markup
+    assert 'href="../how.html#two-charged"' in markup
+    assert 'title="Model: cheap move into the leader\'s shields, then the hardest hit"' in markup
+    assert ">2 charged</a>" in markup
+    assert (
+        len(
+            site.ordered(
+                [
+                    {**row, "win_rate": 1, "mean_turns": 1, "mean_player_hp_fraction_left": 1},
+                    {**row, "win_rate": 0.5, "mean_turns": 2, "mean_player_hp_fraction_left": 0.5},
+                ]
+            )
+        )
+        == 1
+    )

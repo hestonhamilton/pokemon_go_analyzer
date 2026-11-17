@@ -214,6 +214,8 @@ The 1v1 grid ignores carried-over shields and HP between slots. Each battle star
 Every result carries the union of its ledger flags and evidence. Charged Rocket moves keep l unverified.
 The stats grade is the weakest calculator stat or damage cell used, under this run's gate.
 A failing gate prints UNVALIDATED. No acceptance target is added.
+The bait-then-best policy for two-charged leader and Giovanni builds is a model choice, not a measurement.
+
 See the [win rate report](../tests/fixtures/sim/winrate_report.md) for definitions and model choices.
 
 ## What can honestly be claimed

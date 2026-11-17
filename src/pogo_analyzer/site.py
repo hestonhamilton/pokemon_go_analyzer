@@ -686,9 +686,8 @@ def content_tags(row, prefix="", *, timing=True):
     return body
 
 
-def moves(row):
-    def move(key):
-        name = row.get(key, "not recorded")
+def moves(row, prefix=""):
+    def move(name):
         flags = row.get("move_flags", {}).get(name, {})
         kinds = [k for k in ("elite", "legacy") if flags.get(k)]
         badge = (
@@ -698,7 +697,16 @@ def moves(row):
         )
         return f'<span title="{e(name)}">{e(heading(name))}</span>' + badge
 
-    return f"{move('fast_move')} · {move('charged_move')}"
+    charged = row.get("charged_moves", [row.get("charged_move", "not recorded")])
+    badge = (
+        f'<a class="tag el" href="{e(prefix)}how.html#two-charged" '
+        'title="Model: cheap move into the leader\'s shields, then the hardest hit">2 charged</a>'
+        if len(charged) == 2
+        else ""
+    )
+    return (
+        f"{move(row.get('fast_move', 'not recorded'))} · " + " + ".join(map(move, charged)) + badge
+    )
 
 
 def counter_name(row, prefix=""):
@@ -706,7 +714,7 @@ def counter_name(row, prefix=""):
     return (
         f'<span class="mon" title="{e(species)}">{e(heading(species))}</span> '
         + content_tags(row, prefix)
-        + f'<span class="moves" style="display:block">{moves(row)}</span>'
+        + f'<span class="moves" style="display:block">{moves(row, prefix)}</span>'
     )
 
 
@@ -891,7 +899,7 @@ def counter_rows(rows, sprites, *, icons=frozenset(), prefix="../", toughest=Fal
             f'<div class="nm">{e(heading(species))} <span class="tys">'
             + "".join(type_chip(t, icons, prefix=prefix, small=True) for t in types)
             + f"</span>{content_tags(row, prefix, timing=not every)}</div>"
-            + f'<div class="mv">{moves(row)}</div>'
+            + f'<div class="mv">{moves(row, prefix)}</div>'
         )
         worst = (
             min(
@@ -1260,6 +1268,13 @@ FAQ = (
         "or an event. To teach one now you need an Elite TM.",
     ),
     (
+        "What does “2 charged” mean?",
+        "The counter uses two charged attacks. We assume you fire the cheap one into the leader's "
+        "two shields, then save for the move that hits hardest. This is a model of how players "
+        "play, so results may differ if you fire differently. It only appears for leaders and "
+        "Giovanni.",
+    ),
+    (
         "Should I look at level 50 or 40?",
         "Level 50 if your Pokémon is, or can be, powered up with XL Candy; level 40 otherwise. "
         "The site remembers your choice.",
@@ -1431,7 +1446,8 @@ def how_explainer(data, *, featured=None, sprites=None, icons=frozenset()):
     """Owner ruling (option A): lede, 3 scoring steps, badge cards, FAQ, setup and sources."""
     sprites = sprites or Sprites()
     faq = "".join(
-        f"<details{' open' if i == 0 else ''}><summary>{e(q)}</summary><p>{e(a)}</p></details>"
+        f"<details{' id="two-charged"' if q == 'What does “2 charged” mean?' else ''}"
+        f"{' open' if i == 0 else ''}><summary>{e(q)}</summary><p>{e(a)}</p></details>"
         for i, (q, a) in enumerate(FAQ)
     )
     return (

@@ -221,17 +221,19 @@ def _grade(row, stats):
     return row
 
 
-def _trial(lineup, *, team, rank, battle_date, rules):
-    result = simulate_rocket(
+def _trial(lineup, *, team, rank, battle_date, rules, battle=None):
+    result = (battle or simulate_rocket)(
         team, tuple(o.combatant for o in lineup), rank=rank, battle_date=battle_date, rules=rules
     )
     return lineup, battle_summary(result, team)
 
 
-def _timed_trials(team, pools, *, rank, battle_date, execution, rules=DEFAULT_ROCKET_RULES):
+def _timed_trials(
+    team, pools, *, rank, battle_date, execution, rules=DEFAULT_ROCKET_RULES, battle=None
+):
     """Serial until this character actually exceeds two minutes; preserve result order."""
     pending = lineups(pools)
-    run = partial(_trial, team=team, rank=rank, battle_date=battle_date, rules=rules)
+    run = partial(_trial, team=team, rank=rank, battle_date=battle_date, rules=rules, battle=battle)
     start = time.perf_counter()
     execution.update(mode="serial", workers=1)
     workers = _workers()

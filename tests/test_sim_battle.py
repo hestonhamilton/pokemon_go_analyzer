@@ -523,3 +523,36 @@ def test_fast_move_has_no_chance_meter():
     base = fighter()
     fast = replace(base.fast, stage_chance=0.5, opponent_stages=(0, -1))
     assert _initial_meters(replace(base, fast=fast)) == {}
+
+
+def test_bait_then_best_waits_and_accounts_for_types():
+    from pogo_analyzer.sim.battle import BaitThenBest, State
+
+    cheap = Move("CHEAP", "normal", 20, 1, energy=30)
+    strong = Move("STRONG", "water", 80, 1, energy=60)
+    own = replace(fighter(), charged=(strong, cheap))
+    foe = fighter()
+
+    def state(energy):
+        return State(own, own.hp, energy, 0)
+
+    opponent = State(foe, foe.hp, 0, 0)
+    policy = BaitThenBest()
+    assert policy.choose_charged(state(29), opponent, 1) is None
+    assert policy.choose_charged(state(60), opponent, 2) == 1
+    assert policy.choose_charged(state(30), opponent, 3) == 1
+    assert policy.choose_charged(state(30), opponent, 4) is None
+    assert policy.choose_charged(state(60), opponent, 5) == 0
+    single = replace(own, charged=(cheap,))
+    assert BaitThenBest().choose_charged(State(single, single.hp, 30, 0), opponent, 1) == 0
+
+
+def test_bait_then_best_ties_favor_lower_energy():
+    from pogo_analyzer.sim.battle import BaitThenBest, State
+
+    own = replace(
+        fighter(),
+        charged=(Move("A", "normal", 50, 1, energy=60), Move("B", "normal", 50, 1, energy=40)),
+    )
+    state = State(own, own.hp, 60, 0)
+    assert BaitThenBest(0).choose_charged(state, state, 0) == 1

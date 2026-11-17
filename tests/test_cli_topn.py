@@ -1062,3 +1062,47 @@ def test_screen_lineups_are_shared_by_every_build_at_a_level(cache):
     # Common random numbers: every build and moveset meets the same 32 lineups.
     assert len(met) == len(level40)
     assert all(seen == list(lineups) for seen in met.values())
+
+
+def test_two_charged_ranking_and_pause_band(cache):
+    _, species, moves, _ = calc_cli.load_sources(cache)
+    builds = [c for c in candidates(cache) if c.species_id == "metagross"]
+    pools = [[winrate.Option("target", builds[0].team[0])]] * 3
+    kwargs = dict(k=1, rank="leader", battle_date="2026-11-14", pause_band=(6, 8))
+    single = topn.rank_character(builds, pools, **kwargs)
+    ranked = topn.rank_character(
+        builds, pools, two_charged=True, species=species, moves=moves, **kwargs
+    )
+    assert all(len(row["charged_moves"]) == 1 for row in single[40])
+    pairs = [row for row in ranked[40] if len(row["charged_moves"]) == 2]
+    assert pairs and all(row["player_policy"] == "bait_then_best" for row in pairs)
+    assert all(row["pause_band"]["win_rate"]["7"] == row["win_rate"] for row in pairs)
+    keys = [topn.row_key(row) for row in ranked[40]]
+    assert len(keys) == len(set(keys))
+    assert all(row["charged_move"] == "+".join(row["charged_moves"]) for row in pairs)
+    assert all(set(row["charged_moves"]) <= row["move_flags"].keys() for row in pairs)
+    assert json.loads(json.dumps(ranked))
+
+
+def test_overall_excludes_two_charged(cache, capsys):
+    event = read_source(cache, EVENT_INFO_URL)
+    event["15"] = copy.deepcopy(event["14"])
+    event["15"].update(type="Cliff", grunt="Executive")
+    write_source(cache, EVENT_INFO_URL, event)
+    data = output(
+        cache, capsys, ["--candidates", "metagross", "--level", "40"], all_characters=True
+    )
+    assert any(len(r["charged_moves"]) == 2 for r in finalists(data))
+    assert all(
+        len(r["charged_moves"]) == 1
+        for c in data["characters"]
+        if c["rank"] == "grunt"
+        for rows in c["finalists"].values()
+        for r in rows
+    )
+    assert all(
+        "+" not in r["charged_move"]
+        for view in (data["overall"][k] for k in ("all", "grunts", "leaders"))
+        for rows in view["results"].values()
+        for r in rows
+    )

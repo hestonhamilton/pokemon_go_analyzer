@@ -260,6 +260,15 @@ bands, then turns (or HP left), following `sim`; lists show each species once pe
 best moveset in that order. The quick 1v1 grid (`screen` on each finalist) is computed for
 finalists only and shown on Battle details.
 
+Leader and Giovanni lists also include builds with two charged moves, for the finalist
+species and their finalist fast moves. Only pairs that keep one of the species' finalist
+charged moves are tried (that kept 47 of 51 gains in the pgo-c82 experiment). They battle with
+the `bait_then_best` player policy, a model of how players play: the cheapest move while the
+leader's two shields last, then only the move that hits the current Rocket Pokémon hardest.
+These rows carry `charged_moves` (two ids), `player_policy` and a pause band, rank in the same
+list, and are left out of the overall union and views. Grunts don't shield, so they get none.
+See [docs/teams-and-two-charged.md](docs/teams-and-two-charged.md).
+
 Each per-character finalist also gets a `pause_band`: full-battle win rates at
 `--pause-band 6,8` (the default) plus the era's charged-attack pause length read from
 the rules data. Extra runs override both charged-attack and faint pauses; manual-switch
