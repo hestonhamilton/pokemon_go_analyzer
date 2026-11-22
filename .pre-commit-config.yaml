@@ -7,6 +7,9 @@
 # `gh api repos/<owner>/<repo>/releases/latest`. See ~/docs/dev-notes.md 2026-10-23.
 # Rendered from the dotfiles repo-baseline template; `copier update` refreshes it.
 default_install_hook_types: [pre-commit, commit-msg]
+# Stage-less hooks run at the pre-commit stage only; otherwise the git-template post-checkout shim
+# would fire them at every checkout and worktree add.
+default_stages: [pre-commit]
 exclude: ^\.beads/
 
 repos:
